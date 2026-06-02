@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Team Members — Kemele Construction CPMS{% endblock %}
+
+{% block active_dashboard %}{% endblock %}
+
+{% block topbar_title %}Team Members{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+  <div>
+    <h1 class="mb-1"><i class="bi bi-people me-2" style="color:var(--kc-accent);"></i>Team Members</h1>
+    <p class="text-muted mb-0" style="font-size:0.85rem;">
+      Manage system users and their access roles.
+    </p>
+  </div>
+  {% if user.is_staff %}
+  <a href="/accounts/users/add/" class="btn btn-kc">
+    <i class="bi bi-person-plus me-1"></i> Add User
+  </a>
+  {% endif %}
+</div>
+
+{% include "partials/breadcrumb.html" %}
+
+<!-- Search / Filter bar -->
+<div class="content-card mb-3">
+  <div class="cc-body py-3">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-12 col-md-5">
+        <label class="form-label fw-semibold small mb-1">Search</label>
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-white">
+            <i class="bi bi-search text-muted"></i>
+          </span>
+          <input type="text"
+                 name="q"
+                 class="form-control"
+                 placeholder="Name or email…"
+                 value="{{ request.GET.q }}">
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label fw-semibold small mb-1">Role</label>
+        <select name="role" class="form-select form-select-sm">
+          <option value="">All roles</option>
+          <option value="admin"    {% if request.GET.role == 'admin' %}selected{% endif %}>Admin</option>
+          <option value="pm"       {% if request.GET.role == 'pm' %}selected{% endif %}>Project Manager</option>
+          <option value="engineer" {% if request.GET.role == 'engineer' %}selected{% endif %}>Site Engineer</option>
+          <option value="finance"  {% if request.GET.role == 'finance' %}selected{% endif %}>Finance</option>
+          <option value="viewer"   {% if request.GET.role == 'viewer' %}selected{% endif %}>Viewer</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label fw-semibold small mb-1">Status</label>
+        <select name="status" class="form-select form-select-sm">
+          <option value="">All</option>
+          <option value="active"   {% if request.GET.status == 'active' %}selected{% endif %}>Active</option>
+          <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive</option>
+        </select>
+      </div>
+      <div class="col-12 col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-sm btn-kc flex-fill">
+          <i class="bi bi-funnel me-1"></i>Filter
+        </button>
+        <a href="/accounts/users/" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-x-lg"></i>
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Users Table -->
+<div class="content-card">
+  <div class="cc-header">
+    <h5 class="mb-0">
+      <i class="bi bi-table me-2"></i>
+      Users
+      {% if users %}
+      <span class="badge bg-secondary ms-1 fw-normal" style="font-size:0.72rem;">
+        {{ users|length }} record{{ users|pluralize }}
+      </span>
+      {% endif %}
+    </h5>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-custom mb-0">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Status</th>
+          <th>Last Login</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for member in users %}
+        <tr>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="user-avatar">
+                {% if member.profile.photo %}
+                  <img src="{{ member.profile.photo.url }}" alt="{{ member.get_full_name }}">
+                {% else %}
+                  {{ member.first_name|slice:":1"|upper }}{{ member.last_name|slice:":1"|upper }}
+                {% endif %}
+              </div>
+              <div>
+                <div class="fw-semibold small text-dark">{{ member.get_full_name|default:member.username }}</div>
+                <div class="text-muted" style="font-size:0.72rem;">{{ member.username }}</div>
+              </div>
+            </div>
+          </td>
+          <td class="text-muted small">{{ member.email|default:"—" }}</td>
+          <td>
+            {% with role=member.profile.role %}
+              {% if role == 'admin' or member.is_superuser %}
+                <span class="badge bg-danger">Admin</span>
+              {% elif role == 'pm' %}
+                <span class="badge bg-primary">Project Manager</span>
+              {% elif role == 'engineer' %}
+                <span class="badge" style="background:#1a3c5e;">Site Engineer</span>
+              {% elif role == 'finance' %}
+                <span class="badge bg-success">Finance</span>
+              {% elif role == 'safety' %}
+                <span class="badge bg-warning text-dark">Safety Officer</span>
+              {% else %}
+                <span class="badge bg-secondary">{{ role|title|default:"Viewer" }}</span>
+              {% endif %}
+            {% endwith %}
+          </td>
+          <td>
+            {% if member.is_active %}
+              <span class="badge badge-rag-green">Active</span>
+            {% else %}
+              <span class="badge bg-secondary">Inactive</span>
+            {% endif %}
+          </td>
+          <td class="text-muted small">
+            {% if member.last_login %}
+              {{ member.last_login|date:"d M Y H:i" }}
+            {% else %}
+              <span class="text-muted fst-italic">Never</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <div class="btn-group btn-group-sm">
+              <a href="/accounts/users/{{ member.pk }}/" class="btn btn-outline-secondary" title="View">
+                <i class="bi bi-eye"></i>
+              </a>
+              {% if user.is_staff %}
+              <a href="/accounts/users/{{ member.pk }}/edit/" class="btn btn-outline-primary" title="Edit">
+                <i class="bi bi-pencil"></i>
+              </a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="text-center text-muted py-5">
+            <i class="bi bi-people display-6 d-block mb-2 opacity-25"></i>
+            No users found.
+            {% if request.GET.q %}
+              <a href="/accounts/users/" class="ms-2">Clear search</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% include "partials/pagination.html" %}
+</div>
+{% endblock %}

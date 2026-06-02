@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Look-Ahead Plans — {{ project.name }}{% endblock %}
+{% block active_nav %}schedule{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Look-Ahead Plans — {{ project.name }}</h1>
+  <a href="{% url 'schedule:look_ahead_create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Create Look-Ahead</a>
+</div>
+<div class="row g-3">
+  {% for la in look_aheads %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="fw-semibold" style="color:var(--kc-primary)">
+              {{ la.period_start|date:"d M" }} — {{ la.period_end|date:"d M Y" }}
+            </div>
+            <div class="text-muted small">Created by {{ la.created_by.get_full_name }}</div>
+          </div>
+          <div class="text-end">
+            <div class="fs-4 fw-bold" style="color:var(--kc-accent)">{{ la.completion_rate|floatformat:0 }}%</div>
+            <div class="text-muted small">complete</div>
+          </div>
+        </div>
+        <div class="progress mt-3" style="height:6px">
+          <div class="progress-bar bg-success" style="width:{{ la.completion_rate|floatformat:0 }}%"></div>
+        </div>
+      </div>
+      <div class="card-footer bg-white border-top-0">
+        <a href="{% url 'schedule:look_ahead_detail' project.pk la.pk %}" class="btn btn-outline-primary btn-sm w-100">
+          <i class="bi bi-eye me-1"></i>View Plan
+        </a>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="col-12">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body text-muted text-center py-4">No look-ahead plans created yet.</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

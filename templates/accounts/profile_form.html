@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Edit My Profile — Kemele Construction CPMS{% endblock %}
+
+{% block topbar_title %}My Profile{% endblock %}
+
+{% block content %}
+
+{% include "partials/breadcrumb.html" %}
+
+<div class="page-header">
+  <h1>
+    <i class="bi bi-person-gear me-2" style="color:var(--kc-accent);"></i>
+    Edit My Profile
+  </h1>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-xl-9">
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+      <div class="alert alert-danger d-flex align-items-center gap-2 mb-3">
+        <i class="bi bi-exclamation-circle-fill flex-shrink-0"></i>
+        <div>{% for error in form.non_field_errors %}{{ error }}{% endfor %}</div>
+      </div>
+      {% endif %}
+
+      <!-- Personal Details -->
+      <div class="content-card">
+        <div class="cc-header">
+          <h5 class="mb-0"><i class="bi bi-person me-2"></i>Personal Details</h5>
+        </div>
+        <div class="cc-body">
+          <div class="row g-3">
+
+            <!-- Photo upload -->
+            <div class="col-12 mb-1">
+              <div class="d-flex align-items-center gap-4">
+                <div id="avatarPreviewWrap"
+                     style="width:72px;height:72px;border-radius:50%;background:var(--kc-primary);
+                            display:flex;align-items:center;justify-content:center;
+                            font-size:1.6rem;font-weight:700;color:#fff;overflow:hidden;
+                            border:3px solid #e9ecef;flex-shrink:0;">
+                  {% if user.profile.photo %}
+                    <img id="avatarPreview" src="{{ user.profile.photo.url }}"
+                         alt="Photo" style="width:100%;height:100%;object-fit:cover;">
+                  {% else %}
+                    <span id="avatarInitials">
+                      {{ user.first_name|slice:":1"|upper }}{{ user.last_name|slice:":1"|upper }}
+                    </span>
+                  {% endif %}
+                </div>
+                <div>
+                  <label class="form-label fw-semibold small mb-1 d-block">Profile Photo</label>
+                  <input type="file" name="photo" id="id_photo"
+                         class="form-control form-control-sm" accept="image/*"
+                         style="max-width:280px;">
+                  <div class="text-muted mt-1" style="font-size:0.72rem;">
+                    JPEG or PNG, max 5 MB. Recommended: 200×200 px.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small">First Name</label>
+              <input type="text" name="first_name"
+                     class="form-control {% if form.first_name.errors %}is-invalid{% endif %}"
+                     value="{{ form.first_name.value|default:user.first_name }}"
+                     placeholder="First name">
+              {% if form.first_name.errors %}
+                <div class="invalid-feedback">{{ form.first_name.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small">Last Name</label>
+              <input type="text" name="last_name"
+                     class="form-control {% if form.last_name.errors %}is-invalid{% endif %}"
+                     value="{{ form.last_name.value|default:user.last_name }}"
+                     placeholder="Last name">
+              {% if form.last_name.errors %}
+                <div class="invalid-feedback">{{ form.last_name.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small">Email Address</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-envelope text-muted"></i></span>
+                <input type="email" name="email"
+                       class="form-control {% if form.email.errors %}is-invalid{% endif %}"
+                       value="{{ form.email.value|default:user.email }}"
+                       placeholder="your@email.com">
+                {% if form.email.errors %}
+                  <div class="invalid-feedback">{{ form.email.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small">Phone Number</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-telephone text-muted"></i></span>
+                <input type="tel" name="phone"
+                       class="form-control"
+                       value="{{ form.phone.value|default:user.profile.phone }}"
+                       placeholder="+675 XXXX XXXX">
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small">Department / Section</label>
+              <input type="text" name="department"
+                     class="form-control"
+                     value="{{ form.department.value|default:user.profile.department }}"
+                     placeholder="e.g. Site Operations">
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small">Position / Job Title</label>
+              <input type="text" name="position"
+                     class="form-control"
+                     value="{{ form.position.value|default:user.profile.position }}"
+                     placeholder="e.g. Senior Site Engineer">
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Notification Preferences -->
+      <div class="content-card">
+        <div class="cc-header">
+          <h5 class="mb-0"><i class="bi bi-bell me-2"></i>Notification Preferences</h5>
+        </div>
+        <div class="cc-body">
+          <div class="row g-2">
+            <div class="col-12">
+              <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" name="notif_dsr"
+                       id="notif_dsr" {% if user.profile.notif_dsr %}checked{% endif %}>
+                <label class="form-check-label small fw-medium" for="notif_dsr">
+                  Daily Site Reports submitted/approved
+                </label>
+              </div>
+              <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" name="notif_budget"
+                       id="notif_budget" {% if user.profile.notif_budget %}checked{% endif %}>
+                <label class="form-check-label small fw-medium" for="notif_budget">
+                  Budget alerts and overruns
+                </label>
+              </div>
+              <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" name="notif_safety"
+                       id="notif_safety" {% if user.profile.notif_safety %}checked{% endif %}>
+                <label class="form-check-label small fw-medium" for="notif_safety">
+                  Safety incidents and LTIs
+                </label>
+              </div>
+              <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" name="notif_milestone"
+                       id="notif_milestone" {% if user.profile.notif_milestone %}checked{% endif %}>
+                <label class="form-check-label small fw-medium" for="notif_milestone">
+                  Milestone due dates (7-day warnings)
+                </label>
+              </div>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="notif_ipc"
+                       id="notif_ipc" {% if user.profile.notif_ipc %}checked{% endif %}>
+                <label class="form-check-label small fw-medium" for="notif_ipc">
+                  IPC / Payment certificate updates
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Change Password -->
+      <div class="content-card">
+        <div class="cc-header">
+          <h5 class="mb-0"><i class="bi bi-lock me-2"></i>Change Password</h5>
+        </div>
+        <div class="cc-body">
+          <div class="alert alert-light border small d-flex gap-2 mb-3">
+            <i class="bi bi-info-circle-fill text-primary flex-shrink-0 mt-1"></i>
+            Leave password fields blank to keep your current password.
+          </div>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label fw-semibold small">Current Password</label>
+              <input type="password" name="old_password" class="form-control"
+                     placeholder="Current password" autocomplete="current-password">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold small">New Password</label>
+              <input type="password" name="new_password1" class="form-control"
+                     placeholder="New password" autocomplete="new-password">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold small">Confirm New Password</label>
+              <input type="password" name="new_password2" class="form-control"
+                     placeholder="Confirm new password" autocomplete="new-password">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <div class="d-flex gap-2 justify-content-end">
+        <a href="/accounts/profile/" class="btn btn-outline-secondary">
+          <i class="bi bi-x-lg me-1"></i>Cancel
+        </a>
+        <button type="submit" class="btn btn-kc">
+          <i class="bi bi-check-lg me-1"></i>Save Changes
+        </button>
+      </div>
+    </form>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Avatar preview on file select
+  document.getElementById('id_photo').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const wrap = document.getElementById('avatarPreviewWrap');
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      wrap.innerHTML = '<img src="' + ev.target.result + '" style="width:100%;height:100%;object-fit:cover;">';
+    };
+    reader.readAsDataURL(file);
+  });
+</script>
+{% endblock %}

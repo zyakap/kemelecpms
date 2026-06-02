@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Daily Site Reports{% endblock %}
+{% block active_nav %}dsr{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Daily Site Reports</h1>
+  <a href="{% url 'dsr:create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Create DSR</a>
+</div>
+
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-sm-4">
+        <label class="form-label small mb-1">Project</label>
+        <select name="project" class="form-select form-select-sm">
+          <option value="">All Projects</option>
+          {% for p in projects %}
+          <option value="{{ p.pk }}" {% if request.GET.project == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-sm-3">
+        <label class="form-label small mb-1">From</label>
+        <input type="date" name="date_from" class="form-control form-control-sm" value="{{ request.GET.date_from }}">
+      </div>
+      <div class="col-sm-3">
+        <label class="form-label small mb-1">To</label>
+        <input type="date" name="date_to" class="form-control form-control-sm" value="{{ request.GET.date_to }}">
+      </div>
+      <div class="col-sm-2">
+        <button type="submit" class="btn btn-outline-primary btn-sm w-100">Filter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>Date</th><th>Project</th><th>Day #</th><th>Weather AM</th><th>Prepared By</th><th>Status</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for dsr in dsrs %}
+        <tr>
+          <td class="fw-semibold">{{ dsr.date|date:"d M Y" }}</td>
+          <td>{{ dsr.project.name|truncatechars:30 }}</td>
+          <td>{{ dsr.day_number }}</td>
+          <td>{{ dsr.get_weather_am_display }}</td>
+          <td>{{ dsr.prepared_by.get_full_name }}</td>
+          <td>
+            <span class="badge {% if dsr.status == 'APPROVED' %}bg-success{% elif dsr.status == 'SUBMITTED' %}bg-primary{% elif dsr.status == 'RETURNED' %}bg-danger{% else %}bg-secondary{% endif %}">
+              {{ dsr.get_status_display }}
+            </span>
+          </td>
+          <td class="d-flex gap-1">
+            <a href="{% url 'dsr:detail' dsr.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+            {% if dsr.status == 'DRAFT' %}
+            <a href="{% url 'dsr:update' dsr.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-muted text-center py-4">No daily site reports found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include "partials/pagination.html" %}
+{% endblock %}

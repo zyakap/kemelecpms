@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Incidents{% endblock %}
+{% block active_nav %}safety{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Incident Register</h1>
+  <a href="{% url 'safety:incident_create' %}" class="btn btn-danger btn-sm"><i class="bi bi-plus-lg me-1"></i>Report Incident</a>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>INC #</th><th>Date</th><th>Project</th><th>Type</th><th>Severity</th><th>Location</th><th>Status</th><th>Days Open</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for inc in incidents %}
+        <tr>
+          <td class="font-monospace fw-semibold"><a href="{% url 'safety:incident_detail' inc.pk %}">{{ inc.incident_number }}</a></td>
+          <td>{{ inc.date|date:"d M Y" }}</td>
+          <td>{{ inc.project.name|truncatechars:20 }}</td>
+          <td><span class="badge bg-secondary">{{ inc.get_incident_type_display }}</span></td>
+          <td><span class="badge {% if inc.severity == 'CRITICAL' %}bg-danger{% elif inc.severity == 'MAJOR' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ inc.get_severity_display }}</span></td>
+          <td>{{ inc.location|truncatechars:25 }}</td>
+          <td><span class="badge {% if inc.status == 'OPEN' %}bg-danger{% elif inc.status == 'CLOSED' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ inc.get_status_display }}</span></td>
+          <td>{% if inc.status != 'CLOSED' %}{{ inc.date|timesince|truncatewords:2 }}{% else %}Closed{% endif %}</td>
+          <td><a href="{% url 'safety:incident_detail' inc.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" class="text-muted text-center py-4">No incidents recorded.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include "partials/pagination.html" %}
+{% endblock %}

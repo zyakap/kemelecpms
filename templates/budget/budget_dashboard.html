@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Budget — {{ project.name }}{% endblock %}
+{% block active_nav %}budget{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Budget Dashboard — {{ project.name }}</h1>
+  <div class="d-flex gap-2">
+    <a href="{% url 'budget:cost_code_create' project.pk %}" class="btn btn-outline-primary btn-sm">
+      <i class="bi bi-plus-lg me-1"></i>Cost Code
+    </a>
+    <a href="{% url 'budget:cost_entry_create' project.pk %}" class="btn btn-primary btn-sm">
+      <i class="bi bi-plus-lg me-1"></i>Cost Entry
+    </a>
+    <a href="{% url 'budget:boq_list' project.pk %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-table me-1"></i>BoQ
+    </a>
+  </div>
+</div>
+
+<!-- Summary KPIs -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="text-muted small text-uppercase mb-1">Total Budget</div>
+      <div class="fs-5 fw-bold" style="color:var(--kc-primary)">K {{ total_budget|floatformat:2 }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="text-muted small text-uppercase mb-1">Committed</div>
+      <div class="fs-5 fw-bold text-warning">K {{ total_committed|floatformat:2 }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="text-muted small text-uppercase mb-1">Actual Spent</div>
+      <div class="fs-5 fw-bold text-danger">K {{ total_actual|floatformat:2 }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="text-muted small text-uppercase mb-1">Balance</div>
+      <div class="fs-5 fw-bold {% if balance < 0 %}text-danger{% else %}text-success{% endif %}">
+        K {{ balance|floatformat:2 }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cost Codes Table -->
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">
+    Cost Code Budget vs Actual
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 small">
+        <thead class="table-light">
+          <tr>
+            <th>Code</th><th>Category</th><th>Budget (K)</th>
+            <th>Committed (K)</th><th>Actual (K)</th>
+            <th>Total Spent (K)</th><th>Variance (K)</th><th>% Used</th><th>RAG</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cc in cost_codes %}
+          {% with spent=cc.total_committed|add:cc.total_actual %}
+          <tr>
+            <td class="fw-semibold font-monospace">{{ cc.code }}</td>
+            <td>{{ cc.get_category_display }}</td>
+            <td class="text-end">{{ cc.budget_amount|floatformat:2 }}</td>
+            <td class="text-end">{{ cc.total_committed|floatformat:2 }}</td>
+            <td class="text-end">{{ cc.total_actual|floatformat:2 }}</td>
+            <td class="text-end fw-semibold">{{ cc.total_spent|floatformat:2 }}</td>
+            <td class="text-end {% if cc.variance < 0 %}text-danger{% else %}text-success{% endif %}">
+              {{ cc.variance|floatformat:2 }}
+            </td>
+            <td>
+              <div class="progress" style="height:6px;min-width:60px">
+                <div class="progress-bar
+                  {% if cc.rag_status == 'RED' %}bg-danger
+                  {% elif cc.rag_status == 'AMBER' %}bg-warning
+                  {% else %}bg-success{% endif %}"
+                  style="width:{% if cc.variance_percentage > 100 %}100{% else %}{{ cc.variance_percentage|floatformat:0 }}{% endif %}%">
+                </div>
+              </div>
+              <small class="text-muted">{{ cc.variance_percentage|floatformat:0 }}%</small>
+            </td>
+            <td>
+              <span class="badge
+                {% if cc.rag_status == 'RED' %}bg-danger
+                {% elif cc.rag_status == 'AMBER' %}bg-warning text-dark
+                {% else %}bg-success{% endif %}">
+                {{ cc.rag_status }}
+              </span>
+            </td>
+            <td>
+              <a href="{% url 'budget:cost_code_update' project.pk cc.pk %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-pencil"></i>
+              </a>
+            </td>
+          </tr>
+          {% endwith %}
+          {% empty %}
+          <tr><td colspan="10" class="text-muted text-center py-4">No cost codes set up yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

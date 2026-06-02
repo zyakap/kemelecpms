@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Correspondence Register{% endblock %}
+{% block active_nav %}documents{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Correspondence — {{ project.name }}</h1>
+  <a href="{% url 'documents:correspondence_create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Correspondence</a>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>Ref</th><th>Date</th><th>Direction</th><th>Subject</th><th>From → To</th><th>Action Req.</th><th>Doc</th></tr>
+      </thead>
+      <tbody>
+        {% for c in correspondences %}
+        <tr>
+          <td class="font-monospace fw-semibold">{{ c.reference_number }}</td>
+          <td>{{ c.date|date:"d M Y" }}</td>
+          <td><span class="badge {% if c.direction == 'INCOMING' %}bg-success{% else %}bg-primary{% endif %}">{{ c.get_direction_display }}</span></td>
+          <td>{{ c.subject|truncatechars:40 }}</td>
+          <td class="small text-muted">{{ c.sender|truncatechars:15 }} → {{ c.recipient|truncatechars:15 }}</td>
+          <td>{% if c.action_required %}<span class="badge bg-warning text-dark">Yes</span>{% else %}—{% endif %}</td>
+          <td>{% if c.document %}<a href="{{ c.document.url }}" target="_blank"><i class="bi bi-paperclip"></i></a>{% else %}—{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-muted text-center py-4">No correspondence logged.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include "partials/pagination.html" %}
+{% endblock %}

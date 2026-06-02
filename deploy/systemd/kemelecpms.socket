@@ -1,0 +1,11 @@
+[Unit]
+Description=Kemele CPMS Gunicorn Socket
+
+[Socket]
+ListenStream=/run/gunicorn/kemelecpms.sock
+SocketUser=www-data
+SocketGroup=www-data
+SocketMode=0660
+
+[Install]
+WantedBy=sockets.target

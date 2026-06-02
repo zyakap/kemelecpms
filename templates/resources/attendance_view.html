@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Attendance Register{% endblock %}
+{% block active_nav %}resources{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Attendance Register</h1>
+  <form method="get" class="d-flex gap-2 align-items-center">
+    <select name="project" class="form-select form-select-sm" style="width:200px">
+      <option value="">Select Project…</option>
+      {% for p in projects %}
+      <option value="{{ p.pk }}" {% if selected_project and selected_project.pk == p.pk %}selected{% endif %}>{{ p.name }}</option>
+      {% endfor %}
+    </select>
+    <input type="date" name="date" class="form-control form-control-sm" style="width:160px" value="{{ selected_date|date:'Y-m-d' }}">
+    <button type="submit" class="btn btn-outline-primary btn-sm">View</button>
+  </form>
+</div>
+
+{% if selected_project %}
+<div class="row g-3 mb-4">
+  <div class="col-sm-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="text-muted small text-uppercase mb-1">Total Present</div>
+      <div class="fs-3 fw-bold text-success">{{ total_present }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <span class="fw-semibold" style="color:var(--kc-primary)">{{ selected_project.name }} — {{ selected_date|date:"d F Y" }}</span>
+    <a href="{% url 'resources:attendance_bulk_create' selected_project.pk %}?date={{ selected_date|date:'Y-m-d' }}" class="btn btn-primary btn-sm">
+      <i class="bi bi-pencil-square me-1"></i>Record Attendance
+    </a>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>Worker</th><th>Trade</th><th>Time In</th><th>Time Out</th><th>Hours</th><th>Overtime</th><th>Present</th></tr>
+      </thead>
+      <tbody>
+        {% for r in attendance_records %}
+        <tr {% if not r.is_present %}class="table-light text-muted"{% endif %}>
+          <td>{{ r.worker.get_full_name }}</td>
+          <td>{{ r.worker.trade|default:"—" }}</td>
+          <td>{{ r.time_in|time:"H:i"|default:"—" }}</td>
+          <td>{{ r.time_out|time:"H:i"|default:"—" }}</td>
+          <td>{{ r.hours_worked|default:"—" }}</td>
+          <td>{{ r.overtime_hours|default:"0" }}h</td>
+          <td>{% if r.is_present %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-muted text-center py-4">No attendance recorded for this date.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-info">Select a project and date to view attendance.</div>
+{% endif %}
+{% endblock %}

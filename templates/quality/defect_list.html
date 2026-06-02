@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Defects Register{% endblock %}
+{% block active_nav %}quality{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Defects Register — {{ project.name }}</h1>
+  <a href="{% url 'quality:defect_create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Log Defect</a>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>DEF #</th><th>Description</th><th>Location</th><th>Trade</th><th>Phase</th><th>Severity</th><th>Target Date</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        {% for d in defects %}
+        <tr>
+          <td class="font-monospace fw-semibold">{{ d.defect_number }}</td>
+          <td>{{ d.description|truncatechars:45 }}</td>
+          <td>{{ d.location|truncatechars:20 }}</td>
+          <td>{{ d.trade }}</td>
+          <td><span class="badge bg-secondary">{{ d.get_phase_display }}</span></td>
+          <td><span class="badge {% if d.severity == 'CRITICAL' %}bg-danger{% elif d.severity == 'MAJOR' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ d.get_severity_display }}</span></td>
+          <td>{{ d.target_rectification_date|date:"d M Y"|default:"—" }}</td>
+          <td><span class="badge {% if d.status == 'OPEN' %}bg-danger{% elif d.status == 'CLOSED' %}bg-success{% elif d.status == 'RECTIFIED' %}bg-info{% else %}bg-warning text-dark{% endif %}">{{ d.get_status_display }}</span></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-muted text-center py-4">No defects logged.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}{% if form.instance.pk %}Edit Incident{% else %}Report Incident{% endif %}{% endblock %}
+{% block active_nav %}safety{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-9">
+    <div class="card border-0 shadow-sm border-danger" style="border-top:3px solid #dc3545 !important">
+      <div class="card-header bg-white fw-semibold text-danger">
+        <i class="bi bi-exclamation-triangle me-2"></i>{% if form.instance.pk %}Edit Incident{% else %}Report New Incident{% endif %}
+      </div>
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data">{% csrf_token %}
+          <div class="row g-3">
+            <div class="col-md-6">{{ form.project|as_crispy_field }}</div>
+            <div class="col-md-3">{{ form.date|as_crispy_field }}</div>
+            <div class="col-md-3">{{ form.time|as_crispy_field }}</div>
+            <div class="col-md-6">{{ form.incident_type|as_crispy_field }}</div>
+            <div class="col-md-6">{{ form.location|as_crispy_field }}</div>
+            <div class="col-12">{{ form.description|as_crispy_field }}</div>
+            <div class="col-12">{{ form.persons_involved|as_crispy_field }}</div>
+            <div class="col-md-6">{{ form.body_part|as_crispy_field }}</div>
+            <div class="col-md-6">{{ form.injury_nature|as_crispy_field }}</div>
+            <div class="col-12">{{ form.treatment_given|as_crispy_field }}</div>
+            <div class="col-12"><hr><h6 class="fw-semibold text-muted text-uppercase small">Corrective Action</h6></div>
+            <div class="col-12">{{ form.corrective_action|as_crispy_field }}</div>
+            <div class="col-md-6">{{ form.corrective_action_person|as_crispy_field }}</div>
+            <div class="col-md-6">{{ form.corrective_action_due|as_crispy_field }}</div>
+            <div class="col-12">{{ form.photo|as_crispy_field }}</div>
+          </div>
+          <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn btn-danger">Save Incident Report</button>
+            <a href="{% url 'safety:incident_list' %}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}MR — {{ mr.mr_number }}{% endblock %}
+{% block active_nav %}procurement{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+  <div>
+    <h1 class="h3 fw-bold mb-1" style="color:var(--kc-primary)">{{ mr.mr_number }}</h1>
+    <div class="text-muted">{{ mr.project.name }} · Requested {{ mr.date|date:"d M Y" }} · Required by {{ mr.required_by_date|date:"d M Y" }}</div>
+    <span class="badge mt-2
+      {% if mr.status == 'APPROVED' %}bg-success{% elif mr.status == 'REJECTED' %}bg-danger{% elif mr.status == 'SUBMITTED' %}bg-primary{% else %}bg-secondary{% endif %}">
+      {{ mr.get_status_display }}
+    </span>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    {% if mr.status == 'DRAFT' %}
+    <form method="post" action="{% url 'procurement:mr_submit' mr.pk %}">{% csrf_token %}
+      <button type="submit" class="btn btn-primary btn-sm">Submit for Approval</button>
+    </form>
+    {% endif %}
+    {% if mr.status == 'SUBMITTED' %}
+    <form method="post" action="{% url 'procurement:mr_approve' mr.pk %}">{% csrf_token %}
+      <button type="submit" class="btn btn-success btn-sm">Approve</button>
+    </form>
+    <a href="{% url 'procurement:mr_reject' mr.pk %}" class="btn btn-danger btn-sm">Reject</a>
+    {% endif %}
+  </div>
+</div>
+{% if mr.justification %}
+<div class="alert alert-secondary"><strong>Justification:</strong> {{ mr.justification }}</div>
+{% endif %}
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Items Requested</div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>Material / Description</th><th>Unit</th><th class="text-end">Qty Requested</th><th class="text-end">Qty Ordered</th></tr>
+      </thead>
+      <tbody>
+        {% for item in mr.items.all %}
+        <tr>
+          <td>{% if item.material %}{{ item.material.description }}{% else %}{{ item.description }}{% endif %}</td>
+          <td>{{ item.unit }}</td>
+          <td class="text-end">{{ item.quantity_requested|floatformat:3 }}</td>
+          <td class="text-end">{{ item.quantity_ordered|floatformat:3 }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-muted text-center py-3">No items.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

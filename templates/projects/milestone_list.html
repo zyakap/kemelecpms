@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Milestones — {{ project.name }}{% endblock %}
+{% block active_nav %}projects{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Milestones — {{ project.name }}</h1>
+  <a href="{% url 'projects:milestone_create' project.pk %}" class="btn btn-primary">
+    <i class="bi bi-plus-lg me-1"></i>Add Milestone
+  </a>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Milestone</th><th>Type</th><th>Target Date</th>
+          <th>Actual Date</th><th>Status</th><th>Evidence</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in milestones %}
+        <tr>
+          <td class="fw-semibold">{{ m.name }}</td>
+          <td><span class="badge bg-secondary">{{ m.get_milestone_type_display }}</span></td>
+          <td>{{ m.target_date|date:"d M Y" }}</td>
+          <td>{{ m.actual_date|date:"d M Y"|default:"—" }}</td>
+          <td>
+            {% if m.is_achieved %}
+              <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Achieved</span>
+            {% elif m.is_overdue %}
+              <span class="badge bg-danger"><i class="bi bi-exclamation-triangle me-1"></i>Overdue</span>
+            {% else %}
+              <span class="badge bg-warning text-dark">Pending</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if m.evidence %}
+              <a href="{{ m.evidence.url }}" target="_blank" class="btn btn-sm btn-outline-info">
+                <i class="bi bi-paperclip"></i>
+              </a>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            <a href="{% url 'projects:milestone_update' project.pk m.pk %}" class="btn btn-sm btn-outline-secondary">
+              <i class="bi bi-pencil"></i>
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-muted text-center py-4">No milestones defined yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}{{ ipc.ipc_number }}{% endblock %}
+{% block active_nav %}ipc{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+  <div>
+    <h1 class="h3 fw-bold mb-1" style="color:var(--kc-primary)">{{ ipc.ipc_number }}</h1>
+    <div class="text-muted">{{ ipc.project.name }} · {{ ipc.claim_period_from|date:"d M Y" }} — {{ ipc.claim_period_to|date:"d M Y" }}</div>
+    <span class="badge mt-2
+      {% if ipc.status == 'PAID' %}bg-success{% elif ipc.status == 'CERTIFIED' %}bg-info text-dark{% elif ipc.status == 'SUBMITTED' %}bg-primary{% elif ipc.status == 'DISPUTED' %}bg-danger{% else %}bg-secondary{% endif %}">
+      {{ ipc.get_status_display }}
+    </span>
+  </div>
+  <div class="d-flex gap-2">
+    {% if ipc.status == 'DRAFT' %}
+    <form method="post" action="{% url 'ipc:ipc_submit' project.pk ipc.pk %}">{% csrf_token %}
+      <button type="submit" class="btn btn-primary btn-sm">Submit for Review</button>
+    </form>
+    {% endif %}
+    {% if ipc.status == 'SUBMITTED' %}
+    <a href="{% url 'ipc:certification_create' project.pk ipc.pk %}" class="btn btn-success btn-sm">Record Certification</a>
+    {% endif %}
+    {% if ipc.status == 'CERTIFIED' and not ipc.payments.exists %}
+    <a href="{% url 'ipc:payment_create' project.pk ipc.pk %}" class="btn btn-info btn-sm">Record Payment</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">BoQ Progress Schedule</div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 small">
+        <thead class="table-light">
+          <tr>
+            <th>Description</th><th class="text-end">BoQ Qty</th><th class="text-end">Rate (K)</th>
+            <th class="text-end">Prev %</th><th class="text-end">This Period %</th>
+            <th class="text-end">Cumul %</th><th class="text-end">Value This Period (K)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for line in ipc.line_items.all %}
+          <tr>
+            <td>{{ line.boq_description }}</td>
+            <td class="text-end">{{ line.boq_quantity|floatformat:3 }}</td>
+            <td class="text-end">{{ line.unit_rate|floatformat:2 }}</td>
+            <td class="text-end text-muted">{{ line.previous_percent|floatformat:1 }}%</td>
+            <td class="text-end fw-semibold">{{ line.current_percent|floatformat:1 }}%</td>
+            <td class="text-end">{{ line.cumulative_percent|floatformat:1 }}%</td>
+            <td class="text-end fw-bold">{{ line.value_this_period|floatformat:2 }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-muted text-center py-3">No line items.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% if ipc.certification %}
+<div class="card border-0 shadow-sm mb-4 border-success" style="border-left:4px solid #198754 !important">
+  <div class="card-header bg-white fw-semibold text-success">Certification</div>
+  <div class="card-body small">
+    <div class="row g-3">
+      <div class="col-6 col-md-3"><div class="text-muted">Certified By</div><strong>{{ ipc.certification.certified_by }}</strong></div>
+      <div class="col-6 col-md-3"><div class="text-muted">Date</div><strong>{{ ipc.certification.certified_date|date:"d M Y" }}</strong></div>
+      <div class="col-6 col-md-3"><div class="text-muted">Amount Certified</div><strong>K {{ ipc.certification.amount_certified|floatformat:2 }}</strong></div>
+      <div class="col-6 col-md-3"><div class="text-muted">Net Certified</div><strong>K {{ ipc.certification.net_certified|floatformat:2 }}</strong></div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

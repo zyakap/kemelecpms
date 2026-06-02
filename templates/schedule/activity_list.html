@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Schedule — {{ project.name }}{% endblock %}
+{% block active_nav %}schedule{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Schedule — {{ project.name }}</h1>
+  <div class="d-flex gap-2">
+    <a href="{% url 'schedule:activity_create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Activity</a>
+    <a href="{% url 'schedule:wbs' project.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-diagram-3 me-1"></i>WBS</a>
+    <a href="{% url 'schedule:look_ahead_list' project.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-calendar-week me-1"></i>Look-Ahead</a>
+  </div>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 small">
+        <thead class="table-light">
+          <tr><th>Code</th><th>Activity</th><th>Start</th><th>End</th><th>Duration</th>
+              <th class="text-end">Planned %</th><th class="text-end">Actual %</th><th>SPI</th><th>Responsible</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for a in activities %}
+          <tr>
+            <td class="font-monospace small">{{ a.wbs_activity.wbs_code|default:"—" }}</td>
+            <td class="fw-semibold">{{ a.name }}</td>
+            <td>{{ a.start_date|date:"d M Y" }}</td>
+            <td>{{ a.end_date|date:"d M Y" }}</td>
+            <td>{{ a.duration }}d</td>
+            <td class="text-end">{{ a.planned_percent }}%</td>
+            <td class="text-end fw-bold">{{ a.actual_percent }}%</td>
+            <td>
+              {% with spi=a.spi %}
+              {% if spi != None %}
+              <span class="badge {% if spi >= 1.0 %}bg-success{% elif spi >= 0.8 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                {{ spi|floatformat:2 }}
+              </span>
+              {% else %}—{% endif %}
+              {% endwith %}
+            </td>
+            <td>{{ a.responsible.get_full_name|default:"—" }}</td>
+            <td>
+              <a href="{% url 'schedule:activity_update' project.pk a.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="10" class="text-muted text-center py-4">No activities defined yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Purchase Orders{% endblock %}
+{% block active_nav %}procurement{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Purchase Orders</h1>
+  <a href="{% url 'procurement:po_create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Create PO</a>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>PO #</th><th>Project</th><th>Supplier</th><th>Date</th><th class="text-end">Total (K)</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for po in purchase_orders %}
+        <tr>
+          <td class="font-monospace fw-semibold"><a href="{% url 'procurement:po_detail' po.pk %}">{{ po.po_number }}</a></td>
+          <td>{{ po.project.name|truncatechars:20 }}</td>
+          <td>{{ po.supplier.name|truncatechars:25 }}</td>
+          <td>{{ po.date|date:"d M Y" }}</td>
+          <td class="text-end">{{ po.total_amount|floatformat:2 }}</td>
+          <td>
+            <span class="badge
+              {% if po.status == 'APPROVED' %}bg-success
+              {% elif po.status == 'CANCELLED' %}bg-danger
+              {% elif po.status == 'PENDING_APPROVAL' %}bg-warning text-dark
+              {% elif po.status == 'DELIVERED' %}bg-info text-dark
+              {% else %}bg-secondary{% endif %}">
+              {{ po.get_status_display }}
+            </span>
+          </td>
+          <td><a href="{% url 'procurement:po_detail' po.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-muted text-center py-4">No purchase orders created.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include "partials/pagination.html" %}
+{% endblock %}

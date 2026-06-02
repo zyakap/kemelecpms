@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Notifications{% endblock %}
+{% block active_nav %}notifications{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Notifications</h1>
+  <form method="post" action="{% url 'notifications:mark_all_read' %}">
+    {% csrf_token %}<button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-check-all me-1"></i>Mark All Read</button>
+  </form>
+</div>
+
+{% if notifications %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Unread</div>
+  <div class="list-group list-group-flush">
+    {% for n in notifications %}
+    {% if not n.is_read %}
+    <div class="list-group-item d-flex gap-3 align-items-start notification-item {% if not n.is_read %}bg-light{% endif %}"
+         data-mark-url="{% url 'notifications:mark_read' n.pk %}">
+      <div class="fs-4 text-primary"><i class="bi {{ n.icon_class }}"></i></div>
+      <div class="flex-grow-1">
+        <div class="fw-semibold">{{ n.title }}</div>
+        <div class="text-muted small">{{ n.message }}</div>
+        <div class="text-muted small mt-1">{{ n.created_at|timesince }} ago</div>
+      </div>
+      {% if n.link %}
+      <a href="{{ n.link }}" class="btn btn-sm btn-outline-primary">View</a>
+      {% endif %}
+      <form method="post" action="{% url 'notifications:mark_read' n.pk %}">
+        {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-check-lg"></i></button>
+      </form>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white fw-semibold text-muted">Read</div>
+  <div class="list-group list-group-flush">
+    {% for n in notifications %}
+    {% if n.is_read %}
+    <div class="list-group-item d-flex gap-3 align-items-start opacity-75">
+      <div class="fs-5 text-muted"><i class="bi {{ n.icon_class }}"></i></div>
+      <div class="flex-grow-1">
+        <div class="fw-semibold text-muted">{{ n.title }}</div>
+        <div class="text-muted small">{{ n.created_at|timesince }} ago</div>
+      </div>
+      {% if n.link %}<a href="{{ n.link }}" class="btn btn-sm btn-outline-secondary btn-sm">View</a>{% endif %}
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+</div>
+
+{% if not notifications %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body text-muted text-center py-5">
+    <i class="bi bi-bell-slash fs-1 d-block mb-3"></i>No notifications yet.
+  </div>
+</div>
+{% endif %}
+{% endblock %}

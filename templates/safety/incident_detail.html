@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ incident.incident_number }}{% endblock %}
+{% block active_nav %}safety{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+  <div>
+    <h1 class="h3 fw-bold mb-1 text-danger">{{ incident.incident_number }}</h1>
+    <div class="text-muted">{{ incident.project.name }} · {{ incident.date|date:"d M Y" }} {{ incident.time|time:"H:i" }} · {{ incident.location }}</div>
+    <div class="mt-2 d-flex gap-2">
+      <span class="badge {% if incident.severity == 'CRITICAL' %}bg-danger{% elif incident.severity == 'MAJOR' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ incident.get_severity_display }}</span>
+      <span class="badge bg-secondary">{{ incident.get_incident_type_display }}</span>
+      <span class="badge {% if incident.status == 'OPEN' %}bg-danger{% elif incident.status == 'CLOSED' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ incident.get_status_display }}</span>
+      {% if incident.is_lti %}<span class="badge bg-dark">LTI — {{ incident.days_lost }} day(s)</span>{% endif %}
+    </div>
+  </div>
+  <a href="{% url 'safety:incident_update' incident.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+</div>
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Incident Details</div>
+      <div class="card-body small">
+        <div class="mb-3"><div class="text-muted mb-1">Description</div><div>{{ incident.description }}</div></div>
+        <div class="mb-3"><div class="text-muted mb-1">Persons Involved</div><div>{{ incident.persons_involved }}</div></div>
+        {% if incident.body_part %}<div class="mb-3"><div class="text-muted mb-1">Body Part / Injury</div><div>{{ incident.body_part }} — {{ incident.injury_nature }}</div></div>{% endif %}
+        {% if incident.treatment_given %}<div><div class="text-muted mb-1">Treatment</div><div>{{ incident.treatment_given }}</div></div>{% endif %}
+      </div>
+    </div>
+    {% if incident.corrective_action %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Corrective Action</div>
+      <div class="card-body small">
+        <div class="mb-2">{{ incident.corrective_action }}</div>
+        {% if incident.corrective_action_person %}<div class="text-muted">Responsible: <strong>{{ incident.corrective_action_person.get_full_name }}</strong></div>{% endif %}
+        {% if incident.corrective_action_due %}<div class="text-muted">Due: <strong>{{ incident.corrective_action_due|date:"d M Y" }}</strong></div>{% endif %}
+        {% if incident.corrective_action_closed %}<div class="text-success mt-2"><i class="bi bi-check-circle me-1"></i>Closed {{ incident.corrective_action_closed|date:"d M Y" }}</div>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  <div class="col-lg-4">
+    {% if incident.photo %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Photo</div>
+      <div class="card-body p-2">
+        <a href="{{ incident.photo.url }}" target="_blank">
+          <img src="{{ incident.photo.url }}" class="img-fluid rounded" alt="Incident photo">
+        </a>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,474 @@
+from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse_lazy
+from django.views.generic import (
+    CreateView,
+    DetailView,
+    ListView,
+    UpdateView,
+)
+
+from apps.projects.models import Project
+
+from .forms import (
+    CorrespondenceForm,
+    DrawingForm,
+    DrawingRevisionForm,
+    ProjectDocumentForm,
+    RFIForm,
+    SubmittalForm,
+)
+from .models import Correspondence, Drawing, DrawingRevision, ProjectDocument, RFI, Submittal
+
+
+# ---------------------------------------------------------------------------
+# Mixins
+# ---------------------------------------------------------------------------
+
+
+class ProjectMixin(LoginRequiredMixin):
+    """Resolves the current project from the ``project_pk`` URL kwarg."""
+
+    def get_project(self):
+        if not hasattr(self, "_project"):
+            self._project = get_object_or_404(Project, pk=self.kwargs["project_pk"])
+        return self._project
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["project"] = self.get_project()
+        return ctx
+
+
+# ---------------------------------------------------------------------------
+# Drawing views
+# ---------------------------------------------------------------------------
+
+
+class DrawingListView(ProjectMixin, ListView):
+    model = Drawing
+    template_name = "documents/drawing_list.html"
+    context_object_name = "drawings"
+
+    def get_queryset(self):
+        qs = Drawing.objects.filter(project=self.get_project())
+        discipline = self.request.GET.get("discipline")
+        status = self.request.GET.get("status")
+        if discipline:
+            qs = qs.filter(discipline=discipline)
+        if status:
+            qs = qs.filter(status=status)
+        return qs.order_by("discipline", "drawing_number")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["discipline_choices"] = Drawing.DISCIPLINE_CHOICES
+        ctx["status_choices"] = Drawing.STATUS_CHOICES
+        ctx["selected_discipline"] = self.request.GET.get("discipline", "")
+        ctx["selected_status"] = self.request.GET.get("status", "")
+        return ctx
+
+
+class DrawingCreateView(ProjectMixin, CreateView):
+    model = Drawing
+    form_class = DrawingForm
+    template_name = "documents/drawing_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["project"] = self.get_project()
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.project = self.get_project()
+        form.instance.created_by = self.request.user
+        messages.success(self.request, "Drawing registered successfully.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy("documents:drawing-list", kwargs={"project_pk": self.get_project().pk})
+
+
+class DrawingUpdateView(ProjectMixin, UpdateView):
+    model = Drawing
+    form_class = DrawingForm
+    template_name = "documents/drawing_form.html"
+
+    def get_queryset(self):
+        return Drawing.objects.filter(project=self.get_project())
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["project"] = self.get_project()
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.updated_by = self.request.user
+        messages.success(self.request, "Drawing updated.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "documents:drawing-detail",
+            kwargs={"project_pk": self.get_project().pk, "pk": self.object.pk},
+        )
+
+
+class DrawingDetailView(ProjectMixin, DetailView):
+    model = Drawing
+    template_name = "documents/drawing_detail.html"
+    context_object_name = "drawing"
+
+    def get_queryset(self):
+        return Drawing.objects.filter(project=self.get_project()).prefetch_related(
+            "revisions__uploaded_by", "rfis"
+        )
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["revisions"] = self.object.revisions.order_by("-date")
+        ctx["revision_form"] = DrawingRevisionForm(drawing=self.object, user=self.request.user)
+        return ctx
+
+
+# ---------------------------------------------------------------------------
+# Drawing Revision views
+# ---------------------------------------------------------------------------
+
+
+class DrawingRevisionCreateView(LoginRequiredMixin, CreateView):
+    model = DrawingRevision
+    form_class = DrawingRevisionForm
+    template_name = "documents/drawingrevision_form.html"
+
+    def get_drawing(self):
+        if not hasattr(self, "_drawing"):
+            self._drawing = get_object_or_404(Drawing, pk=self.kwargs["drawing_pk"])
+        return self._drawing
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["drawing"] = self.get_drawing()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        drawing = self.get_drawing()
+        ctx["drawing"] = drawing
+        ctx["project"] = drawing.project
+        return ctx
+
+    def form_valid(self, form):
+        drawing = self.get_drawing()
+        form.instance.drawing = drawing
+        form.instance.uploaded_by = self.request.user
+        form.instance.created_by = self.request.user
+        messages.success(self.request, "Drawing revision uploaded.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        drawing = self.get_drawing()
+        return reverse_lazy(
+            "documents:drawing-detail",
+            kwargs={"project_pk": drawing.project_id, "pk": drawing.pk},
+        )
+
+
+# ---------------------------------------------------------------------------
+# RFI views
+# ---------------------------------------------------------------------------
+
+
+class RFIListView(ProjectMixin, ListView):
+    model = RFI
+    template_name = "documents/rfi_list.html"
+    context_object_name = "rfis"
+    paginate_by = 25
+
+    def get_queryset(self):
+        qs = RFI.objects.filter(project=self.get_project()).select_related("raised_by", "drawing")
+        status = self.request.GET.get("status")
+        if status:
+            qs = qs.filter(status=status)
+        return qs.order_by("-date_raised")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["status_choices"] = RFI.STATUS_CHOICES
+        ctx["selected_status"] = self.request.GET.get("status", "")
+        return ctx
+
+
+class RFICreateView(ProjectMixin, CreateView):
+    model = RFI
+    form_class = RFIForm
+    template_name = "documents/rfi_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["project"] = self.get_project()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.project = self.get_project()
+        form.instance.raised_by = self.request.user
+        form.instance.created_by = self.request.user
+        messages.success(self.request, "RFI raised successfully.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy("documents:rfi-list", kwargs={"project_pk": self.get_project().pk})
+
+
+class RFIUpdateView(ProjectMixin, UpdateView):
+    model = RFI
+    form_class = RFIForm
+    template_name = "documents/rfi_form.html"
+
+    def get_queryset(self):
+        return RFI.objects.filter(project=self.get_project())
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["project"] = self.get_project()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.updated_by = self.request.user
+        messages.success(self.request, "RFI updated.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "documents:rfi-detail",
+            kwargs={"project_pk": self.get_project().pk, "pk": self.object.pk},
+        )
+
+
+class RFIDetailView(ProjectMixin, DetailView):
+    model = RFI
+    template_name = "documents/rfi_detail.html"
+    context_object_name = "rfi"
+
+    def get_queryset(self):
+        return RFI.objects.filter(project=self.get_project()).select_related(
+            "raised_by", "drawing"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Submittal views
+# ---------------------------------------------------------------------------
+
+
+class SubmittalListView(ProjectMixin, ListView):
+    model = Submittal
+    template_name = "documents/submittal_list.html"
+    context_object_name = "submittals"
+    paginate_by = 25
+
+    def get_queryset(self):
+        qs = Submittal.objects.filter(project=self.get_project()).select_related(
+            "submitted_by", "reviewed_by"
+        )
+        submittal_type = self.request.GET.get("type")
+        status = self.request.GET.get("status")
+        if submittal_type:
+            qs = qs.filter(submittal_type=submittal_type)
+        if status:
+            qs = qs.filter(status=status)
+        return qs.order_by("-submitted_date")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["submittal_type_choices"] = Submittal.SUBMITTAL_TYPE_CHOICES
+        ctx["status_choices"] = Submittal.STATUS_CHOICES
+        ctx["selected_type"] = self.request.GET.get("type", "")
+        ctx["selected_status"] = self.request.GET.get("status", "")
+        return ctx
+
+
+class SubmittalCreateView(ProjectMixin, CreateView):
+    model = Submittal
+    form_class = SubmittalForm
+    template_name = "documents/submittal_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["project"] = self.get_project()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.project = self.get_project()
+        form.instance.submitted_by = self.request.user
+        form.instance.created_by = self.request.user
+        messages.success(self.request, "Submittal lodged successfully.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "documents:submittal-list", kwargs={"project_pk": self.get_project().pk}
+        )
+
+
+class SubmittalUpdateView(ProjectMixin, UpdateView):
+    model = Submittal
+    form_class = SubmittalForm
+    template_name = "documents/submittal_form.html"
+
+    def get_queryset(self):
+        return Submittal.objects.filter(project=self.get_project())
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["project"] = self.get_project()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.updated_by = self.request.user
+        messages.success(self.request, "Submittal updated.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "documents:submittal-list", kwargs={"project_pk": self.get_project().pk}
+        )
+
+
+# ---------------------------------------------------------------------------
+# Correspondence views
+# ---------------------------------------------------------------------------
+
+
+class CorrespondenceListView(ProjectMixin, ListView):
+    model = Correspondence
+    template_name = "documents/correspondence_list.html"
+    context_object_name = "correspondences"
+    paginate_by = 25
+
+    def get_queryset(self):
+        qs = Correspondence.objects.filter(project=self.get_project())
+        direction = self.request.GET.get("direction")
+        action = self.request.GET.get("action")
+        if direction:
+            qs = qs.filter(direction=direction)
+        if action == "required":
+            qs = qs.filter(action_required=True, is_responded=False)
+        return qs.order_by("-date")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["direction_choices"] = Correspondence.DIRECTION_CHOICES
+        ctx["selected_direction"] = self.request.GET.get("direction", "")
+        ctx["selected_action"] = self.request.GET.get("action", "")
+        return ctx
+
+
+class CorrespondenceCreateView(ProjectMixin, CreateView):
+    model = Correspondence
+    form_class = CorrespondenceForm
+    template_name = "documents/correspondence_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["project"] = self.get_project()
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.project = self.get_project()
+        form.instance.created_by = self.request.user
+        messages.success(self.request, "Correspondence registered.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "documents:correspondence-list", kwargs={"project_pk": self.get_project().pk}
+        )
+
+
+class CorrespondenceUpdateView(ProjectMixin, UpdateView):
+    model = Correspondence
+    form_class = CorrespondenceForm
+    template_name = "documents/correspondence_form.html"
+
+    def get_queryset(self):
+        return Correspondence.objects.filter(project=self.get_project())
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["project"] = self.get_project()
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.updated_by = self.request.user
+        messages.success(self.request, "Correspondence updated.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "documents:correspondence-list", kwargs={"project_pk": self.get_project().pk}
+        )
+
+
+# ---------------------------------------------------------------------------
+# ProjectDocument views
+# ---------------------------------------------------------------------------
+
+
+class ProjectDocumentListView(ProjectMixin, ListView):
+    model = ProjectDocument
+    template_name = "documents/projectdocument_list.html"
+    context_object_name = "documents"
+
+    def get_queryset(self):
+        return ProjectDocument.objects.filter(
+            project=self.get_project()
+        ).select_related("uploaded_by").order_by("-created_at")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["selected_type"] = self.request.GET.get("type", "")
+        return ctx
+
+
+class ProjectDocumentTemplatesView(LoginRequiredMixin, ListView):
+    """Company-wide document templates (project=None)."""
+
+    model = ProjectDocument
+    template_name = "documents/projectdocument_templates.html"
+    context_object_name = "documents"
+
+    def get_queryset(self):
+        return ProjectDocument.objects.filter(project__isnull=True).select_related(
+            "uploaded_by"
+        ).order_by("-created_at")
+
+
+class ProjectDocumentCreateView(ProjectMixin, CreateView):
+    model = ProjectDocument
+    form_class = ProjectDocumentForm
+    template_name = "documents/projectdocument_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["project"] = self.get_project()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.project = self.get_project()
+        form.instance.uploaded_by = self.request.user
+        form.instance.created_by = self.request.user
+        messages.success(self.request, "Document uploaded successfully.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "documents:projectdoc-list", kwargs={"project_pk": self.get_project().pk}
+        )

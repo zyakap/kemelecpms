@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Safety Dashboard{% endblock %}
+{% block active_nav %}safety{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Safety Dashboard{% if project %} — {{ project.name }}{% endif %}</h1>
+  <a href="{% url 'safety:incident_create' %}" class="btn btn-danger btn-sm"><i class="bi bi-exclamation-triangle me-1"></i>Report Incident</a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <i class="bi bi-clock-history fs-2 text-primary mb-2"></i>
+      <div class="text-muted small text-uppercase mb-1">Man-Hours Worked</div>
+      <div class="fs-5 fw-bold">{{ total_man_hours|floatformat:0 }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card border-0 shadow-sm text-center p-3 {% if ltifr > 0 %}border-danger{% endif %}">
+      <i class="bi bi-activity fs-2 {% if ltifr > 0 %}text-danger{% else %}text-success{% endif %} mb-2"></i>
+      <div class="text-muted small text-uppercase mb-1">LTIFR</div>
+      <div class="fs-5 fw-bold">{{ ltifr|floatformat:2 }}</div>
+      <div class="text-muted small">per million hours</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <i class="bi bi-calendar-check fs-2 text-success mb-2"></i>
+      <div class="text-muted small text-uppercase mb-1">Days Since Last LTI</div>
+      <div class="fs-5 fw-bold text-success">{{ days_since_lti|default:"∞" }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card border-0 shadow-sm text-center p-3 {% if open_incidents > 0 %}border-warning{% endif %}">
+      <i class="bi bi-exclamation-circle fs-2 text-warning mb-2"></i>
+      <div class="text-muted small text-uppercase mb-1">Open Incidents</div>
+      <div class="fs-5 fw-bold text-warning">{{ open_incidents }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)"><i class="bi bi-bar-chart me-2"></i>Incidents by Type</div>
+      <div class="card-body p-0">
+        <table class="table mb-0 small">
+          <thead class="table-light"><tr><th>Type</th><th class="text-end">Count</th></tr></thead>
+          <tbody>
+            {% for row in incident_by_type %}
+            <tr><td>{{ row.incident_type }}</td><td class="text-end fw-bold">{{ row.count }}</td></tr>
+            {% empty %}<tr><td colspan="2" class="text-muted text-center py-3">No incidents recorded.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold d-flex justify-content-between" style="color:var(--kc-primary)">
+        <span><i class="bi bi-list-ul me-2"></i>Recent Incidents</span>
+        <a href="{% url 'safety:incident_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+      </div>
+      <div class="card-body p-0">
+        <table class="table mb-0 small">
+          <thead class="table-light"><tr><th>Date</th><th>Type</th><th>Severity</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for inc in recent_incidents %}
+            <tr>
+              <td><a href="{% url 'safety:incident_detail' inc.pk %}">{{ inc.date|date:"d M" }}</a></td>
+              <td>{{ inc.get_incident_type_display }}</td>
+              <td><span class="badge {% if inc.severity == 'CRITICAL' %}bg-danger{% elif inc.severity == 'MAJOR' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ inc.get_severity_display }}</span></td>
+              <td><span class="badge {% if inc.status == 'OPEN' %}bg-danger{% elif inc.status == 'CLOSED' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ inc.get_status_display }}</span></td>
+            </tr>
+            {% empty %}<tr><td colspan="4" class="text-muted text-center py-3">No recent incidents.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

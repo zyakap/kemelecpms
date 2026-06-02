@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ profile_user.get_full_name|default:profile_user.username }} — Kemele Construction CPMS{% endblock %}
+
+{% block topbar_title %}User Profile{% endblock %}
+
+{% block content %}
+
+{% include "partials/breadcrumb.html" %}
+
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+  <h1>
+    <i class="bi bi-person-circle me-2" style="color:var(--kc-accent);"></i>
+    User Profile
+  </h1>
+  {% if user.is_staff or user == profile_user %}
+  <div class="d-flex gap-2">
+    <a href="/accounts/users/{{ profile_user.pk }}/edit/" class="btn btn-kc btn-sm">
+      <i class="bi bi-pencil me-1"></i> Edit Profile
+    </a>
+    <a href="/accounts/users/" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i> Back to Team
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="row g-4">
+
+  <!-- Profile Card -->
+  <div class="col-12 col-lg-4">
+    <div class="content-card text-center">
+      <div class="cc-body py-4">
+        <!-- Avatar -->
+        <div class="mx-auto mb-3" style="width:90px; height:90px; border-radius:50%;
+             background:var(--kc-primary); display:flex; align-items:center; justify-content:center;
+             font-size:2rem; font-weight:700; color:#fff; overflow:hidden; border:4px solid #e9ecef;">
+          {% if profile_user.profile.photo %}
+            <img src="{{ profile_user.profile.photo.url }}"
+                 alt="{{ profile_user.get_full_name }}"
+                 style="width:100%;height:100%;object-fit:cover;">
+          {% else %}
+            {{ profile_user.first_name|slice:":1"|upper }}{{ profile_user.last_name|slice:":1"|upper }}
+          {% endif %}
+        </div>
+
+        <h4 class="fw-bold mb-1" style="color:var(--kc-primary);">
+          {{ profile_user.get_full_name|default:profile_user.username }}
+        </h4>
+        <div class="mb-2">
+          {% with role=profile_user.profile.role %}
+            {% if profile_user.is_superuser %}
+              <span class="badge bg-danger">Super Admin</span>
+            {% elif role == 'pm' %}
+              <span class="badge bg-primary">Project Manager</span>
+            {% elif role == 'engineer' %}
+              <span class="badge" style="background:var(--kc-primary);">Site Engineer</span>
+            {% elif role == 'finance' %}
+              <span class="badge bg-success">Finance Officer</span>
+            {% elif role == 'safety' %}
+              <span class="badge bg-warning text-dark">Safety Officer</span>
+            {% elif role == 'quality' %}
+              <span class="badge bg-info text-dark">Quality Officer</span>
+            {% else %}
+              <span class="badge bg-secondary">{{ role|title|default:"Viewer" }}</span>
+            {% endif %}
+          {% endwith %}
+
+          {% if profile_user.is_active %}
+            <span class="badge badge-rag-green ms-1">Active</span>
+          {% else %}
+            <span class="badge bg-secondary ms-1">Inactive</span>
+          {% endif %}
+        </div>
+
+        <div class="text-muted small mb-3">{{ profile_user.email }}</div>
+
+        <hr class="my-3">
+
+        <div class="text-start px-2">
+          <div class="d-flex align-items-center gap-2 py-2 border-bottom">
+            <i class="bi bi-telephone text-muted" style="width:18px;"></i>
+            <span class="small">{{ profile_user.profile.phone|default:"Not provided" }}</span>
+          </div>
+          <div class="d-flex align-items-center gap-2 py-2 border-bottom">
+            <i class="bi bi-building text-muted" style="width:18px;"></i>
+            <span class="small">{{ profile_user.profile.department|default:"Not set" }}</span>
+          </div>
+          <div class="d-flex align-items-center gap-2 py-2 border-bottom">
+            <i class="bi bi-calendar-event text-muted" style="width:18px;"></i>
+            <span class="small">Joined {{ profile_user.date_joined|date:"d M Y" }}</span>
+          </div>
+          <div class="d-flex align-items-center gap-2 py-2">
+            <i class="bi bi-clock-history text-muted" style="width:18px;"></i>
+            <span class="small">
+              Last login:
+              {% if profile_user.last_login %}
+                {{ profile_user.last_login|date:"d M Y H:i" }}
+              {% else %}
+                <em>Never</em>
+              {% endif %}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    {% if user.is_staff %}
+    <div class="content-card">
+      <div class="cc-header">
+        <h6 class="mb-0"><i class="bi bi-lightning me-1"></i>Quick Actions</h6>
+      </div>
+      <div class="cc-body py-2">
+        <a href="/accounts/users/{{ profile_user.pk }}/edit/" class="btn btn-outline-primary btn-sm w-100 mb-2">
+          <i class="bi bi-pencil me-1"></i> Edit Account
+        </a>
+        {% if profile_user.is_active %}
+        <form method="post" action="/accounts/users/{{ profile_user.pk }}/deactivate/">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-outline-danger btn-sm w-100"
+                  onclick="return confirm('Deactivate this user?')">
+            <i class="bi bi-person-x me-1"></i> Deactivate Account
+          </button>
+        </form>
+        {% else %}
+        <form method="post" action="/accounts/users/{{ profile_user.pk }}/activate/">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-outline-success btn-sm w-100">
+            <i class="bi bi-person-check me-1"></i> Activate Account
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Right Column: Activity / Projects -->
+  <div class="col-12 col-lg-8">
+
+    <!-- Assigned Projects -->
+    <div class="content-card">
+      <div class="cc-header">
+        <h5 class="mb-0"><i class="bi bi-folder2 me-2"></i>Assigned Projects</h5>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-custom mb-0">
+          <thead>
+            <tr>
+              <th>Project</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for assignment in profile_user.project_assignments.all %}
+            <tr>
+              <td class="fw-medium">{{ assignment.project.name }}</td>
+              <td><span class="badge bg-secondary">{{ assignment.role|title }}</span></td>
+              <td>
+                {% if assignment.project.status == 'active' %}
+                  <span class="badge badge-rag-green">Active</span>
+                {% elif assignment.project.status == 'completed' %}
+                  <span class="badge bg-primary">Completed</span>
+                {% else %}
+                  <span class="badge bg-secondary">{{ assignment.project.status|title }}</span>
+                {% endif %}
+              </td>
+              <td>
+                <a href="/projects/{{ assignment.project.pk }}/" class="btn btn-sm btn-outline-secondary">
+                  <i class="bi bi-box-arrow-up-right"></i>
+                </a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="4" class="text-center text-muted py-4">
+                <i class="bi bi-folder2 d-block fs-3 mb-1 opacity-25"></i>
+                No projects assigned yet.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="content-card">
+      <div class="cc-header">
+        <h5 class="mb-0"><i class="bi bi-activity me-2"></i>Recent Activity</h5>
+      </div>
+      <div class="cc-body">
+        {% if recent_activity %}
+        <div class="activity-feed">
+          {% for activity in recent_activity %}
+          <div class="d-flex gap-3 pb-3 mb-3 {% if not forloop.last %}border-bottom{% endif %}">
+            <div class="flex-shrink-0">
+              <div class="rounded-circle d-flex align-items-center justify-content-center"
+                   style="width:32px;height:32px;background:#f0f4f8;">
+                <i class="bi bi-{{ activity.icon|default:'circle' }} text-muted" style="font-size:0.85rem;"></i>
+              </div>
+            </div>
+            <div>
+              <div class="small text-dark fw-medium">{{ activity.description }}</div>
+              <div class="text-muted" style="font-size:0.72rem;">{{ activity.created_at|timesince }} ago</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4">
+          <i class="bi bi-clock-history fs-3 d-block mb-2 opacity-25"></i>
+          No recent activity recorded.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

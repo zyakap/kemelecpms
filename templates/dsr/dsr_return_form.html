@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}Return DSR — {{ dsr.dsr_number }}{% endblock %}
+{% block active_nav %}dsr{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm border-warning" style="border-top:3px solid #ffc107 !important">
+      <div class="card-header bg-white fw-semibold text-warning">
+        <i class="bi bi-arrow-return-left me-2"></i>Return DSR — {{ dsr.dsr_number }}
+      </div>
+      <div class="card-body">
+        <p class="text-muted">Provide a reason for returning this DSR to the preparer.</p>
+        <form method="post">{% csrf_token %}{{ form|crispy }}
+          <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-warning">Return DSR</button>
+            <a href="{% url 'dsr:detail' dsr.pk %}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

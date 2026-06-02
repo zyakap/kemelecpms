@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Variations — {{ project.name }}{% endblock %}
+{% block active_nav %}projects{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Variations — {{ project.name }}</h1>
+  <a href="{% url 'projects:variation_create' project.pk %}" class="btn btn-primary">
+    <i class="bi bi-plus-lg me-1"></i>Add Variation
+  </a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-sm-4">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="text-muted small text-uppercase mb-1">Original Value</div>
+      <div class="fs-5 fw-bold" style="color:var(--kc-primary)">K {{ project.contract.original_value|floatformat:2|default:"—" }}</div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="text-muted small text-uppercase mb-1">Approved Variations</div>
+      <div class="fs-5 fw-bold text-success">K {{ approved_variations_total|floatformat:2|default:"0.00" }}</div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="text-muted small text-uppercase mb-1">Revised Contract Value</div>
+      <div class="fs-5 fw-bold text-primary">K {{ revised_value|floatformat:2|default:"—" }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Ref</th><th>Description</th><th>Date Instructed</th>
+          <th>Type</th><th>Amount (K)</th><th>Status</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in variations %}
+        <tr>
+          <td class="fw-semibold">{{ v.ref_number }}</td>
+          <td>{{ v.description|truncatechars:60 }}</td>
+          <td>{{ v.date_instructed|date:"d M Y" }}</td>
+          <td>
+            <span class="badge {% if v.variation_type == 'ADD' %}bg-success{% else %}bg-danger{% endif %}">
+              {{ v.get_variation_type_display }}
+            </span>
+          </td>
+          <td class="{% if v.variation_type == 'ADD' %}text-success{% else %}text-danger{% endif %} fw-semibold">
+            {% if v.variation_type == 'OMIT' %}−{% endif %}{{ v.amount|floatformat:2 }}
+          </td>
+          <td>
+            <span class="badge
+              {% if v.status == 'APPROVED' %}bg-success
+              {% elif v.status == 'REJECTED' %}bg-danger
+              {% elif v.status == 'SUBMITTED' %}bg-primary
+              {% elif v.status == 'ASSESSED' %}bg-info
+              {% else %}bg-secondary{% endif %}">
+              {{ v.get_status_display }}
+            </span>
+          </td>
+          <td>
+            <a href="{% url 'projects:variation_update' project.pk v.pk %}" class="btn btn-sm btn-outline-secondary">
+              <i class="bi bi-pencil"></i>
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-muted text-center py-4">No variations recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
