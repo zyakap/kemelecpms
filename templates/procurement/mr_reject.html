@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}Reject Requisition — {{ mr.mr_number }}{% endblock %}
+{% block active_nav %}procurement{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold text-danger">Reject Requisition — {{ mr.mr_number }}</div>
+      <div class="card-body">
+        <div class="alert alert-warning small mb-3">
+          <i class="bi bi-exclamation-triangle me-1"></i>
+          Please provide a reason for rejecting this requisition. The requester will be notified.
+        </div>
+        <form method="post">{% csrf_token %}{{ form|crispy }}
+          <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-danger">Reject Requisition</button>
+            <a href="{% url 'procurement:mr_detail' mr.pk %}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

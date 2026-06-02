@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}Record Inspection — {{ itp_item.activity }}{% endblock %}
+{% block active_nav %}quality{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">
+        Record Inspection — {{ itp_item.activity }}
+      </div>
+      <div class="card-body">
+        <div class="alert alert-light small mb-3">
+          <strong>ITP:</strong> {{ itp.title }} | <strong>Project:</strong> {{ project.name }}<br>
+          <strong>Acceptance Criteria:</strong> {{ itp_item.acceptance_criteria }}
+        </div>
+        <form method="post" enctype="multipart/form-data">{% csrf_token %}{{ form|crispy }}
+          <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-primary">Save Inspection</button>
+            <a href="{% url 'quality:itp-detail' project.pk itp.pk %}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

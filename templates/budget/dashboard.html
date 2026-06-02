@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Budget Dashboard — {{ project.name }}{% endblock %}
+{% block active_nav %}budget{% endblock %}
+{% block content %}
+{% load humanize %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Budget Dashboard — {{ project.name }}</h1>
+  <div class="d-flex gap-2">
+    <a href="{% url 'budget:costcode-create' project.pk %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Cost Code</a>
+    <a href="{% url 'budget:costentry-create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Cost Entry</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="small text-muted">Total Budget</div>
+      <div class="h5 fw-bold mt-1" style="color:var(--kc-primary)">K {{ total_budget|floatformat:2 }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="small text-muted">Committed</div>
+      <div class="h5 fw-bold mt-1 text-warning">K {{ total_committed|floatformat:2 }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="small text-muted">Actual Spend</div>
+      <div class="h5 fw-bold mt-1 text-danger">K {{ total_actual|floatformat:2 }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="small text-muted">Variance</div>
+      <div class="h5 fw-bold mt-1 {% if total_variance >= 0 %}text-success{% else %}text-danger{% endif %}">K {{ total_variance|floatformat:2 }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white fw-semibold d-flex justify-content-between" style="color:var(--kc-primary)">
+    Cost Code Summary
+    <a href="{% url 'budget:costcode-list' project.pk %}" class="btn btn-sm btn-outline-secondary">Manage Cost Codes</a>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>Code</th><th>Description</th><th>Budget (K)</th><th>Committed (K)</th><th>Actual (K)</th><th>Total Spent (K)</th><th>Variance (K)</th><th>%</th><th>RAG</th></tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td class="font-monospace fw-semibold">{{ row.cost_code.code }}</td>
+          <td>{{ row.cost_code.description|truncatechars:40 }}</td>
+          <td class="text-end">{{ row.budget|floatformat:0 }}</td>
+          <td class="text-end">{{ row.committed|floatformat:0 }}</td>
+          <td class="text-end">{{ row.actual|floatformat:0 }}</td>
+          <td class="text-end">{{ row.spent|floatformat:0 }}</td>
+          <td class="text-end {% if row.variance >= 0 %}text-success{% else %}text-danger{% endif %}">{{ row.variance|floatformat:0 }}</td>
+          <td class="text-end">{{ row.variance_pct|floatformat:1 }}%</td>
+          <td><span class="badge rag-{{ row.rag|lower }}">{{ row.rag }}</span></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" class="text-muted text-center py-4">No cost codes set up yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

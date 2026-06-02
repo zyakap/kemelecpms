@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Supplier Invoices{% endblock %}
+{% block active_nav %}procurement{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Supplier Invoices</h1>
+  <a href="{% url 'procurement:invoice_create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Invoice</a>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>Invoice No.</th><th>Supplier</th><th>PO No.</th><th>Invoice Date</th><th>Due Date</th><th class="text-end">Amount (K)</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        {% for inv in invoices %}
+        <tr>
+          <td class="font-monospace fw-semibold">{{ inv.invoice_number }}</td>
+          <td>{{ inv.supplier.name|truncatechars:25 }}</td>
+          <td>{{ inv.purchase_order.po_number|default:"—" }}</td>
+          <td>{{ inv.invoice_date|date:"d M Y" }}</td>
+          <td>{{ inv.due_date|date:"d M Y"|default:"—" }}</td>
+          <td class="text-end">{{ inv.amount|floatformat:2 }}</td>
+          <td><span class="badge bg-secondary">{{ inv.get_status_display }}</span></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-muted text-center py-4">No invoices recorded.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include "partials/pagination.html" %}
+{% endblock %}

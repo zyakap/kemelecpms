@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}Record Progress — {{ activity.name }}{% endblock %}
+{% block active_nav %}schedule{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Record Progress — {{ activity.name }}</div>
+      <div class="card-body">
+        <div class="alert alert-light small mb-3">
+          <strong>Project:</strong> {{ project.name }}<br>
+          <strong>Planned:</strong> {{ activity.planned_percent|floatformat:0 }}% |
+          <strong>Actual:</strong> {{ activity.actual_percent|floatformat:0 }}% |
+          <strong>SPI:</strong> {{ activity.spi|floatformat:2 }}
+        </div>
+        <form method="post">{% csrf_token %}{{ form|crispy }}
+          <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-primary">Save Progress</button>
+            <a href="{% url 'schedule:activity-list' project.pk %}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

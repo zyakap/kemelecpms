@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}Upload Revision — {{ drawing.drawing_number }}{% endblock %}
+{% block active_nav %}documents{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Upload Revision — {{ drawing.drawing_number }}</div>
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data">{% csrf_token %}{{ form|crispy }}
+          <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-primary">Upload</button>
+            <a href="{% url 'documents:drawing-detail' project.pk drawing.pk %}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

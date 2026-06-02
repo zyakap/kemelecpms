@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}Certify {{ ipc.ipc_number }}{% endblock %}
+{% block active_nav %}ipc{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Certify {{ ipc.ipc_number }}</div>
+      <div class="card-body">
+        <dl class="row small mb-3">
+          <dt class="col-5 text-muted">IPC Number</dt><dd class="col-7">{{ ipc.ipc_number }}</dd>
+          <dt class="col-5 text-muted">Claimed Amount</dt><dd class="col-7">K {{ ipc.total_claimed|floatformat:2 }}</dd>
+          <dt class="col-5 text-muted">Submitted Date</dt><dd class="col-7">{{ ipc.submitted_date|date:"d M Y"|default:"—" }}</dd>
+        </dl>
+        <form method="post">{% csrf_token %}{{ form|crispy }}
+          <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-primary">Save Certification</button>
+            <a href="{% url 'ipc:ipc-detail' project.pk ipc.pk %}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ rfi.rfi_number }} — {{ project.name }}{% endblock %}
+{% block active_nav %}documents{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">{{ rfi.rfi_number }}</h1>
+    <div class="text-muted small">{{ rfi.subject }}</div>
+  </div>
+  <a href="{% url 'documents:rfi-update' project.pk rfi.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+</div>
+<div class="row g-4">
+  <div class="col-md-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Details</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-5 text-muted">Status</dt>
+          <dd class="col-7"><span class="badge bg-{{ rfi.status|lower }}">{{ rfi.get_status_display }}</span></dd>
+          <dt class="col-5 text-muted">Raised By</dt>
+          <dd class="col-7">{{ rfi.raised_by.get_full_name|default:rfi.raised_by.email }}</dd>
+          <dt class="col-5 text-muted">Date Raised</dt>
+          <dd class="col-7">{{ rfi.date_raised|date:"d M Y" }}</dd>
+          <dt class="col-5 text-muted">Required By</dt>
+          <dd class="col-7">{{ rfi.date_required|date:"d M Y"|default:"—" }}</dd>
+          <dt class="col-5 text-muted">Date Answered</dt>
+          <dd class="col-7">{{ rfi.date_answered|date:"d M Y"|default:"—" }}</dd>
+          <dt class="col-5 text-muted">Drawing Ref</dt>
+          <dd class="col-7">{{ rfi.drawing.drawing_number|default:"—" }}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-7">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Question</div>
+      <div class="card-body small">{{ rfi.question }}</div>
+    </div>
+    {% if rfi.response %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold text-success">Response</div>
+      <div class="card-body small">{{ rfi.response }}</div>
+    </div>
+    {% endif %}
+    {% if rfi.attachment %}
+    <div class="mt-2">
+      <a href="{{ rfi.attachment.url }}" class="btn btn-sm btn-outline-secondary" target="_blank"><i class="bi bi-paperclip me-1"></i>Attachment</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
