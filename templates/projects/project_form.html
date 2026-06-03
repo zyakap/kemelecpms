@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ form_title|default:"Project" }} — Kemele Construction CPMS{% endblock %}
+
+{% block active_projects %}active{% endblock %}
+
+{% block topbar_title %}{{ form_title|default:"Project Form" }}{% endblock %}
+
+{% block content %}
+
+{% include "partials/breadcrumb.html" %}
+
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+  <h1>
+    <i class="bi bi-{% if object %}pencil-square{% else %}folder-plus{% endif %} me-2"
+       style="color:var(--kc-accent);"></i>
+    {{ form_title|default:"New Project" }}
+  </h1>
+  <a href="/projects/{% if object %}{{ object.pk }}/{% endif %}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Cancel
+  </a>
+</div>
+
+<form method="post" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+  <div class="alert alert-danger d-flex align-items-center gap-2 mb-3">
+    <i class="bi bi-exclamation-circle-fill flex-shrink-0"></i>
+    <div>{% for error in form.non_field_errors %}{{ error }}{% endfor %}</div>
+  </div>
+  {% endif %}
+
+  <div class="row g-4">
+
+    <!-- ── Left Column ── -->
+    <div class="col-12 col-lg-8">
+
+      <!-- Basic Information -->
+      <div class="content-card">
+        <div class="cc-header">
+          <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Basic Information</h5>
+        </div>
+        <div class="cc-body">
+          <div class="row g-3">
+
+            <div class="col-12">
+              <label class="form-label fw-semibold small required">Project Name</label>
+              <input type="text" name="name"
+                     class="form-control form-control-lg {% if form.name.errors %}is-invalid{% endif %}"
+                     value="{{ form.name.value|default:'' }}"
+                     placeholder="e.g. Lae–Nadzab Highway Rehabilitation Stage 2"
+                     required>
+              {% if form.name.errors %}
+                <div class="invalid-feedback">{{ form.name.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-semibold small required">Project Code</label>
+              <input type="text" name="project_code"
+                     class="form-control {% if form.project_code.errors %}is-invalid{% endif %}"
+                     value="{{ form.project_code.value|default:'' }}"
+                     placeholder="e.g. KC-2024-001"
+                     required>
+              {% if form.project_code.errors %}
+                <div class="invalid-feedback">{{ form.project_code.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-semibold small required">Project Type</label>
+              <select name="project_type"
+                      class="form-select {% if form.project_type.errors %}is-invalid{% endif %}"
+                      required>
+                <option value="">Select type…</option>
+                <option value="roads"      {% if form.project_type.value == 'roads' %}selected{% endif %}>Roads &amp; Highways</option>
+                <option value="bridges"    {% if form.project_type.value == 'bridges' %}selected{% endif %}>Bridges &amp; Structures</option>
+                <option value="buildings"  {% if form.project_type.value == 'buildings' %}selected{% endif %}>Buildings &amp; Facilities</option>
+                <option value="utilities"  {% if form.project_type.value == 'utilities' %}selected{% endif %}>Utilities &amp; Services</option>
+                <option value="marine"     {% if form.project_type.value == 'marine' %}selected{% endif %}>Marine &amp; Coastal</option>
+                <option value="earthworks" {% if form.project_type.value == 'earthworks' %}selected{% endif %}>Earthworks &amp; Clearing</option>
+                <option value="other"      {% if form.project_type.value == 'other' %}selected{% endif %}>Other</option>
+              </select>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-semibold small required">Status</label>
+              <select name="status"
+                      class="form-select {% if form.status.errors %}is-invalid{% endif %}"
+                      required>
+                <option value="tender"    {% if form.status.value == 'tender' %}selected{% endif %}>Tender / Pre-award</option>
+                <option value="awarded"   {% if form.status.value == 'awarded' %}selected{% endif %}>Awarded</option>
+                <option value="active"    {% if form.status.value == 'active' %}selected{% endif %}>Active / Under Construction</option>
+                <option value="on_hold"   {% if form.status.value == 'on_hold' %}selected{% endif %}>On Hold</option>
+                <option value="completed" {% if form.status.value == 'completed' %}selected{% endif %}>Practical Completion</option>
+                <option value="closed"    {% if form.status.value == 'closed' %}selected{% endif %}>Closed / DLP Ended</option>
+              </select>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label fw-semibold small">Description / Scope of Works</label>
+              <textarea name="description" rows="3"
+                        class="form-control"
+                        placeholder="Briefly describe the scope of works, key deliverables…">{{ form.description.value|default:'' }}</textarea>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Location -->
+      <div class="content-card">
+        <div class="cc-header">
+          <h5 class="mb-0"><i class="bi bi-geo-alt me-2"></i>Location</h5>
+        </div>
+        <div class="cc-body">
+          <div class="row g-3">
+
+            <div class="col-md-8">
+              <label class="form-label fw-semibold small">Location / Site Name</label>
+              <input type="text" name="location"
+                     class="form-control"
+                     value="{{ form.location.value|default:'' }}"
+                     placeholder="e.g. Lae, Morobe Province">
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-semibold small">Province</label>
+              <select name="province" class="form-select">
+                <option value="">Select province…</option>
+                {% for code, name in provinces %}
+                <option value="{{ code }}" {% if form.province.value == code %}selected{% endif %}>{{ name }}</option>
+                {% empty %}
+                <option value="morobe"   {% if form.province.value == 'morobe' %}selected{% endif %}>Morobe</option>
+                <option value="ncd"      {% if form.province.value == 'ncd' %}selected{% endif %}>NCD</option>
+                <option value="enga"     {% if form.province.value == 'enga' %}selected{% endif %}>Enga</option>
+                <option value="whp"      {% if form.province.value == 'whp' %}selected{% endif %}>Western Highlands</option>
+                <option value="ehp"      {% if form.province.value == 'ehp' %}selected{% endif %}>Eastern Highlands</option>
+                <option value="madang"   {% if form.province.value == 'madang' %}selected{% endif %}>Madang</option>
+                <option value="wnb"      {% if form.province.value == 'wnb' %}selected{% endif %}>West New Britain</option>
+                <option value="enb"      {% if form.province.value == 'enb' %}selected{% endif %}>East New Britain</option>
+                <option value="milne"    {% if form.province.value == 'milne' %}selected{% endif %}>Milne Bay</option>
+                <option value="oro"      {% if form.province.value == 'oro' %}selected{% endif %}>Oro</option>
+                <option value="gulf"     {% if form.province.value == 'gulf' %}selected{% endif %}>Gulf</option>
+                <option value="western"  {% if form.province.value == 'western' %}selected{% endif %}>Western</option>
+                <option value="southern" {% if form.province.value == 'southern' %}selected{% endif %}>Southern Highlands</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small">
+                GPS Latitude <small class="text-muted fw-normal">(decimal degrees)</small>
+              </label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-geo text-muted"></i></span>
+                <input type="number" name="latitude" step="0.000001"
+                       class="form-control"
+                       value="{{ form.latitude.value|default:'' }}"
+                       placeholder="-6.314993">
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small">
+                GPS Longitude <small class="text-muted fw-normal">(decimal degrees)</small>
+              </label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-geo text-muted"></i></span>
+                <input type="number" name="longitude" step="0.000001"
+                       class="form-control"
+                       value="{{ form.longitude.value|default:'' }}"
+                       placeholder="147.037490">
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Dates -->
+      <div class="content-card">
+        <div class="cc-header">
+          <h5 class="mb-0"><i class="bi bi-calendar3 me-2"></i>Key Dates</h5>
+        </div>
+        <div class="cc-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small">Planned Start Date</label>
+              <input type="date" name="start_date"
+                     class="form-control {% if form.start_date.errors %}is-invalid{% endif %}"
+                     value="{{ form.start_date.value|date:'Y-m-d'|default:'' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small">Planned End Date</label>
+              <input type="date" name="end_date"
+                     class="form-control {% if form.end_date.errors %}is-invalid{% endif %}"
+                     value="{{ form.end_date.value|date:'Y-m-d'|default:'' }}">
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /left -->
+
+    <!-- ── Right Column ── -->
+    <div class="col-12 col-lg-4">
+
+      <!-- Client & Parties -->
+      <div class="content-card">
+        <div class="cc-header">
+          <h5 class="mb-0"><i class="bi bi-building me-2"></i>Client &amp; Parties</h5>
+        </div>
+        <div class="cc-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label fw-semibold small">Client / Employer</label>
+              <input type="text" name="client"
+                     class="form-control"
+                     value="{{ form.client.value|default:'' }}"
+                     placeholder="e.g. Department of Works and Highways">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold small">Engineer / Consultant</label>
+              <input type="text" name="engineer_consultant"
+                     class="form-control"
+                     value="{{ form.engineer_consultant.value|default:'' }}"
+                     placeholder="Supervising engineer or consultant">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold small">Funder / Donor</label>
+              <input type="text" name="funder"
+                     class="form-control"
+                     value="{{ form.funder.value|default:'' }}"
+                     placeholder="e.g. ADB, World Bank, GoPNG">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Team -->
+      <div class="content-card">
+        <div class="cc-header">
+          <h5 class="mb-0"><i class="bi bi-people me-2"></i>Project Team</h5>
+        </div>
+        <div class="cc-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label fw-semibold small">Project Manager</label>
+              <select name="project_manager" class="form-select">
+                <option value="">Select…</option>
+                {% for u in staff_users %}
+                <option value="{{ u.pk }}"
+                  {% if form.project_manager.value|stringformat:"s" == u.pk|stringformat:"s" %}selected{% endif %}>
+                  {{ u.get_full_name|default:u.username }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold small">Site Engineer</label>
+              <select name="site_engineer" class="form-select">
+                <option value="">Select…</option>
+                {% for u in staff_users %}
+                <option value="{{ u.pk }}"
+                  {% if form.site_engineer.value|stringformat:"s" == u.pk|stringformat:"s" %}selected{% endif %}>
+                  {{ u.get_full_name|default:u.username }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold small">Safety Officer</label>
+              <select name="safety_officer" class="form-select">
+                <option value="">Select…</option>
+                {% for u in staff_users %}
+                <option value="{{ u.pk }}"
+                  {% if form.safety_officer.value|stringformat:"s" == u.pk|stringformat:"s" %}selected{% endif %}>
+                  {{ u.get_full_name|default:u.username }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /right -->
+
+  </div><!-- /row -->
+
+  <!-- Actions -->
+  <div class="d-flex gap-2 justify-content-end mt-2">
+    <a href="/projects/{% if object %}{{ object.pk }}/{% endif %}" class="btn btn-outline-secondary">
+      <i class="bi bi-x-lg me-1"></i>Cancel
+    </a>
+    <button type="submit" class="btn btn-kc">
+      <i class="bi bi-check-lg me-1"></i>
+      {% if object %}Save Changes{% else %}Create Project{% endif %}
+    </button>
+  </div>
+
+</form>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  .form-label.required::after { content: ' *'; color: #dc3545; }
+</style>
+{% endblock %}

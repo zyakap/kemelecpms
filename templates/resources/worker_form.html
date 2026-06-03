@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}{% if form.instance.pk %}Edit Worker{% else %}Add Worker{% endif %}{% endblock %}
+{% block active_nav %}resources{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="row justify-content-center">
+  <div class="col-lg-9">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">
+        {% if form.instance.pk %}Edit Worker — {{ form.instance.get_full_name }}{% else %}Register New Worker{% endif %}
+      </div>
+      <div class="card-body">
+        <form method="post">{% csrf_token %}
+          <div class="row g-3">
+            <div class="col-md-6">
+              <h6 class="fw-semibold text-muted text-uppercase small mb-3">Personal Details</h6>
+              {{ form.first_name|as_crispy_field }}
+              {{ form.last_name|as_crispy_field }}
+              {{ form.gender|as_crispy_field }}
+              {{ form.nationality|as_crispy_field }}
+              {{ form.nid_number|as_crispy_field }}
+              {{ form.phone|as_crispy_field }}
+            </div>
+            <div class="col-md-6">
+              <h6 class="fw-semibold text-muted text-uppercase small mb-3">Employment Details</h6>
+              {{ form.occupation|as_crispy_field }}
+              {{ form.trade|as_crispy_field }}
+              {{ form.classification|as_crispy_field }}
+              {{ form.employment_type|as_crispy_field }}
+              {{ form.tfn|as_crispy_field }}
+              {{ form.date_joined|as_crispy_field }}
+              {{ form.is_active|as_crispy_field }}
+            </div>
+          </div>
+          <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-primary">Save Worker</button>
+            <a href="{% url 'resources:worker-list' %}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

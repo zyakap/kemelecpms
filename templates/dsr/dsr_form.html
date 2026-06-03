@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}{% if form.instance.pk %}Edit DSR{% else %}Create Daily Site Report{% endif %}{% endblock %}
+{% block active_nav %}dsr{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<h1 class="h3 fw-bold mb-4" style="color:var(--kc-primary)">
+  {% if form.instance.pk %}Edit Daily Site Report{% else %}Create Daily Site Report{% endif %}
+</h1>
+
+<form method="post" enctype="multipart/form-data" id="dsrForm">
+{% csrf_token %}
+
+<!-- Header Section -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">
+    <i class="bi bi-info-circle me-2"></i>Report Header
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-6">{{ form.project|as_crispy_field }}</div>
+      <div class="col-md-6">{{ form.date|as_crispy_field }}</div>
+      <div class="col-md-6">{{ form.weather_am|as_crispy_field }}</div>
+      <div class="col-md-6">{{ form.weather_pm|as_crispy_field }}</div>
+      <div class="col-12">{{ form.notes|as_crispy_field }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Activities Section -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center" style="color:var(--kc-primary)">
+    <span><i class="bi bi-list-task me-2"></i>Work Activities</span>
+    <button type="button" class="btn btn-sm btn-outline-primary" id="addActivityBtn">
+      <i class="bi bi-plus-lg me-1"></i>Add Row
+    </button>
+  </div>
+  <div class="card-body p-0">
+    {{ activity_formset.management_form }}
+    <div class="table-responsive">
+      <table class="table table-sm mb-0" id="activityTable">
+        <thead class="table-light">
+          <tr>
+            <th>Description</th><th>Location</th><th>Status</th><th>Qty</th><th>Unit</th><th>% Done</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="activityBody">
+          {% for f in activity_formset %}
+          <tr class="activity-row">
+            <td>{{ f.description }}</td><td>{{ f.location_on_site }}</td>
+            <td>{{ f.status }}</td><td>{{ f.quantity_achieved }}</td>
+            <td>{{ f.unit }}</td><td>{{ f.percent_complete }}</td>
+            <td>{{ f.DELETE }}<label class="text-danger small">Del</label></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Labour Section -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">
+    <i class="bi bi-people me-2"></i>Labour Count
+  </div>
+  <div class="card-body p-0">
+    {{ labour_formset.management_form }}
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead class="table-light">
+          <tr><th>Classification</th><th>Nationality</th><th>Count</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for f in labour_formset %}
+          <tr>{{ f.classification }}{{ f.nationality }}{{ f.count }}{{ f.DELETE }}</tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Photos Section -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">
+    <i class="bi bi-images me-2"></i>Photos
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      {% for f in photo_formset %}
+      <div class="col-md-6">
+        <div class="border rounded p-2">
+          {{ f.photo }} {{ f.caption }} {{ f.tag }}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {{ photo_formset.management_form }}
+  </div>
+</div>
+
+<div class="d-flex gap-2 mb-4">
+  <button type="submit" class="btn btn-primary">
+    <i class="bi bi-save me-1"></i>Save DSR
+  </button>
+  <a href="{% url 'dsr:dsr_list' %}" class="btn btn-outline-secondary">Cancel</a>
+</div>
+</form>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Funders{% endblock %}
+{% block active_nav %}projects{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Funders</h1>
+  <a href="{% url 'projects:funder_create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Funder</a>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>Name</th><th>Type</th><th>Contact</th><th>Email</th><th>Phone</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for funder in funders %}
+        <tr>
+          <td class="fw-semibold">{{ funder.name }}</td>
+          <td>{{ funder.get_funder_type_display }}</td>
+          <td>{{ funder.contact_person|default:"—" }}</td>
+          <td>{{ funder.email|default:"—" }}</td>
+          <td>{{ funder.phone|default:"—" }}</td>
+          <td><a href="{% url 'projects:funder_update' funder.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-muted text-center py-4">No funders registered.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

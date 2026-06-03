@@ -1,0 +1,24 @@
+[Unit]
+Description=Kemele CPMS Gunicorn Daemon
+Requires=kemelecpms.socket
+After=network.target
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+RuntimeDirectory=gunicorn
+WorkingDirectory=/home/kemelecpms/kemelecpms
+EnvironmentFile=/home/kemelecpms/kemelecpms/.env
+ExecStart=/home/kemelecpms/.local/share/virtualenvs/kemelecpms/bin/gunicorn \
+          --config /home/kemelecpms/kemelecpms/gunicorn/gunicorn.conf.py \
+          config.wsgi:application
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

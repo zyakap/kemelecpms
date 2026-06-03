@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Subcontractors{% endblock %}
+{% block active_nav %}resources{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Subcontractor Companies</h1>
+  <a href="{% url 'resources:subcontractor-create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Subcontractor</a>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>Company</th><th>Trade</th><th>Contact</th><th>IRC TIN</th><th>Prequalified</th><th>Rating</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for s in subcontractors %}
+        <tr {% if s.is_blacklisted %}class="table-danger"{% endif %}>
+          <td class="fw-semibold">{{ s.company_name }}{% if s.is_blacklisted %} <span class="badge bg-danger ms-1">Blacklisted</span>{% endif %}</td>
+          <td>{{ s.trade }}</td>
+          <td>{{ s.contact_person|default:"—" }}</td>
+          <td class="font-monospace">{{ s.irc_tin|default:"—" }}</td>
+          <td>{% if s.is_prequalified %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
+          <td>
+            {% if s.performance_rating %}
+            <span class="fw-bold">{{ s.performance_rating }}</span> <i class="bi bi-star-fill text-warning small"></i>
+            {% else %}—{% endif %}
+          </td>
+          <td><a href="{% url 'resources:subcontractor-update' s.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-muted text-center py-4">No subcontractors registered.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}NCR Register{% endblock %}
+{% block active_nav %}quality{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Non-Conformance Reports</h1>
+  <a href="{% url 'quality:ncr-create' project.pk %}" class="btn btn-warning btn-sm"><i class="bi bi-plus-lg me-1"></i>Raise NCR</a>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>NCR #</th><th>Description</th><th>Location</th><th>Trade</th><th>Severity</th><th>Status</th><th>Due Date</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for ncr in ncrs %}
+        <tr>
+          <td class="font-monospace fw-semibold"><a href="{% url 'quality:ncr-detail' project.pk ncr.pk %}">{{ ncr.ncr_number }}</a></td>
+          <td>{{ ncr.description|truncatechars:50 }}</td>
+          <td>{{ ncr.location|truncatechars:20 }}</td>
+          <td>{{ ncr.trade_responsible|truncatechars:15 }}</td>
+          <td><span class="badge {% if ncr.severity == 'CRITICAL' %}bg-danger{% elif ncr.severity == 'MAJOR' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ ncr.get_severity_display }}</span></td>
+          <td><span class="badge {% if ncr.status == 'OPEN' %}bg-danger{% elif ncr.status == 'CLOSED' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ ncr.get_status_display }}</span></td>
+          <td>{{ ncr.due_date|date:"d M Y"|default:"—" }}</td>
+          <td><a href="{% url 'quality:ncr-detail' project.pk ncr.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-muted text-center py-4">No NCRs raised.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include "partials/pagination.html" %}
+{% endblock %}

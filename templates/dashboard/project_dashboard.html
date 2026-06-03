@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }} — Dashboard{% endblock %}
+{% block active_nav %}dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+  <div>
+    <h1 class="h3 fw-bold mb-1" style="color:var(--kc-primary)">{{ project.name }}</h1>
+    <span class="badge bg-secondary me-1">{{ project.project_id }}</span>
+    <span class="badge
+      {% if project.status == 'ACTIVE' %}bg-success
+      {% elif project.status == 'CLOSED' %}bg-dark
+      {% elif project.status == 'TENDERING' %}bg-info
+      {% elif project.status == 'AWARDED' %}bg-primary
+      {% else %}bg-warning text-dark{% endif %}">
+      {{ project.get_status_display }}
+    </span>
+  </div>
+  <a href="{% url 'dashboard:portfolio' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Portfolio
+  </a>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-start justify-content-between">
+          <div>
+            <div class="text-muted small text-uppercase fw-semibold mb-1">Budget Used</div>
+            <div class="fs-3 fw-bold {% if budget_pct > 100 %}text-danger{% elif budget_pct > 80 %}text-warning{% else %}text-success{% endif %}">{{ budget_pct }}%</div>
+            <div class="text-muted small">K {{ total_spent|floatformat:0 }} / K {{ total_budget|floatformat:0 }}</div>
+          </div>
+          <i class="bi bi-cash-stack fs-2 text-muted opacity-25"></i>
+        </div>
+        <div class="progress mt-2" style="height:4px">
+          <div class="progress-bar {% if budget_pct > 100 %}bg-danger{% elif budget_pct > 80 %}bg-warning{% else %}bg-success{% endif %}"
+               style="width:{% if budget_pct > 100 %}100{% else %}{{ budget_pct }}{% endif %}%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-start justify-content-between">
+          <div>
+            <div class="text-muted small text-uppercase fw-semibold mb-1">Balance</div>
+            <div class="fs-3 fw-bold {% if budget_remaining < 0 %}text-danger{% else %}text-success{% endif %}">
+              K {{ budget_remaining|floatformat:0 }}
+            </div>
+            <div class="text-muted small">Remaining budget</div>
+          </div>
+          <i class="bi bi-wallet2 fs-2 text-muted opacity-25"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-start justify-content-between">
+          <div>
+            <div class="text-muted small text-uppercase fw-semibold mb-1">Open Issues</div>
+            <div class="fs-3 fw-bold {% if open_issues > 0 %}text-warning{% else %}text-success{% endif %}">{{ open_issues }}</div>
+            <div class="text-muted small">{{ open_rfis }} RFIs · {{ open_ncrs }} NCRs · {{ open_incidents }} Incidents</div>
+          </div>
+          <i class="bi bi-exclamation-circle fs-2 text-muted opacity-25"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-start justify-content-between">
+          <div>
+            <div class="text-muted small text-uppercase fw-semibold mb-1">Milestones Due</div>
+            <div class="fs-3 fw-bold" style="color:var(--kc-primary)">{{ upcoming_milestones|length }}</div>
+            <div class="text-muted small">Next 30 days</div>
+          </div>
+          <i class="bi bi-flag fs-2 text-muted opacity-25"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Module Quick Links -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">
+    <i class="bi bi-grid me-2"></i>Project Modules
+  </div>
+  <div class="card-body">
+    <div class="row g-2">
+      {% with pk=project.pk %}
+      <div class="col-6 col-sm-4 col-md-3">
+        <a href="/budget/{{ pk }}/" class="btn btn-outline-primary w-100 text-start">
+          <i class="bi bi-cash-stack me-2"></i>Budget
+        </a>
+      </div>
+      <div class="col-6 col-sm-4 col-md-3">
+        <a href="/schedule/{{ pk }}/" class="btn btn-outline-primary w-100 text-start">
+          <i class="bi bi-calendar3 me-2"></i>Schedule
+        </a>
+      </div>
+      <div class="col-6 col-sm-4 col-md-3">
+        <a href="/dsr/?project={{ pk }}" class="btn btn-outline-primary w-100 text-start">
+          <i class="bi bi-clipboard2-check me-2"></i>Daily Reports
+        </a>
+      </div>
+      <div class="col-6 col-sm-4 col-md-3">
+        <a href="/resources/?project={{ pk }}" class="btn btn-outline-primary w-100 text-start">
+          <i class="bi bi-people me-2"></i>Resources
+        </a>
+      </div>
+      <div class="col-6 col-sm-4 col-md-3">
+        <a href="/procurement/?project={{ pk }}" class="btn btn-outline-primary w-100 text-start">
+          <i class="bi bi-cart3 me-2"></i>Procurement
+        </a>
+      </div>
+      <div class="col-6 col-sm-4 col-md-3">
+        <a href="/safety/?project={{ pk }}" class="btn btn-outline-primary w-100 text-start">
+          <i class="bi bi-shield-check me-2"></i>Safety
+        </a>
+      </div>
+      <div class="col-6 col-sm-4 col-md-3">
+        <a href="/quality/?project={{ pk }}" class="btn btn-outline-primary w-100 text-start">
+          <i class="bi bi-patch-check me-2"></i>Quality
+        </a>
+      </div>
+      <div class="col-6 col-sm-4 col-md-3">
+        <a href="/ipc/?project={{ pk }}" class="btn btn-outline-primary w-100 text-start">
+          <i class="bi bi-receipt me-2"></i>IPC / Claims
+        </a>
+      </div>
+      <div class="col-6 col-sm-4 col-md-3">
+        <a href="/documents/?project={{ pk }}" class="btn btn-outline-primary w-100 text-start">
+          <i class="bi bi-folder2 me-2"></i>Documents
+        </a>
+      </div>
+      {% endwith %}
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Recent DSRs -->
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span class="fw-semibold" style="color:var(--kc-primary)"><i class="bi bi-clipboard2-check me-2"></i>Recent Daily Reports</span>
+        <a href="/dsr/?project={{ project.pk }}" class="btn btn-sm btn-outline-primary">View All</a>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0 small">
+          <thead class="table-light">
+            <tr>
+              <th>Date</th><th>Weather</th><th>Prepared By</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for dsr in recent_dsrs %}
+            <tr>
+              <td><a href="/dsr/{{ dsr.pk }}/">{{ dsr.date|date:"d M Y" }}</a></td>
+              <td>{{ dsr.get_weather_am_display }}</td>
+              <td>{{ dsr.prepared_by.get_full_name }}</td>
+              <td>
+                <span class="badge {% if dsr.status == 'APPROVED' %}bg-success{% elif dsr.status == 'SUBMITTED' %}bg-primary{% elif dsr.status == 'RETURNED' %}bg-danger{% else %}bg-secondary{% endif %}">
+                  {{ dsr.get_status_display }}
+                </span>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-muted text-center py-3">No daily reports yet</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upcoming Milestones -->
+  <div class="col-lg-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span class="fw-semibold" style="color:var(--kc-primary)"><i class="bi bi-flag me-2"></i>Upcoming Milestones</span>
+        <a href="/projects/{{ project.pk }}/milestones/" class="btn btn-sm btn-outline-primary">View All</a>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0 small">
+          <thead class="table-light">
+            <tr><th>Milestone</th><th>Target Date</th><th>Days</th></tr>
+          </thead>
+          <tbody>
+            {% for m in upcoming_milestones %}
+            <tr>
+              <td>{{ m.name }}</td>
+              <td>{{ m.target_date|date:"d M Y" }}</td>
+              <td>
+                {% with days=m.delay_days %}
+                <span class="badge {% if days < 0 %}bg-danger{% elif days < 7 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                  {% if days < 0 %}{{ days|abs }} overdue{% else %}{{ days }}d{% endif %}
+                </span>
+                {% endwith %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-muted text-center py-3">No milestones due soon</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

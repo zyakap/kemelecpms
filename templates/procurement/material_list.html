@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Material Catalogue{% endblock %}
+{% block active_nav %}procurement{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Material Catalogue</h1>
+  <a href="{% url 'procurement:material_create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Material</a>
+</div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-4">
+    <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Search code or description…">
+  </div>
+  <div class="col-auto">
+    <select name="category" class="form-select form-select-sm">
+      <option value="">All Categories</option>
+      {% for cat in categories %}<option value="{{ cat.pk }}" {% if cat.pk|stringformat:"s" == request.GET.category %}selected{% endif %}>{{ cat.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto"><button type="submit" class="btn btn-outline-secondary btn-sm">Search</button></div>
+</form>
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>Item Code</th><th>Description</th><th>Category</th><th>Unit</th><th class="text-end">Unit Rate (K)</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for mat in materials %}
+        <tr>
+          <td class="font-monospace fw-semibold">{{ mat.item_code }}</td>
+          <td>{{ mat.description }}</td>
+          <td>{{ mat.category.name|default:"—" }}</td>
+          <td>{{ mat.unit }}</td>
+          <td class="text-end">{{ mat.unit_rate|floatformat:2 }}</td>
+          <td><a href="{% url 'procurement:material_update' mat.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-muted text-center py-4">No materials in catalogue.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include "partials/pagination.html" %}
+{% endblock %}

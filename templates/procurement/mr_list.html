@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Material Requisitions{% endblock %}
+{% block active_nav %}procurement{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Material Requisitions</h1>
+  <a href="{% url 'procurement:mr_add' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Raise MR</a>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>MR #</th><th>Project</th><th>Date</th><th>Required By</th><th>Status</th><th>Requested By</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for mr in requisitions %}
+        <tr>
+          <td class="font-monospace fw-semibold"><a href="{% url 'procurement:mr_detail' mr.pk %}">{{ mr.mr_number }}</a></td>
+          <td>{{ mr.project.name|truncatechars:25 }}</td>
+          <td>{{ mr.date|date:"d M Y" }}</td>
+          <td>{{ mr.required_by_date|date:"d M Y" }}</td>
+          <td>
+            <span class="badge
+              {% if mr.status == 'APPROVED' %}bg-success
+              {% elif mr.status == 'REJECTED' %}bg-danger
+              {% elif mr.status == 'SUBMITTED' %}bg-primary
+              {% elif mr.status == 'ORDERED' %}bg-info
+              {% elif mr.status == 'DELIVERED' %}bg-secondary
+              {% else %}bg-light text-dark{% endif %}">
+              {{ mr.get_status_display }}
+            </span>
+          </td>
+          <td>{{ mr.requested_by.get_full_name }}</td>
+          <td><a href="{% url 'procurement:mr_detail' mr.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-muted text-center py-4">No requisitions found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include "partials/pagination.html" %}
+{% endblock %}

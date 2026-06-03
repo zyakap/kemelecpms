@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Portfolio Dashboard{% endblock %}
+{% block active_dashboard %}active{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/cpms.css' %}">
+<style>
+  .status-badge { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; }
+  .kpi-card.accent .kpi-icon  { background: rgba(240,165,0,0.12); color: var(--kc-accent); }
+  .kpi-card.success .kpi-icon { background: rgba(25,135,84,0.12); color: #198754; }
+  .kpi-card.danger .kpi-icon  { background: rgba(220,53,69,0.12);  color: #dc3545; }
+  .kpi-card .kpi-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #6b7280; }
+  .kpi-card .kpi-value { font-size: 1.8rem; font-weight: 800; color: var(--kc-primary); line-height: 1.1; }
+  .kpi-card .kpi-sub   { font-size: 0.75rem; color: #9ca3af; margin-top: 0.15rem; }
+  .table-cpms thead th {
+    font-size: 0.73rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700;
+    color: #6b7280; padding: 0.65rem 1rem; background: #f9fafb; border-bottom: 2px solid #e5e7eb;
+  }
+  .table-cpms tbody td {
+    padding: 0.75rem 1rem; vertical-align: middle; border-bottom: 1px solid #f3f4f6; font-size: 0.865rem;
+  }
+  .table-cpms tbody tr:last-child td { border-bottom: none; }
+  .table-cpms tbody tr:hover td { background: #f8fbff; }
+</style>
+{% endblock %}
+
+{% block topbar_title %}Portfolio Dashboard{% endblock %}
+
+{% block content %}
+{% include "partials/breadcrumb.html" %}
+{% include "partials/messages.html" %}
+
+<!-- Page Header -->
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+  <div>
+    <h1 class="mb-0"><i class="bi bi-speedometer2 me-2" style="color:var(--kc-accent);"></i>Portfolio Dashboard</h1>
+    <p class="text-muted small mb-0 mt-1">Overview of all active construction projects</p>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <span class="badge bg-light text-dark border fw-semibold px-3 py-2" style="font-size:0.8rem;">
+      <i class="bi bi-calendar3 me-1 text-muted"></i>
+      {% now "d M Y" %}
+    </span>
+    <a href="/projects/new/" class="btn btn-kc btn-sm">
+      <i class="bi bi-plus-lg me-1"></i>New Project
+    </a>
+  </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+
+  <!-- Active Projects -->
+  <div class="col-6 col-xl-3">
+    <div class="card kpi-card h-100 p-3">
+      <div class="d-flex align-items-start justify-content-between">
+        <div>
+          <div class="kpi-label mb-2">Active Projects</div>
+          <div class="kpi-value">{{ active_count|default:"0" }}</div>
+          <div class="kpi-sub">Currently in progress</div>
+        </div>
+        <div class="kpi-icon" style="background:rgba(26,60,94,0.1); color:var(--kc-primary);">
+          <i class="bi bi-folder2-open"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Total Contract Value -->
+  <div class="col-6 col-xl-3">
+    <div class="card kpi-card accent h-100 p-3">
+      <div class="d-flex align-items-start justify-content-between">
+        <div>
+          <div class="kpi-label mb-2">Total Contract Value</div>
+          <div class="kpi-value" style="font-size:1.45rem;">K {{ total_contract_value|floatformat:0|default:"0" }}</div>
+          <div class="kpi-sub">Combined portfolio value</div>
+        </div>
+        <div class="kpi-icon">
+          <i class="bi bi-cash-coin"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Total Billed -->
+  <div class="col-6 col-xl-3">
+    <div class="card kpi-card success h-100 p-3">
+      <div class="d-flex align-items-start justify-content-between">
+        <div>
+          <div class="kpi-label mb-2">Total Billed</div>
+          <div class="kpi-value" style="font-size:1.45rem;">K {{ total_billed|floatformat:0|default:"0" }}</div>
+          <div class="kpi-sub">Invoiced to date</div>
+        </div>
+        <div class="kpi-icon">
+          <i class="bi bi-receipt-cutoff"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Open Incidents -->
+  <div class="col-6 col-xl-3">
+    <div class="card kpi-card danger h-100 p-3">
+      <div class="d-flex align-items-start justify-content-between">
+        <div>
+          <div class="kpi-label mb-2">Open Incidents</div>
+          <div class="kpi-value">{{ open_incidents|default:"0" }}</div>
+          <div class="kpi-sub">Requiring attention</div>
+        </div>
+        <div class="kpi-icon">
+          <i class="bi bi-exclamation-triangle"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Projects Table -->
+<div class="content-card mb-4">
+  <div class="cc-header">
+    <h5><i class="bi bi-table me-2"></i>All Projects</h5>
+    <div class="d-flex gap-2">
+      <input type="search" id="projectSearch" class="form-control form-control-sm" placeholder="Search projects…" style="width:200px;">
+      <a href="/projects/" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-right me-1"></i>View All
+      </a>
+    </div>
+  </div>
+  <div class="cc-body p-0">
+    <div class="table-responsive">
+      <table class="table table-cpms mb-0" id="projectsTable">
+        <thead>
+          <tr>
+            <th>Project</th>
+            <th>Client</th>
+            <th>Project Manager</th>
+            <th>Status</th>
+            <th class="text-end">Contract Value</th>
+            <th class="text-center">Budget RAG</th>
+            <th class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in project_rows %}
+          <tr>
+            <td>
+              <div class="fw-semibold text-kc-primary" style="font-size:0.875rem;">{{ row.project.name }}</div>
+              <div class="text-muted" style="font-size:0.75rem;">{{ row.project.project_id }}</div>
+            </td>
+            <td>{{ row.project.client.name|default:"—" }}</td>
+            <td>
+              {% if row.project.project_manager %}
+                <div class="d-flex align-items-center gap-2">
+                  <div class="user-avatar" style="width:26px;height:26px;font-size:0.65rem;">
+                    {{ row.project.project_manager.first_name|slice:":1"|upper }}{{ row.project.project_manager.last_name|slice:":1"|upper }}
+                  </div>
+                  <span>{{ row.project.project_manager.get_full_name }}</span>
+                </div>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if row.project.status == "ACTIVE" %}
+                <span class="badge bg-primary status-badge">Active</span>
+              {% elif row.project.status == "COMPLETED" %}
+                <span class="badge bg-success status-badge">Completed</span>
+              {% elif row.project.status == "ON_HOLD" %}
+                <span class="badge bg-warning text-dark status-badge">On Hold</span>
+              {% elif row.project.status == "TENDER" %}
+                <span class="badge bg-info text-dark status-badge">Tender</span>
+              {% else %}
+                <span class="badge bg-secondary status-badge">{{ row.project.get_status_display|default:row.project.status }}</span>
+              {% endif %}
+            </td>
+            <td class="text-end fw-semibold">
+              K {{ row.contract_value|floatformat:0|default:"—" }}
+            </td>
+            <td class="text-center">
+              {% if row.budget_rag == "GREEN" %}
+                <span class="badge badge-rag-green rounded-pill px-3">Green</span>
+              {% elif row.budget_rag == "AMBER" %}
+                <span class="badge badge-rag-amber rounded-pill px-3">Amber</span>
+              {% elif row.budget_rag == "RED" %}
+                <span class="badge badge-rag-red rounded-pill px-3">Red</span>
+              {% else %}
+                <span class="badge bg-secondary rounded-pill px-3">N/A</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              <a href="/dashboard/project/{{ row.project.pk }}/"
+                 class="btn btn-kc btn-sm"
+                 data-bs-toggle="tooltip" title="Project Dashboard">
+                <i class="bi bi-speedometer2"></i>
+              </a>
+              <a href="/projects/{{ row.project.pk }}/"
+                 class="btn btn-outline-secondary btn-sm"
+                 data-bs-toggle="tooltip" title="Project Detail">
+                <i class="bi bi-eye"></i>
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="text-center text-muted py-5">
+              <i class="bi bi-folder2-open fs-2 d-block mb-2 opacity-25"></i>
+              No projects found. <a href="/projects/new/">Create the first project</a>.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom Section: Milestones + DSRs -->
+<div class="row g-4">
+
+  <!-- Upcoming Milestones -->
+  <div class="col-12 col-xl-6">
+    <div class="content-card h-100">
+      <div class="cc-header">
+        <h5><i class="bi bi-flag me-2"></i>Upcoming Milestones</h5>
+        <span class="badge bg-light text-dark border" style="font-size:0.72rem;">Next 6 months</span>
+      </div>
+      <div class="cc-body p-0">
+        <div class="table-responsive">
+          <table class="table table-cpms mb-0">
+            <thead>
+              <tr>
+                <th>Project</th>
+                <th>Milestone</th>
+                <th>Target Date</th>
+                <th class="text-center">Days</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ms in upcoming_milestones %}
+              <tr>
+                <td>
+                  <div class="fw-semibold" style="font-size:0.8rem;">{{ ms.project.name|truncatechars:25 }}</div>
+                </td>
+                <td style="font-size:0.85rem;">{{ ms.name }}</td>
+                <td>
+                  <span class="text-muted" style="font-size:0.82rem;">{{ ms.target_date|date:"d M Y" }}</span>
+                </td>
+                <td class="text-center">
+                  {% if ms.days_remaining <= 7 %}
+                    <span class="badge bg-danger rounded-pill">{{ ms.days_remaining }}d</span>
+                  {% elif ms.days_remaining <= 30 %}
+                    <span class="badge bg-warning text-dark rounded-pill">{{ ms.days_remaining }}d</span>
+                  {% else %}
+                    <span class="badge bg-success rounded-pill">{{ ms.days_remaining }}d</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="4" class="text-center text-muted py-4">
+                  <i class="bi bi-calendar-check fs-3 d-block mb-1 opacity-25"></i>
+                  No upcoming milestones
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent DSRs -->
+  <div class="col-12 col-xl-6">
+    <div class="content-card h-100">
+      <div class="cc-header">
+        <h5><i class="bi bi-clipboard2-check me-2"></i>Recent Daily Site Reports</h5>
+        <a href="/dsr/" class="btn btn-outline-secondary btn-sm">View All</a>
+      </div>
+      <div class="cc-body p-0">
+        <div class="table-responsive">
+          <table class="table table-cpms mb-0">
+            <thead>
+              <tr>
+                <th>Project</th>
+                <th>Date</th>
+                <th class="text-center">Status</th>
+                <th>Prepared By</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for dsr in recent_dsrs %}
+              <tr>
+                <td>
+                  <div class="fw-semibold" style="font-size:0.82rem;">{{ dsr.project.name|truncatechars:28 }}</div>
+                </td>
+                <td style="font-size:0.85rem;">{{ dsr.report_date|date:"d M Y" }}</td>
+                <td class="text-center">
+                  {% if dsr.status == "APPROVED" %}
+                    <span class="badge bg-success">Approved</span>
+                  {% elif dsr.status == "SUBMITTED" %}
+                    <span class="badge bg-info text-dark">Submitted</span>
+                  {% elif dsr.status == "RETURNED" %}
+                    <span class="badge bg-warning text-dark">Returned</span>
+                  {% else %}
+                    <span class="badge bg-secondary">Draft</span>
+                  {% endif %}
+                </td>
+                <td style="font-size:0.85rem;">{{ dsr.prepared_by.get_full_name|default:"—" }}</td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="4" class="text-center text-muted py-4">
+                  <i class="bi bi-clipboard2 fs-3 d-block mb-1 opacity-25"></i>
+                  No recent reports
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Live project search
+  document.getElementById('projectSearch').addEventListener('input', function() {
+    var q = this.value.toLowerCase();
+    document.querySelectorAll('#projectsTable tbody tr').forEach(function(row) {
+      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+</script>
+{% endblock %}

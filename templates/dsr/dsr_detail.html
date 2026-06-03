@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}DSR — {{ dsr.dsr_number }}{% endblock %}
+{% block active_nav %}dsr{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+
+<!-- Header -->
+<div class="card border-0 shadow-sm mb-4" style="border-left:4px solid var(--kc-accent) !important">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+      <div>
+        <h1 class="h4 fw-bold mb-1" style="color:var(--kc-primary)">{{ dsr.dsr_number }}</h1>
+        <div class="text-muted">{{ dsr.project.name }} · {{ dsr.date|date:"l, d F Y" }} · Day {{ dsr.day_number }}</div>
+        <div class="mt-2">
+          <span class="badge {% if dsr.status == 'APPROVED' %}bg-success{% elif dsr.status == 'SUBMITTED' %}bg-primary{% elif dsr.status == 'RETURNED' %}bg-danger{% else %}bg-secondary{% endif %} fs-6">
+            {{ dsr.get_status_display }}
+          </span>
+        </div>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        {% if dsr.status == 'DRAFT' and request.user == dsr.prepared_by %}
+        <a href="{% url 'dsr:dsr_edit' dsr.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+        <form method="post" action="{% url 'dsr:dsr_submit' dsr.pk %}" class="d-inline">
+          {% csrf_token %}<button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-send me-1"></i>Submit for Approval</button>
+        </form>
+        {% endif %}
+        {% if dsr.status == 'SUBMITTED' and request.user.is_pm or request.user.is_admin %}
+        <form method="post" action="{% url 'dsr:dsr_approve' dsr.pk %}" class="d-inline">
+          {% csrf_token %}<button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-lg me-1"></i>Approve</button>
+        </form>
+        <a href="{% url 'dsr:dsr_return' dsr.pk %}" class="btn btn-warning btn-sm"><i class="bi bi-arrow-return-left me-1"></i>Return</a>
+        {% endif %}
+        {% if dsr.pdf_file %}
+        <a href="{{ dsr.pdf_file.url }}" target="_blank" class="btn btn-outline-info btn-sm"><i class="bi bi-file-pdf me-1"></i>PDF</a>
+        {% endif %}
+      </div>
+    </div>
+    {% if dsr.status == 'RETURNED' and dsr.return_reason %}
+    <div class="alert alert-warning mt-3 mb-0"><strong>Return Reason:</strong> {{ dsr.return_reason }}</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <!-- Weather & Header Info -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)"><i class="bi bi-cloud-sun me-2"></i>Site Conditions</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-6"><span class="text-muted small d-block">Weather AM</span><strong>{{ dsr.get_weather_am_display }}</strong></div>
+          <div class="col-6"><span class="text-muted small d-block">Weather PM</span><strong>{{ dsr.get_weather_pm_display }}</strong></div>
+          <div class="col-12"><span class="text-muted small d-block">Prepared By</span><strong>{{ dsr.prepared_by.get_full_name }}</strong></div>
+          {% if dsr.notes %}<div class="col-12"><span class="text-muted small d-block">Notes</span>{{ dsr.notes }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Activities -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)"><i class="bi bi-list-task me-2"></i>Work Activities</div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0 small">
+          <thead class="table-light">
+            <tr><th>Activity</th><th>Location</th><th>Status</th><th>Qty</th><th>% Complete</th></tr>
+          </thead>
+          <tbody>
+            {% for a in dsr.dsractivity_set.all %}
+            <tr>
+              <td>{{ a.description }}</td>
+              <td>{{ a.location_on_site|default:"—" }}</td>
+              <td><span class="badge {% if a.status == 'COMPLETED' %}bg-success{% elif a.status == 'IN_PROGRESS' %}bg-primary{% else %}bg-secondary{% endif %}">{{ a.get_status_display }}</span></td>
+              <td>{% if a.quantity_achieved %}{{ a.quantity_achieved }} {{ a.unit }}{% else %}—{% endif %}</td>
+              <td>{{ a.percent_complete }}%</td>
+            </tr>
+            {% empty %}<tr><td colspan="5" class="text-muted text-center py-3">No activities recorded.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Equipment -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)"><i class="bi bi-truck me-2"></i>Equipment on Site</div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0 small">
+          <thead class="table-light"><tr><th>Equipment</th><th>Hours Worked</th><th>Hours Idle</th><th>Hours Breakdown</th></tr></thead>
+          <tbody>
+            {% for eq in dsr.dsrequipment_set.all %}
+            <tr>
+              <td>{{ eq.equipment.description }}</td>
+              <td class="text-success fw-semibold">{{ eq.hours_worked }}</td>
+              <td class="text-warning">{{ eq.hours_idle }}</td>
+              <td class="text-danger">{{ eq.hours_breakdown }}</td>
+            </tr>
+            {% empty %}<tr><td colspan="4" class="text-muted text-center py-3">No equipment logged.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Issues -->
+    {% if dsr.dsrissue_set.exists %}
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)"><i class="bi bi-exclamation-circle me-2"></i>Issues & Instructions</div>
+      <div class="card-body p-0">
+        <table class="table mb-0 small">
+          <thead class="table-light"><tr><th>Type</th><th>Description</th><th>Date</th><th>Resolved</th></tr></thead>
+          <tbody>
+            {% for issue in dsr.dsrissue_set.all %}
+            <tr>
+              <td><span class="badge bg-secondary">{{ issue.get_issue_type_display }}</span></td>
+              <td>{{ issue.description }}</td>
+              <td>{{ issue.date|date:"d M Y" }}</td>
+              <td>{% if issue.resolved %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-x-circle text-danger"></i>{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-4">
+    <!-- Labour -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)"><i class="bi bi-people me-2"></i>Labour on Site</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0 small">
+          <thead class="table-light"><tr><th>Classification</th><th>Nationality</th><th class="text-end">Count</th></tr></thead>
+          <tbody>
+            {% for l in dsr.dsrlabour_set.all %}
+            <tr><td>{{ l.classification }}</td><td>{{ l.nationality }}</td><td class="text-end fw-bold">{{ l.count }}</td></tr>
+            {% empty %}<tr><td colspan="3" class="text-muted text-center py-3">No labour data.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Photo Gallery -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)"><i class="bi bi-images me-2"></i>Site Photos ({{ dsr.dsrphoto_set.count }})</div>
+      <div class="card-body">
+        <div class="row g-2">
+          {% for photo in dsr.dsrphoto_set.all %}
+          <div class="col-6">
+            <a href="{{ photo.photo.url }}" target="_blank">
+              <img src="{{ photo.photo.url }}" class="img-fluid rounded" alt="{{ photo.caption }}" style="object-fit:cover;height:80px;width:100%">
+            </a>
+            {% if photo.caption %}<div class="text-muted small mt-1">{{ photo.caption }}</div>{% endif %}
+            <span class="badge bg-secondary small">{{ photo.get_tag_display }}</span>
+          </div>
+          {% empty %}
+          <div class="col-12 text-muted text-center py-2">No photos uploaded.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

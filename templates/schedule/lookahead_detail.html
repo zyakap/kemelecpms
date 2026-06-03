@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}Look-Ahead — {{ look_ahead.week_starting|date:"d M Y" }} — {{ project.name }}{% endblock %}
+{% block active_nav %}schedule{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Look-Ahead Plan</h1>
+    <div class="text-muted small">{{ look_ahead.week_starting|date:"d M Y" }} – {{ look_ahead.week_ending|date:"d M Y" }} | {{ look_ahead.weeks_ahead }}-week look-ahead</div>
+  </div>
+</div>
+<div class="row g-4">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Add Task</div>
+      <div class="card-body">
+        <form method="post">{% csrf_token %}{{ task_form|crispy }}
+          <button type="submit" class="btn btn-primary btn-sm mt-2">Add</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Planned Tasks</div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0 small">
+          <thead class="table-light"><tr><th>Activity</th><th>Description</th><th>Planned %</th><th>Assigned To</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for task in look_ahead.tasks.all %}
+            <tr>
+              <td>{{ task.activity.name|default:"—" }}</td>
+              <td>{{ task.description|truncatechars:40 }}</td>
+              <td>{{ task.planned_percent|floatformat:0 }}%</td>
+              <td>{{ task.assigned_to.get_full_name|default:"—" }}</td>
+              <td><span class="badge bg-secondary">{{ task.get_status_display }}</span></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-muted text-center py-3">No tasks planned.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}{% if form.instance.pk %}Edit ITP{% else %}Create ITP{% endif %} — {{ project.name }}{% endblock %}
+{% block active_nav %}quality{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">
+        {% if form.instance.pk %}Edit ITP{% else %}Create Inspection &amp; Test Plan{% endif %} — {{ project.name }}
+      </div>
+      <div class="card-body">
+        <form method="post">{% csrf_token %}{{ form|crispy }}
+          <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a href="{% url 'quality:itp-list' project.pk %}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}Bulk Attendance — {{ project.name }}{% endblock %}
+{% block active_nav %}resources{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Bulk Attendance Entry — {{ project.name }}</h1>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="card-body">
+    <form method="post">{% csrf_token %}
+      <div class="row mb-3">
+        <div class="col-md-3">{{ form.date|as_crispy_field }}</div>
+      </div>
+      {% if workers %}
+      <div class="table-responsive">
+        <table class="table table-hover small">
+          <thead class="table-light">
+            <tr><th>Worker ID</th><th>Name</th><th>Classification</th><th>Present</th><th>Overtime (hrs)</th></tr>
+          </thead>
+          <tbody>
+            {% for worker in workers %}
+            <tr>
+              <td class="font-monospace">{{ worker.worker_id }}</td>
+              <td class="fw-semibold">{{ worker.get_full_name }}</td>
+              <td>{{ worker.get_classification_display }}</td>
+              <td><input type="checkbox" name="present_{{ worker.pk }}" class="form-check-input" checked></td>
+              <td><input type="number" name="overtime_{{ worker.pk }}" min="0" max="8" step="0.5" value="0" class="form-control form-control-sm" style="width:80px"></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="alert alert-info">No active workers for this project.</div>
+      {% endif %}
+      <div class="d-flex gap-2 mt-3">
+        <button type="submit" class="btn btn-primary">Save Attendance</button>
+        <a href="{% url 'resources:attendance' project.pk %}" class="btn btn-outline-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

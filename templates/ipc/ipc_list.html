@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Interim Payment Claims{% endblock %}
+{% block active_nav %}ipc{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Interim Payment Claims — {{ project.name }}</h1>
+  <a href="{% url 'ipc:ipc-create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Create IPC</a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm text-center p-3"><div class="text-muted small text-uppercase mb-1">Total Claimed</div><div class="fs-5 fw-bold" style="color:var(--kc-primary)">K {{ total_claimed|floatformat:2 }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm text-center p-3"><div class="text-muted small text-uppercase mb-1">Total Certified</div><div class="fs-5 fw-bold text-info">K {{ total_certified|floatformat:2 }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm text-center p-3"><div class="text-muted small text-uppercase mb-1">Total Paid</div><div class="fs-5 fw-bold text-success">K {{ total_paid|floatformat:2 }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm text-center p-3"><div class="text-muted small text-uppercase mb-1">Outstanding</div><div class="fs-5 fw-bold text-warning">K {{ outstanding|floatformat:2 }}</div></div></div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>IPC #</th><th>Claim Period</th><th>Status</th><th class="text-end">Claimed (K)</th><th class="text-end">Certified (K)</th><th class="text-end">Paid (K)</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for ipc in ipcs %}
+        <tr>
+          <td class="font-monospace fw-semibold"><a href="{% url 'ipc:ipc-detail' project.pk ipc.pk %}">{{ ipc.ipc_number }}</a></td>
+          <td>{{ ipc.claim_period_from|date:"d M" }} — {{ ipc.claim_period_to|date:"d M Y" }}</td>
+          <td><span class="badge
+            {% if ipc.status == 'PAID' %}bg-success
+            {% elif ipc.status == 'CERTIFIED' %}bg-info text-dark
+            {% elif ipc.status == 'SUBMITTED' %}bg-primary
+            {% elif ipc.status == 'DISPUTED' %}bg-danger
+            {% else %}bg-secondary{% endif %}">
+            {{ ipc.get_status_display }}
+          </span></td>
+          <td class="text-end">{% with total=ipc.line_items.all %}{% for item in total %}{% endfor %}—{% endwith %}</td>
+          <td class="text-end">{% if ipc.certification %}{{ ipc.certification.amount_certified|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td class="text-end">{% with paid=ipc.payments.all|length %}{% if paid %}✓{% else %}—{% endif %}{% endwith %}</td>
+          <td><a href="{% url 'ipc:ipc-detail' project.pk ipc.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-muted text-center py-4">No IPCs created yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

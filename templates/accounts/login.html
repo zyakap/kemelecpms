@@ -1,0 +1,364 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In — Kemele Construction CPMS</title>
+
+  <!-- Bootstrap 5.3 CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" />
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+
+  <style>
+    :root {
+      --kc-primary: #1a3c5e;
+      --kc-primary-dark: #0e2438;
+      --kc-accent: #f0a500;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: linear-gradient(135deg, var(--kc-primary) 0%, #0a1929 60%, #000 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    /* Decorative background elements */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -30%;
+      right: -20%;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(240,165,0,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -20%;
+      left: -15%;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(26,60,94,0.4) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .login-wrapper {
+      width: 100%;
+      max-width: 440px;
+      padding: 1.5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .login-card {
+      background: rgba(255,255,255,0.97);
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
+      overflow: hidden;
+    }
+
+    .login-card-header {
+      background: var(--kc-primary);
+      padding: 2rem 2rem 1.5rem;
+      text-align: center;
+    }
+
+    .logo-mark {
+      width: 64px;
+      height: 64px;
+      background: var(--kc-accent);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1rem;
+      font-size: 1.75rem;
+      font-weight: 900;
+      color: var(--kc-primary);
+      box-shadow: 0 4px 16px rgba(240,165,0,0.35);
+      letter-spacing: -1px;
+    }
+
+    .company-name {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+      margin: 0;
+      letter-spacing: 0.01em;
+    }
+
+    .company-sub {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.55);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-top: 0.2rem;
+    }
+
+    .login-card-body {
+      padding: 2rem;
+    }
+
+    .login-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--kc-primary);
+      margin-bottom: 0.25rem;
+    }
+
+    .login-subtitle {
+      font-size: 0.82rem;
+      color: #6b7280;
+      margin-bottom: 1.75rem;
+    }
+
+    .form-label {
+      font-weight: 600;
+      font-size: 0.825rem;
+      color: #374151;
+      margin-bottom: 0.4rem;
+    }
+
+    .form-control {
+      border: 1.5px solid #d1d5db;
+      border-radius: 8px;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.9rem;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .form-control:focus {
+      border-color: var(--kc-primary);
+      box-shadow: 0 0 0 3px rgba(26,60,94,0.12);
+    }
+
+    .input-icon-wrap {
+      position: relative;
+    }
+
+    .input-icon-wrap .form-control {
+      padding-left: 2.5rem;
+    }
+
+    .input-icon-wrap .input-icon {
+      position: absolute;
+      left: 0.8rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #9ca3af;
+      font-size: 1rem;
+    }
+
+    .btn-signin {
+      background: var(--kc-primary);
+      border: none;
+      border-radius: 8px;
+      padding: 0.7rem;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: #fff;
+      width: 100%;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .btn-signin:hover {
+      background: #254d78;
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    .btn-signin:active {
+      transform: translateY(0);
+    }
+
+    .password-toggle {
+      cursor: pointer;
+      position: absolute;
+      right: 0.8rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #9ca3af;
+      z-index: 5;
+      background: none;
+      border: none;
+      padding: 0;
+    }
+
+    .password-toggle:hover { color: var(--kc-primary); }
+
+    .login-footer {
+      text-align: center;
+      padding: 1rem 2rem 1.5rem;
+      font-size: 0.76rem;
+      color: #9ca3af;
+      border-top: 1px solid #f3f4f6;
+    }
+
+    .alert-login {
+      border-radius: 8px;
+      font-size: 0.85rem;
+      padding: 0.65rem 0.9rem;
+    }
+
+    /* Security notice */
+    .security-notice {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(26,60,94,0.06);
+      border: 1px solid rgba(26,60,94,0.1);
+      border-radius: 8px;
+      padding: 0.6rem 0.8rem;
+      font-size: 0.76rem;
+      color: #4b5563;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+<div class="login-wrapper">
+  <div class="login-card">
+
+    <!-- Header -->
+    <div class="login-card-header">
+      <div class="logo-mark">KC</div>
+      <h1 class="company-name">Kemele Construction</h1>
+      <p class="company-sub">Project Management System</p>
+    </div>
+
+    <!-- Body -->
+    <div class="login-card-body">
+      <h2 class="login-title">Welcome back</h2>
+      <p class="login-subtitle">Sign in to your account to continue</p>
+
+      <!-- Non-field errors / messages -->
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger alert-login" role="alert">
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>
+          {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+        </div>
+      {% endif %}
+
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags|default:'info' }} alert-login" role="alert">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      <!-- Login form -->
+      <form method="post" action="" novalidate>
+        {% csrf_token %}
+
+        <!-- Email / Username -->
+        <div class="mb-3">
+          <label for="id_username" class="form-label">
+            Email address
+          </label>
+          <div class="input-icon-wrap">
+            <i class="bi bi-envelope input-icon"></i>
+            <input type="text"
+                   name="username"
+                   id="id_username"
+                   class="form-control {% if form.username.errors %}is-invalid{% endif %}"
+                   placeholder="you@kemele.com.pg"
+                   value="{{ form.username.value|default:'' }}"
+                   autocomplete="username"
+                   autofocus
+                   required />
+          </div>
+          {% if form.username.errors %}
+            <div class="invalid-feedback d-block">
+              {% for error in form.username.errors %}{{ error }}{% endfor %}
+            </div>
+          {% endif %}
+        </div>
+
+        <!-- Password -->
+        <div class="mb-4">
+          <label for="id_password" class="form-label">
+            Password
+          </label>
+          <div class="input-icon-wrap position-relative">
+            <i class="bi bi-lock input-icon"></i>
+            <input type="password"
+                   name="password"
+                   id="id_password"
+                   class="form-control pe-5 {% if form.password.errors %}is-invalid{% endif %}"
+                   placeholder="Enter your password"
+                   autocomplete="current-password"
+                   required />
+            <button type="button" class="password-toggle" id="togglePassword"
+                    aria-label="Show/hide password">
+              <i class="bi bi-eye" id="toggleIcon"></i>
+            </button>
+          </div>
+          {% if form.password.errors %}
+            <div class="invalid-feedback d-block">
+              {% for error in form.password.errors %}{{ error }}{% endfor %}
+            </div>
+          {% endif %}
+        </div>
+
+        <!-- Hidden next -->
+        {% if next %}
+          <input type="hidden" name="next" value="{{ next }}" />
+        {% endif %}
+
+        <!-- Submit -->
+        <button type="submit" class="btn btn-signin">
+          <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
+        </button>
+
+        <!-- Security notice -->
+        <div class="security-notice">
+          <i class="bi bi-shield-lock-fill text-primary"></i>
+          <span>Authorised personnel only. All access is monitored and logged.</span>
+        </div>
+      </form>
+    </div>
+
+    <!-- Footer -->
+    <div class="login-footer">
+      Kemele Construction CPMS &nbsp;|&nbsp; Powered by Django
+      <br />
+      &copy; {% now "Y" %} Kemele Construction. All rights reserved.
+    </div>
+  </div>
+</div>
+
+<!-- Bootstrap 5.3 JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // Password visibility toggle
+  const togglePassword = document.getElementById('togglePassword');
+  const passwordField  = document.getElementById('id_password');
+  const toggleIcon     = document.getElementById('toggleIcon');
+
+  togglePassword.addEventListener('click', function() {
+    const isPassword = passwordField.type === 'password';
+    passwordField.type = isPassword ? 'text' : 'password';
+    toggleIcon.className = isPassword ? 'bi bi-eye-slash' : 'bi bi-eye';
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Suppliers{% endblock %}
+{% block active_nav %}procurement{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Supplier Register</h1>
+  <a href="{% url 'procurement:supplier_add' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Supplier</a>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>Name</th><th>Contact</th><th>IRC TIN</th><th>Preferred</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for s in suppliers %}
+        <tr {% if s.is_blacklisted %}class="table-danger"{% endif %}>
+          <td class="fw-semibold">{{ s.name }}</td>
+          <td>{{ s.contact_person|default:"—" }} {% if s.phone %}<small class="text-muted">{{ s.phone }}</small>{% endif %}</td>
+          <td class="font-monospace">{{ s.irc_tin|default:"—" }}</td>
+          <td>{% if s.is_preferred %}<span class="badge bg-warning text-dark"><i class="bi bi-star-fill me-1"></i>Preferred</span>{% else %}—{% endif %}</td>
+          <td>{% if s.is_blacklisted %}<span class="badge bg-danger">Blacklisted</span>{% else %}<span class="badge bg-success">Active</span>{% endif %}</td>
+          <td><a href="{% url 'procurement:supplier_edit' s.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-muted text-center py-4">No suppliers registered.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

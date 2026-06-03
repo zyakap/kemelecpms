@@ -1,0 +1,506 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ project.name }} — Kemele Construction CPMS{% endblock %}
+
+{% block active_projects %}active{% endblock %}
+
+{% block topbar_title %}{{ project.name|truncatechars:40 }}{% endblock %}
+
+{% block content %}
+
+{% include "partials/breadcrumb.html" %}
+
+<!-- ════ Project Header ════ -->
+<div class="content-card mb-3">
+  <div class="cc-body">
+    <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+      <div class="flex-grow-1">
+        <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+          <span class="badge bg-secondary" style="font-size:0.72rem; letter-spacing:0.05em;">
+            {{ project.project_code }}
+          </span>
+          {% if project.status == 'active' %}
+            <span class="badge badge-rag-green">Active</span>
+          {% elif project.status == 'awarded' %}
+            <span class="badge bg-info text-dark">Awarded</span>
+          {% elif project.status == 'tender' %}
+            <span class="badge bg-warning text-dark">Tender</span>
+          {% elif project.status == 'on_hold' %}
+            <span class="badge badge-rag-amber">On Hold</span>
+          {% elif project.status == 'completed' %}
+            <span class="badge bg-primary">Completed</span>
+          {% else %}
+            <span class="badge bg-secondary">{{ project.status|title }}</span>
+          {% endif %}
+          <span class="badge bg-light text-dark border">{{ project.project_type|title|default:"—" }}</span>
+        </div>
+        <h1 class="mb-1" style="font-size:1.6rem; font-weight:800; color:var(--kc-primary);">
+          {{ project.name }}
+        </h1>
+        <p class="text-muted mb-0" style="font-size:0.85rem;">
+          <i class="bi bi-geo-alt me-1"></i>{{ project.location|default:"Location not specified" }}
+          &nbsp;&middot;&nbsp;
+          <i class="bi bi-calendar3 me-1"></i>
+          {{ project.start_date|date:"d M Y"|default:"—" }} &ndash; {{ project.end_date|date:"d M Y"|default:"—" }}
+        </p>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <a href="/dashboard/project/{{ project.pk }}/" class="btn btn-sm btn-kc">
+          <i class="bi bi-speedometer2 me-1"></i>Dashboard
+        </a>
+        <a href="/budget/?project={{ project.pk }}" class="btn btn-sm btn-outline-primary">
+          <i class="bi bi-cash-stack me-1"></i>Budget
+        </a>
+        {% if user.is_staff or user.profile.role in 'admin,pm' %}
+        <a href="/projects/{{ project.pk }}/edit/" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-pencil me-1"></i>Edit
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ Quick Stats Cards ════ -->
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="kpi-card p-3">
+      <div class="kpi-icon mb-2" style="background:#e8f4fd; color:#0d6efd;">
+        <i class="bi bi-currency-dollar"></i>
+      </div>
+      <div style="font-size:1.3rem; font-weight:700; color:var(--kc-primary);">
+        PGK {{ project.contract.contract_value|floatformat:0|default:"—" }}
+      </div>
+      <div class="text-muted" style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">
+        Contract Value
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="kpi-card p-3">
+      <div class="kpi-icon mb-2" style="background:#fff3e0; color:#f0a500;">
+        <i class="bi bi-plus-slash-minus"></i>
+      </div>
+      <div style="font-size:1.3rem; font-weight:700; color:var(--kc-primary);">
+        PGK {{ variations_total|floatformat:0|default:"0" }}
+      </div>
+      <div class="text-muted" style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">
+        Variations Total
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="kpi-card p-3">
+      <div class="kpi-icon mb-2" style="background:#e8f8f0; color:#198754;">
+        <i class="bi bi-flag-fill"></i>
+      </div>
+      <div style="font-size:1.3rem; font-weight:700; color:var(--kc-primary);">
+        {{ milestones_achieved }}/{{ milestones_total }}
+      </div>
+      <div class="text-muted" style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">
+        Milestones Achieved
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="kpi-card p-3">
+      <div class="kpi-icon mb-2" style="background:#fde8e8; color:#dc3545;">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+      </div>
+      <div style="font-size:1.3rem; font-weight:700; color:var(--kc-primary);">
+        {{ open_issues|default:"0" }}
+      </div>
+      <div class="text-muted" style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">
+        Open Issues
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ Tabbed Sections ════ -->
+<div class="content-card">
+  <div class="cc-header border-bottom-0 pb-0">
+    <ul class="nav nav-tabs" id="projectTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active fw-semibold" data-bs-toggle="tab" data-bs-target="#tab-overview"
+                type="button" role="tab">
+          <i class="bi bi-info-circle me-1"></i>Overview
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link fw-semibold" data-bs-toggle="tab" data-bs-target="#tab-contract"
+                type="button" role="tab">
+          <i class="bi bi-file-earmark-text me-1"></i>Contract
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link fw-semibold" data-bs-toggle="tab" data-bs-target="#tab-milestones"
+                type="button" role="tab">
+          <i class="bi bi-flag me-1"></i>Milestones
+          <span class="badge bg-secondary ms-1" style="font-size:0.65rem;">{{ milestones_total }}</span>
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link fw-semibold" data-bs-toggle="tab" data-bs-target="#tab-variations"
+                type="button" role="tab">
+          <i class="bi bi-plus-slash-minus me-1"></i>Variations
+          <span class="badge bg-secondary ms-1" style="font-size:0.65rem;">{{ project.variations.count }}</span>
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link fw-semibold" data-bs-toggle="tab" data-bs-target="#tab-delays"
+                type="button" role="tab">
+          <i class="bi bi-hourglass-split me-1"></i>Delays
+        </button>
+      </li>
+    </ul>
+  </div>
+
+  <div class="tab-content" id="projectTabsContent">
+
+    <!-- ── Overview ── -->
+    <div class="tab-pane fade show active p-4" id="tab-overview" role="tabpanel">
+      <div class="row g-4">
+        <div class="col-md-6">
+          <h6 class="fw-bold text-kc-primary mb-3">Project Details</h6>
+          <table class="table table-sm table-borderless" style="font-size:0.875rem;">
+            <tbody>
+              <tr>
+                <td class="text-muted fw-medium" style="width:140px;">Location</td>
+                <td>{{ project.location|default:"—" }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted fw-medium">Province</td>
+                <td>{{ project.province|default:"—" }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted fw-medium">GPS Lat</td>
+                <td>{{ project.latitude|default:"—" }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted fw-medium">GPS Lon</td>
+                <td>{{ project.longitude|default:"—" }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted fw-medium">Start Date</td>
+                <td>{{ project.start_date|date:"d M Y"|default:"—" }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted fw-medium">Planned End</td>
+                <td>{{ project.end_date|date:"d M Y"|default:"—" }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted fw-medium">Client</td>
+                <td>{{ project.client|default:"—" }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="col-md-6">
+          <h6 class="fw-bold text-kc-primary mb-3">Project Team</h6>
+          <table class="table table-sm table-borderless" style="font-size:0.875rem;">
+            <tbody>
+              <tr>
+                <td class="text-muted fw-medium" style="width:160px;">Project Manager</td>
+                <td>{{ project.project_manager.get_full_name|default:"—" }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted fw-medium">Site Engineer</td>
+                <td>{{ project.site_engineer.get_full_name|default:"—" }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted fw-medium">Safety Officer</td>
+                <td>{{ project.safety_officer.get_full_name|default:"—" }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted fw-medium">QA Officer</td>
+                <td>{{ project.qa_officer.get_full_name|default:"—" }}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          {% if project.description %}
+          <h6 class="fw-bold text-kc-primary mb-2 mt-3">Description</h6>
+          <p class="text-muted small">{{ project.description }}</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Contract ── -->
+    <div class="tab-pane fade p-4" id="tab-contract" role="tabpanel">
+      {% if project.contract %}
+      <div class="row g-4">
+        <div class="col-md-6">
+          <h6 class="fw-bold text-kc-primary mb-3">Contract Terms</h6>
+          <table class="table table-sm table-borderless" style="font-size:0.875rem;">
+            <tbody>
+              <tr>
+                <td class="text-muted fw-medium" style="width:180px;">Contract Type</td>
+                <td>{{ project.contract.contract_type|title|default:"—" }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted fw-medium">Contract Number</td>
+                <td>{{ project.contract.contract_number|default:"—" }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted fw-medium">Contract Value</td>
+                <td class="fw-bold">PGK {{ project.contract.contract_value|floatformat:2|default:"—" }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted fw-medium">Revised Value</td>
+                <td class="fw-bold" style="color:var(--kc-accent);">
+                  PGK {{ project.contract.revised_contract_value|floatformat:2|default:"—" }}
+                </td>
+              </tr>
+              <tr>
+                <td class="text-muted fw-medium">Contract Start</td>
+                <td>{{ project.contract.commencement_date|date:"d M Y"|default:"—" }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted fw-medium">Contract End</td>
+                <td>{{ project.contract.completion_date|date:"d M Y"|default:"—" }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted fw-medium">Duration</td>
+                <td>{{ project.contract.duration_weeks|default:"—" }} weeks</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="col-md-6">
+          <h6 class="fw-bold text-kc-primary mb-3">Financial Terms</h6>
+          <table class="table table-sm table-borderless" style="font-size:0.875rem;">
+            <tbody>
+              <tr>
+                <td class="text-muted fw-medium" style="width:180px;">Retention Rate</td>
+                <td>{{ project.contract.retention_rate|default:"—" }}%</td>
+              </tr>
+              <tr>
+                <td class="text-muted fw-medium">Retention Cap</td>
+                <td>PGK {{ project.contract.retention_cap|floatformat:2|default:"—" }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted fw-medium">LD Rate</td>
+                <td>PGK {{ project.contract.ld_rate_per_day|floatformat:2|default:"—" }}/day</td>
+              </tr>
+              <tr>
+                <td class="text-muted fw-medium">Advance Payment</td>
+                <td>PGK {{ project.contract.advance_payment|floatformat:2|default:"—" }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted fw-medium">Performance Bond</td>
+                <td>{{ project.contract.performance_bond_pct|default:"—" }}%</td>
+              </tr>
+              <tr>
+                <td class="text-muted fw-medium">Defects Liability</td>
+                <td>{{ project.contract.defects_liability_months|default:"—" }} months</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% else %}
+      <div class="text-center text-muted py-5">
+        <i class="bi bi-file-earmark-text display-5 d-block mb-3 opacity-25"></i>
+        <p class="mb-2">No contract information recorded yet.</p>
+        {% if user.is_staff %}
+        <a href="/projects/{{ project.pk }}/contract/edit/" class="btn btn-sm btn-kc">
+          <i class="bi bi-plus me-1"></i>Add Contract Details
+        </a>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ── Milestones ── -->
+    <div class="tab-pane fade" id="tab-milestones" role="tabpanel">
+      <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
+        <h6 class="fw-bold mb-0 text-kc-primary">
+          <i class="bi bi-flag me-1"></i> Programme Milestones
+        </h6>
+        {% if user.is_staff or user.profile.role in 'admin,pm' %}
+        <a href="/projects/{{ project.pk }}/milestones/add/" class="btn btn-sm btn-kc">
+          <i class="bi bi-plus me-1"></i>Add Milestone
+        </a>
+        {% endif %}
+      </div>
+      <div class="table-responsive">
+        <table class="table table-custom mb-0">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Milestone</th>
+              <th>Planned Date</th>
+              <th>Actual Date</th>
+              <th>RAG</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ms in project.milestones.all %}
+            <tr>
+              <td class="text-muted small">{{ forloop.counter }}</td>
+              <td class="fw-medium">{{ ms.name }}</td>
+              <td class="small text-muted">{{ ms.planned_date|date:"d M Y" }}</td>
+              <td class="small">{{ ms.actual_date|date:"d M Y"|default:"—" }}</td>
+              <td>
+                <span class="badge
+                  {% if ms.rag == 'G' %}badge-rag-green
+                  {% elif ms.rag == 'A' %}badge-rag-amber
+                  {% elif ms.rag == 'R' %}badge-rag-red
+                  {% else %}bg-secondary{% endif %}">
+                  {% if ms.rag == 'G' %}On Track
+                  {% elif ms.rag == 'A' %}At Risk
+                  {% elif ms.rag == 'R' %}Delayed
+                  {% else %}TBC{% endif %}
+                </span>
+              </td>
+              <td>
+                {% if ms.achieved %}
+                  <span class="badge badge-rag-green"><i class="bi bi-check-circle me-1"></i>Achieved</span>
+                {% else %}
+                  <span class="badge bg-light text-dark border">Pending</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="6" class="text-center text-muted py-4">
+                <i class="bi bi-flag d-block fs-3 mb-1 opacity-25"></i>No milestones defined.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Variations ── -->
+    <div class="tab-pane fade" id="tab-variations" role="tabpanel">
+      <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
+        <div>
+          <h6 class="fw-bold mb-0 text-kc-primary">
+            <i class="bi bi-plus-slash-minus me-1"></i> Contract Variations
+          </h6>
+          {% if project.contract %}
+          <small class="text-muted">
+            Original: PGK {{ project.contract.contract_value|floatformat:0 }} &nbsp;|&nbsp;
+            Revised: <strong>PGK {{ project.contract.revised_contract_value|floatformat:0|default:"—" }}</strong>
+          </small>
+          {% endif %}
+        </div>
+        {% if user.is_staff or user.profile.role in 'admin,pm' %}
+        <a href="/projects/{{ project.pk }}/variations/add/" class="btn btn-sm btn-kc">
+          <i class="bi bi-plus me-1"></i>Add Variation
+        </a>
+        {% endif %}
+      </div>
+      <div class="table-responsive">
+        <table class="table table-custom mb-0">
+          <thead>
+            <tr>
+              <th>Ref#</th>
+              <th>Description</th>
+              <th>Submitted</th>
+              <th>Amount (PGK)</th>
+              <th>Status</th>
+              <th>Running Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% with running=project.contract.contract_value %}
+            {% for var in project.variations.all %}
+            <tr>
+              <td class="text-muted small">VO-{{ var.variation_number|stringformat:"03d" }}</td>
+              <td class="fw-medium small">{{ var.description|truncatechars:60 }}</td>
+              <td class="small text-muted">{{ var.submitted_date|date:"d M Y"|default:"—" }}</td>
+              <td class="fw-medium {% if var.amount >= 0 %}text-success{% else %}text-danger{% endif %}">
+                {% if var.amount >= 0 %}+{% endif %}{{ var.amount|floatformat:2 }}
+              </td>
+              <td>
+                {% if var.status == 'approved' %}
+                  <span class="badge badge-rag-green">Approved</span>
+                {% elif var.status == 'submitted' %}
+                  <span class="badge bg-warning text-dark">Submitted</span>
+                {% elif var.status == 'under_review' %}
+                  <span class="badge bg-info text-dark">Under Review</span>
+                {% elif var.status == 'rejected' %}
+                  <span class="badge badge-rag-red">Rejected</span>
+                {% else %}
+                  <span class="badge bg-secondary">{{ var.status|title }}</span>
+                {% endif %}
+              </td>
+              <td class="fw-bold small" style="color:var(--kc-primary);">
+                PGK {{ var.running_total|floatformat:0|default:"—" }}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="6" class="text-center text-muted py-4">
+                <i class="bi bi-plus-slash-minus d-block fs-3 mb-1 opacity-25"></i>No variations recorded.
+              </td>
+            </tr>
+            {% endfor %}
+            {% endwith %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Delays ── -->
+    <div class="tab-pane fade p-4" id="tab-delays" role="tabpanel">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h6 class="fw-bold mb-0 text-kc-primary">
+          <i class="bi bi-hourglass-split me-1"></i> Delay Events
+        </h6>
+        {% if user.is_staff or user.profile.role in 'admin,pm' %}
+        <a href="/projects/{{ project.pk }}/delays/add/" class="btn btn-sm btn-kc">
+          <i class="bi bi-plus me-1"></i>Record Delay
+        </a>
+        {% endif %}
+      </div>
+
+      {% if project.delays.exists %}
+      <div class="row g-3">
+        {% for delay in project.delays.all %}
+        <div class="col-12">
+          <div class="border rounded-3 p-3
+               {% if delay.delay_type == 'employer' %}border-danger bg-danger bg-opacity-10
+               {% elif delay.delay_type == 'neutral' %}border-warning bg-warning bg-opacity-10
+               {% else %}border-secondary{% endif %}">
+            <div class="d-flex align-items-start justify-content-between">
+              <div>
+                <div class="fw-semibold small text-dark">{{ delay.description|truncatechars:80 }}</div>
+                <div class="text-muted mt-1" style="font-size:0.75rem;">
+                  <i class="bi bi-calendar3 me-1"></i>{{ delay.start_date|date:"d M Y" }}
+                  &ndash; {{ delay.end_date|date:"d M Y"|default:"Ongoing" }}
+                  &nbsp;&middot;&nbsp;
+                  <strong>{{ delay.days_claimed }} days</strong> claimed
+                  {% if delay.days_granted %}&nbsp;&middot;&nbsp; <strong>{{ delay.days_granted }} days</strong> granted{% endif %}
+                </div>
+              </div>
+              <span class="badge ms-2
+                {% if delay.delay_type == 'employer' %}bg-danger
+                {% elif delay.delay_type == 'neutral' %}bg-warning text-dark
+                {% else %}bg-secondary{% endif %}">
+                {{ delay.delay_type|title|default:"Other" }}
+              </span>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="text-center text-muted py-5">
+        <i class="bi bi-hourglass display-5 d-block mb-3 opacity-25"></i>
+        No delay events recorded.
+      </div>
+      {% endif %}
+    </div>
+
+  </div><!-- /tab-content -->
+</div>
+
+{% endblock %}

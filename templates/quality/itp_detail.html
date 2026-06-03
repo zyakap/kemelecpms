@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}{{ itp.title }} — {{ project.name }}{% endblock %}
+{% block active_nav %}quality{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">{{ itp.title }}</h1>
+    <div class="text-muted small">{{ project.name }} | <span class="badge bg-secondary">{{ itp.get_status_display }}</span></div>
+  </div>
+</div>
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">ITP Items</div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>#</th><th>Activity</th><th>Hold/Witness/Review</th><th>Acceptance Criteria</th><th>Inspection Frequency</th><th>Inspections</th></tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td>{{ item.sequence }}</td>
+          <td class="fw-semibold">{{ item.activity }}</td>
+          <td>
+            {% if item.hold_point %}<span class="badge bg-danger">H</span>{% endif %}
+            {% if item.witness_point %}<span class="badge bg-warning text-dark">W</span>{% endif %}
+            {% if item.review_point %}<span class="badge bg-secondary">R</span>{% endif %}
+          </td>
+          <td>{{ item.acceptance_criteria|truncatechars:40 }}</td>
+          <td>{{ item.inspection_frequency }}</td>
+          <td>
+            {{ item.inspection_records.count }}
+            <a href="{% url 'quality:inspection-create' item.pk %}" class="btn btn-sm btn-outline-primary ms-2"><i class="bi bi-plus-lg"></i></a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-muted text-center py-3">No ITP items defined.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

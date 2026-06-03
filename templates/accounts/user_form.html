@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ form_title|default:"User" }} — Kemele Construction CPMS{% endblock %}
+
+{% block topbar_title %}{{ form_title|default:"User Form" }}{% endblock %}
+
+{% block content %}
+
+{% include "partials/breadcrumb.html" %}
+
+<div class="page-header">
+  <h1>
+    <i class="bi bi-{% if object %}pencil-square{% else %}person-plus{% endif %} me-2"
+       style="color:var(--kc-accent);"></i>
+    {{ form_title|default:"Add User" }}
+  </h1>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-xl-9">
+    <div class="content-card">
+      <div class="cc-header">
+        <h5 class="mb-0">
+          <i class="bi bi-person-gear me-2"></i>
+          {% if object %}Edit User — {{ object.get_full_name|default:object.username }}{% else %}New User Account{% endif %}
+        </h5>
+        {% if object %}
+        <a href="/accounts/users/{{ object.pk }}/" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-arrow-left me-1"></i>Back to Profile
+        </a>
+        {% endif %}
+      </div>
+      <div class="cc-body">
+        <form method="post" enctype="multipart/form-data" novalidate>
+          {% csrf_token %}
+
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-exclamation-circle-fill flex-shrink-0"></i>
+            <div>{% for error in form.non_field_errors %}{{ error }}{% endfor %}</div>
+          </div>
+          {% endif %}
+
+          <div class="row g-3">
+            <!-- Personal Information -->
+            <div class="col-12">
+              <h6 class="fw-bold text-kc-primary border-bottom pb-2 mb-3">
+                <i class="bi bi-person me-1"></i> Personal Information
+              </h6>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small required">First Name</label>
+              <input type="text"
+                     name="first_name"
+                     class="form-control {% if form.first_name.errors %}is-invalid{% endif %}"
+                     value="{{ form.first_name.value|default:'' }}"
+                     placeholder="e.g. John"
+                     required>
+              {% if form.first_name.errors %}
+                <div class="invalid-feedback">{{ form.first_name.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small required">Last Name</label>
+              <input type="text"
+                     name="last_name"
+                     class="form-control {% if form.last_name.errors %}is-invalid{% endif %}"
+                     value="{{ form.last_name.value|default:'' }}"
+                     placeholder="e.g. Smith"
+                     required>
+              {% if form.last_name.errors %}
+                <div class="invalid-feedback">{{ form.last_name.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small required">Email Address</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-envelope text-muted"></i></span>
+                <input type="email"
+                       name="email"
+                       class="form-control {% if form.email.errors %}is-invalid{% endif %}"
+                       value="{{ form.email.value|default:'' }}"
+                       placeholder="user@kemele.com.pg"
+                       required>
+                {% if form.email.errors %}
+                  <div class="invalid-feedback">{{ form.email.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small required">Username</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-at text-muted"></i></span>
+                <input type="text"
+                       name="username"
+                       class="form-control {% if form.username.errors %}is-invalid{% endif %}"
+                       value="{{ form.username.value|default:'' }}"
+                       placeholder="username"
+                       required>
+                {% if form.username.errors %}
+                  <div class="invalid-feedback">{{ form.username.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Account Settings -->
+            <div class="col-12 mt-2">
+              <h6 class="fw-bold text-kc-primary border-bottom pb-2 mb-3">
+                <i class="bi bi-shield-lock me-1"></i> Account Settings
+              </h6>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small">Role</label>
+              <select name="role" class="form-select {% if form.role.errors %}is-invalid{% endif %}">
+                <option value="">Select role…</option>
+                <option value="admin"    {% if form.role.value == 'admin' %}selected{% endif %}>Administrator</option>
+                <option value="pm"       {% if form.role.value == 'pm' %}selected{% endif %}>Project Manager</option>
+                <option value="engineer" {% if form.role.value == 'engineer' %}selected{% endif %}>Site Engineer</option>
+                <option value="finance"  {% if form.role.value == 'finance' %}selected{% endif %}>Finance Officer</option>
+                <option value="safety"   {% if form.role.value == 'safety' %}selected{% endif %}>Safety Officer</option>
+                <option value="quality"  {% if form.role.value == 'quality' %}selected{% endif %}>Quality Officer</option>
+                <option value="viewer"   {% if form.role.value == 'viewer' %}selected{% endif %}>Viewer (Read Only)</option>
+              </select>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small">Phone Number</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-telephone text-muted"></i></span>
+                <input type="tel"
+                       name="phone"
+                       class="form-control"
+                       value="{{ form.phone.value|default:'' }}"
+                       placeholder="+675 XXXX XXXX">
+              </div>
+            </div>
+
+            {% if not object %}
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small required">Password</label>
+              <input type="password"
+                     name="password1"
+                     class="form-control {% if form.password1.errors %}is-invalid{% endif %}"
+                     placeholder="Min. 8 characters"
+                     required>
+              {% if form.password1.errors %}
+                <div class="invalid-feedback">{{ form.password1.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small required">Confirm Password</label>
+              <input type="password"
+                     name="password2"
+                     class="form-control {% if form.password2.errors %}is-invalid{% endif %}"
+                     placeholder="Repeat password"
+                     required>
+              {% if form.password2.errors %}
+                <div class="invalid-feedback">{{ form.password2.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+            {% endif %}
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small">Status</label>
+              <div class="form-check form-switch mt-2">
+                <input class="form-check-input" type="checkbox" name="is_active"
+                       id="is_active" {% if form.is_active.value %}checked{% endif %}>
+                <label class="form-check-label fw-medium" for="is_active">Account Active</label>
+              </div>
+            </div>
+
+            {% if user.is_superuser %}
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small">Staff Permissions</label>
+              <div class="form-check form-switch mt-2">
+                <input class="form-check-input" type="checkbox" name="is_staff"
+                       id="is_staff" {% if form.is_staff.value %}checked{% endif %}>
+                <label class="form-check-label fw-medium" for="is_staff">Staff / Admin Access</label>
+              </div>
+            </div>
+            {% endif %}
+
+          </div><!-- /row -->
+
+          <!-- Form Actions -->
+          <div class="d-flex gap-2 justify-content-end mt-4 pt-3 border-top">
+            <a href="/accounts/users/" class="btn btn-outline-secondary">
+              <i class="bi bi-x-lg me-1"></i>Cancel
+            </a>
+            <button type="submit" class="btn btn-kc">
+              <i class="bi bi-check-lg me-1"></i>
+              {% if object %}Save Changes{% else %}Create User{% endif %}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  .form-label.required::after {
+    content: ' *';
+    color: #dc3545;
+  }
+</style>
+{% endblock %}

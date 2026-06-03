@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Hazard Register{% endblock %}
+{% block active_nav %}safety{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Hazard Register</h1>
+  <a href="{% url 'safety:hazard_add' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Hazard</a>
+</div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-auto">
+    <select name="project" class="form-select form-select-sm">
+      <option value="">All Projects</option>
+      {% for proj in projects %}<option value="{{ proj.pk }}" {% if proj.pk|stringformat:"s" == request.GET.project %}selected{% endif %}>{{ proj.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto">
+    <select name="category" class="form-select form-select-sm">
+      <option value="">All Categories</option>
+      {% for val, label in category_choices %}<option value="{{ val }}" {% if val == selected_category %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto"><button type="submit" class="btn btn-outline-secondary btn-sm">Filter</button></div>
+</form>
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>Project</th><th>Hazard</th><th>Category</th><th>Likelihood</th><th>Consequence</th><th>Risk Level</th><th>Risk Category</th><th>Controls</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for hazard in hazards %}
+        <tr>
+          <td>{{ hazard.project.name|truncatechars:15 }}</td>
+          <td class="fw-semibold">{{ hazard.hazard_description|truncatechars:30 }}</td>
+          <td>{{ hazard.get_category_display }}</td>
+          <td>{{ hazard.likelihood }}</td>
+          <td>{{ hazard.consequence }}</td>
+          <td class="fw-bold">{{ hazard.risk_level }}</td>
+          <td><span class="badge {% if hazard.risk_category == 'HIGH' %}bg-danger{% elif hazard.risk_category == 'MEDIUM' %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ hazard.risk_category }}</span></td>
+          <td>{{ hazard.control_measures|truncatechars:30 }}</td>
+          <td><a href="{% url 'safety:hazard_edit' hazard.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" class="text-muted text-center py-4">No hazards registered.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include "partials/pagination.html" %}
+{% endblock %}

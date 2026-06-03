@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Submittal Register{% endblock %}
+{% block active_nav %}documents{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Submittal Register — {{ project.name }}</h1>
+  <a href="{% url 'documents:submittal-create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Submittal</a>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>SUB #</th><th>Type</th><th>Title</th><th>Submitted By</th><th>Date</th><th>Rev</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        {% for s in submittals %}
+        <tr>
+          <td class="font-monospace fw-semibold">{{ s.submittal_number }}</td>
+          <td><span class="badge bg-secondary">{{ s.get_submittal_type_display }}</span></td>
+          <td>{{ s.title|truncatechars:40 }}</td>
+          <td>{{ s.submitted_by.get_full_name }}</td>
+          <td>{{ s.submitted_date|date:"d M Y" }}</td>
+          <td>{{ s.revision }}</td>
+          <td><span class="badge
+            {% if s.status == 'APPROVED' %}bg-success
+            {% elif s.status == 'REJECTED' %}bg-danger
+            {% elif s.status == 'REVISE_RESUBMIT' %}bg-warning text-dark
+            {% elif s.status == 'APPROVED_AS_NOTED' %}bg-info text-dark
+            {% else %}bg-secondary{% endif %}">
+            {{ s.get_status_display }}
+          </span></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-muted text-center py-4">No submittals.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include "partials/pagination.html" %}
+{% endblock %}

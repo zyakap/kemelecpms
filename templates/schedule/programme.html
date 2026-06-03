@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Programme — {{ project.name }}{% endblock %}
+{% block active_nav %}schedule{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Programme — {{ project.name }}</h1>
+  <div class="d-flex gap-2">
+    {% if programme %}
+    <a href="{% url 'schedule:programme-update' project.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit Programme</a>
+    <a href="{% url 'schedule:activity-create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Activity</a>
+    {% else %}
+    <a href="{% url 'schedule:programme-create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Create Programme</a>
+    {% endif %}
+  </div>
+</div>
+
+{% if not programme %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body text-center py-5 text-muted">
+    <i class="bi bi-calendar-x fs-1 d-block mb-3"></i>
+    <p>No programme created for this project yet.</p>
+    <a href="{% url 'schedule:programme-create' project.pk %}" class="btn btn-primary">Create Programme</a>
+  </div>
+</div>
+{% else %}
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="small text-muted">Contract Duration</div>
+      <div class="h5 fw-bold mt-1" style="color:var(--kc-primary)">{{ programme.contract_duration }} days</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="small text-muted">Planned Start</div>
+      <div class="h5 fw-bold mt-1">{{ programme.planned_start|date:"d M Y" }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="small text-muted">Planned Finish</div>
+      <div class="h5 fw-bold mt-1">{{ programme.planned_finish|date:"d M Y" }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="small text-muted">Revised Finish</div>
+      <div class="h5 fw-bold mt-1">{{ programme.revised_finish|date:"d M Y"|default:"—" }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Gantt Chart</div>
+  <div class="card-body">
+    <div id="gantt_chart" style="min-height:300px;" class="text-muted text-center pt-5">
+      <i class="bi bi-bar-chart-steps fs-1 d-block mb-2"></i>
+      <p class="small">Gantt data loaded via JSON — integrate dhtmlxGantt or frappe-gantt library for rendering.</p>
+      <a href="?format=json" target="_blank" class="btn btn-outline-secondary btn-sm"><i class="bi bi-braces me-1"></i>View Gantt JSON</a>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white fw-semibold d-flex justify-content-between" style="color:var(--kc-primary)">
+    Activities
+    <a href="{% url 'schedule:activity-list' project.pk %}" class="btn btn-sm btn-outline-secondary">Full List</a>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>Activity</th><th>Start</th><th>End</th><th>Planned %</th><th>Actual %</th><th>SPI</th><th>Critical</th></tr>
+      </thead>
+      <tbody>
+        {% for act in programme.activities.all|slice:":10" %}
+        <tr>
+          <td class="fw-semibold">{{ act.name|truncatechars:35 }}</td>
+          <td>{{ act.start_date|date:"d M Y" }}</td>
+          <td>{{ act.end_date|date:"d M Y" }}</td>
+          <td>{{ act.planned_percent|floatformat:0 }}%</td>
+          <td>{{ act.actual_percent|floatformat:0 }}%</td>
+          <td class="{% if act.spi < 1 %}text-danger{% else %}text-success{% endif %}">{{ act.spi|floatformat:2 }}</td>
+          <td>{% if act.is_critical %}<span class="badge bg-danger">Critical</span>{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-muted text-center py-3">No activities yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+<script>
+const ganttData = {{ gantt_data_json|default:"{}" }};
+</script>
+{% endblock %}

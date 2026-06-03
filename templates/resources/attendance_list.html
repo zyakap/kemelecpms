@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Attendance — {{ project.name }}{% endblock %}
+{% block active_nav %}resources{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Attendance — {{ project.name }}</h1>
+  <div class="d-flex gap-2">
+    <a href="{% url 'resources:attendance-bulk' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-people me-1"></i>Bulk Entry</a>
+    <a href="{% url 'resources:attendance-create' project.pk %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Single Entry</a>
+  </div>
+</div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-auto">
+    <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}" class="form-control form-control-sm">
+  </div>
+  <div class="col-auto"><button type="submit" class="btn btn-outline-secondary btn-sm">Go</button></div>
+</form>
+<div class="row g-3 mb-3">
+  <div class="col-md-2">
+    <div class="card border-0 shadow-sm text-center p-2">
+      <div class="small text-muted">Present</div>
+      <div class="h4 fw-bold text-success">{{ present_count }}</div>
+    </div>
+  </div>
+  <div class="col-md-2">
+    <div class="card border-0 shadow-sm text-center p-2">
+      <div class="small text-muted">Absent</div>
+      <div class="h4 fw-bold text-danger">{{ absent_count }}</div>
+    </div>
+  </div>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">{{ selected_date|date:"l, d F Y" }}</div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light"><tr><th>Worker ID</th><th>Name</th><th>Crew</th><th>Present</th><th>Normal Hours</th><th>Overtime Hours</th><th>Recorded By</th></tr></thead>
+      <tbody>
+        {% for rec in records %}
+        <tr>
+          <td class="font-monospace">{{ rec.worker.worker_id }}</td>
+          <td class="fw-semibold">{{ rec.worker.get_full_name }}</td>
+          <td>{{ rec.crew.name|default:"—" }}</td>
+          <td>{% if rec.is_present %}<span class="badge bg-success">Present</span>{% else %}<span class="badge bg-danger">Absent</span>{% endif %}</td>
+          <td>{{ rec.normal_hours|default:"8" }}</td>
+          <td>{{ rec.overtime_hours|default:"0" }}</td>
+          <td class="text-muted">{{ rec.recorded_by.get_full_name|default:rec.recorded_by.email }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-muted text-center py-4">No attendance records for this date.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

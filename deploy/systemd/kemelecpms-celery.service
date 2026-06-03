@@ -1,0 +1,23 @@
+[Unit]
+Description=Kemele CPMS Celery Worker
+After=network.target redis.service
+
+[Service]
+Type=forking
+User=www-data
+Group=www-data
+WorkingDirectory=/home/kemelecpms/kemelecpms
+EnvironmentFile=/home/kemelecpms/kemelecpms/.env
+ExecStart=/home/kemelecpms/.local/share/virtualenvs/kemelecpms/bin/celery \
+          -A config.celery worker \
+          --loglevel=info \
+          --logfile=/var/log/celery/kemelecpms_worker.log \
+          --pidfile=/run/celery/kemelecpms_worker.pid \
+          --detach
+ExecStop=/home/kemelecpms/.local/share/virtualenvs/kemelecpms/bin/celery \
+         -A config.celery control shutdown
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
