@@ -14,7 +14,7 @@
         <form method="post">{% csrf_token %}{{ form|crispy }}
           <div class="d-flex gap-2 mt-3">
             <button type="submit" class="btn btn-warning">Return DSR</button>
-            <a href="{% url 'dsr:detail' dsr.pk %}" class="btn btn-outline-secondary">Cancel</a>
+            <a href="{% url 'dsr:dsr_detail' dsr.pk %}" class="btn btn-outline-secondary">Cancel</a>
           </div>
         </form>
       </div>

@@ -76,4 +76,5 @@ urlpatterns = [
     # -----------------------------------------------------------------------
     path("funders/", views.FunderListView.as_view(), name="funder_list"),
     path("funders/create/", views.FunderCreateView.as_view(), name="funder_create"),
+    path("funders/<int:pk>/edit/", views.FunderUpdateView.as_view(), name="funder_update"),
 ]

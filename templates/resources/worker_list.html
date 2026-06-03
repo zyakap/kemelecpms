@@ -4,7 +4,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
   <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Workers</h1>
-  <a href="{% url 'resources:worker_create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Worker</a>
+  <a href="{% url 'resources:worker-create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Worker</a>
 </div>
 <div class="card border-0 shadow-sm mb-3">
   <div class="card-body py-2">
@@ -26,13 +26,13 @@
         {% for w in workers %}
         <tr>
           <td class="font-monospace">{{ w.worker_id }}</td>
-          <td class="fw-semibold"><a href="{% url 'resources:worker_detail' w.pk %}">{{ w.first_name }} {{ w.last_name }}</a></td>
+          <td class="fw-semibold"><a href="{% url 'resources:worker-detail' w.pk %}">{{ w.first_name }} {{ w.last_name }}</a></td>
           <td>{{ w.trade|default:w.occupation }}</td>
           <td><span class="badge bg-secondary">{{ w.get_classification_display }}</span></td>
           <td>{{ w.get_nationality_display }}</td>
           <td>{{ w.get_employment_type_display }}</td>
           <td>{% if w.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-dark">Inactive</span>{% endif %}</td>
-          <td><a href="{% url 'resources:worker_update' w.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
+          <td><a href="{% url 'resources:worker-update' w.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
         </tr>
         {% empty %}
         <tr><td colspan="8" class="text-muted text-center py-4">No workers registered.</td></tr>

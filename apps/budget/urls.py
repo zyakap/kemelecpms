@@ -70,4 +70,9 @@ urlpatterns = [
         views.SubcontractCreateView.as_view(),
         name="subcontract-create",
     ),
+    path(
+        "projects/<int:project_pk>/subcontracts/<int:pk>/edit/",
+        views.SubcontractUpdateView.as_view(),
+        name="subcontract-update",
+    ),
 ]

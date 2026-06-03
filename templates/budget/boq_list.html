@@ -7,7 +7,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
   <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Bill of Quantities — {{ project.name }}</h1>
   <div class="d-flex gap-2">
-    <a href="{% url 'budget:boq_item_create' project.pk %}" class="btn btn-primary btn-sm">
+    <a href="{% url 'budget:boq-create' project.pk %}" class="btn btn-primary btn-sm">
       <i class="bi bi-plus-lg me-1"></i>Add Item
     </a>
     <a href="{% url 'budget:dashboard' project.pk %}" class="btn btn-outline-secondary btn-sm">
@@ -48,7 +48,7 @@
             <td class="text-end fw-semibold">{{ item.amount|floatformat:2 }}</td>
             <td>{% if item.is_variation %}<span class="badge bg-info text-dark">VO</span>{% endif %}</td>
             <td>
-              <a href="{% url 'budget:boq_item_update' project.pk item.pk %}" class="btn btn-sm btn-outline-secondary">
+              <a href="{% url 'budget:boq-update' project.pk item.pk %}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-pencil"></i>
               </a>
             </td>

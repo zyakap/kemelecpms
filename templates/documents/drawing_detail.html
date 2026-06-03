@@ -30,7 +30,7 @@
     <div class="card border-0 shadow-sm mt-3">
       <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Upload New Revision</div>
       <div class="card-body">
-        <form method="post" action="{% url 'documents:drawing-revision-create' project.pk drawing.pk %}" enctype="multipart/form-data">
+        <form method="post" action="{% url 'documents:drawingrevision-create' drawing.pk %}" enctype="multipart/form-data">
           {% csrf_token %}{{ revision_form|crispy }}
           <button type="submit" class="btn btn-primary btn-sm mt-2">Upload</button>
         </form>

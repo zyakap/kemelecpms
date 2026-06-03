@@ -5,7 +5,7 @@
 {% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Interim Payment Claims — {{ project.name }}</h1>
-  <a href="{% url 'ipc:ipc_create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Create IPC</a>
+  <a href="{% url 'ipc:ipc-create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Create IPC</a>
 </div>
 
 <div class="row g-3 mb-4">
@@ -24,7 +24,7 @@
       <tbody>
         {% for ipc in ipcs %}
         <tr>
-          <td class="font-monospace fw-semibold"><a href="{% url 'ipc:ipc_detail' project.pk ipc.pk %}">{{ ipc.ipc_number }}</a></td>
+          <td class="font-monospace fw-semibold"><a href="{% url 'ipc:ipc-detail' project.pk ipc.pk %}">{{ ipc.ipc_number }}</a></td>
           <td>{{ ipc.claim_period_from|date:"d M" }} — {{ ipc.claim_period_to|date:"d M Y" }}</td>
           <td><span class="badge
             {% if ipc.status == 'PAID' %}bg-success
@@ -37,7 +37,7 @@
           <td class="text-end">{% with total=ipc.line_items.all %}{% for item in total %}{% endfor %}—{% endwith %}</td>
           <td class="text-end">{% if ipc.certification %}{{ ipc.certification.amount_certified|floatformat:2 }}{% else %}—{% endif %}</td>
           <td class="text-end">{% with paid=ipc.payments.all|length %}{% if paid %}✓{% else %}—{% endif %}{% endwith %}</td>
-          <td><a href="{% url 'ipc:ipc_detail' project.pk ipc.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a></td>
+          <td><a href="{% url 'ipc:ipc-detail' project.pk ipc.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a></td>
         </tr>
         {% empty %}
         <tr><td colspan="7" class="text-muted text-center py-4">No IPCs created yet.</td></tr>

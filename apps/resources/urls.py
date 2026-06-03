@@ -94,6 +94,11 @@ urlpatterns = [
         views.CrewDetailView.as_view(),
         name="crew-detail",
     ),
+    path(
+        "projects/<int:project_pk>/crews/<int:pk>/edit/",
+        views.CrewUpdateView.as_view(),
+        name="crew-update",
+    ),
     # -------------------------------------------------------------------
     # Subcontractor Companies (global)
     # -------------------------------------------------------------------

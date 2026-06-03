@@ -19,16 +19,16 @@
       </div>
       <div class="d-flex gap-2 flex-wrap">
         {% if dsr.status == 'DRAFT' and request.user == dsr.prepared_by %}
-        <a href="{% url 'dsr:update' dsr.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
-        <form method="post" action="{% url 'dsr:submit' dsr.pk %}" class="d-inline">
+        <a href="{% url 'dsr:dsr_edit' dsr.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+        <form method="post" action="{% url 'dsr:dsr_submit' dsr.pk %}" class="d-inline">
           {% csrf_token %}<button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-send me-1"></i>Submit for Approval</button>
         </form>
         {% endif %}
         {% if dsr.status == 'SUBMITTED' and request.user.is_pm or request.user.is_admin %}
-        <form method="post" action="{% url 'dsr:approve' dsr.pk %}" class="d-inline">
+        <form method="post" action="{% url 'dsr:dsr_approve' dsr.pk %}" class="d-inline">
           {% csrf_token %}<button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-lg me-1"></i>Approve</button>
         </form>
-        <a href="{% url 'dsr:return' dsr.pk %}" class="btn btn-warning btn-sm"><i class="bi bi-arrow-return-left me-1"></i>Return</a>
+        <a href="{% url 'dsr:dsr_return' dsr.pk %}" class="btn btn-warning btn-sm"><i class="bi bi-arrow-return-left me-1"></i>Return</a>
         {% endif %}
         {% if dsr.pdf_file %}
         <a href="{{ dsr.pdf_file.url }}" target="_blank" class="btn btn-outline-info btn-sm"><i class="bi bi-file-pdf me-1"></i>PDF</a>

@@ -5,7 +5,7 @@
 {% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Crews — {{ project.name }}</h1>
-  <a href="{% url 'resources:crew_create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Create Crew</a>
+  <a href="{% url 'resources:crew-create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Create Crew</a>
 </div>
 <div class="row g-3">
   {% for crew in crews %}
@@ -16,7 +16,7 @@
         <div class="text-muted small mb-2">Foreman: {{ crew.foreman.get_full_name|default:"—" }}</div>
         <div class="d-flex justify-content-between align-items-center">
           <span class="badge bg-primary">{{ crew.active_member_count }} members</span>
-          <a href="{% url 'resources:crew_detail' project.pk crew.pk %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-eye me-1"></i>View</a>
+          <a href="{% url 'resources:crew-detail' project.pk crew.pk %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-eye me-1"></i>View</a>
         </div>
       </div>
     </div>

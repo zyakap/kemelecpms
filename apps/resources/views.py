@@ -466,6 +466,31 @@ class CrewDetailView(ProjectMixin, DetailView):
         )
 
 
+class CrewUpdateView(ProjectMixin, UpdateView):
+    model = Crew
+    form_class = CrewForm
+    template_name = "resources/crew_form.html"
+
+    def get_queryset(self):
+        return Crew.objects.filter(project=self.get_project())
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["project"] = self.get_project()
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.updated_by = self.request.user
+        messages.success(self.request, "Crew updated successfully.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "resources:crew-detail",
+            kwargs={"project_pk": self.get_project().pk, "pk": self.object.pk},
+        )
+
+
 # ---------------------------------------------------------------------------
 # Subcontractor Company views
 # ---------------------------------------------------------------------------

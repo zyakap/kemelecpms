@@ -4,7 +4,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Hazard Register</h1>
-  <a href="{% url 'safety:hazard_create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Hazard</a>
+  <a href="{% url 'safety:hazard_add' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Hazard</a>
 </div>
 <form class="row g-2 mb-3" method="get">
   <div class="col-auto">
@@ -38,7 +38,7 @@
           <td class="fw-bold">{{ hazard.risk_level }}</td>
           <td><span class="badge {% if hazard.risk_category == 'HIGH' %}bg-danger{% elif hazard.risk_category == 'MEDIUM' %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ hazard.risk_category }}</span></td>
           <td>{{ hazard.control_measures|truncatechars:30 }}</td>
-          <td><a href="{% url 'safety:hazard_update' hazard.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
+          <td><a href="{% url 'safety:hazard_edit' hazard.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
         </tr>
         {% empty %}
         <tr><td colspan="9" class="text-muted text-center py-4">No hazards registered.</td></tr>

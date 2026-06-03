@@ -5,7 +5,7 @@
 {% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">RFI Register — {{ project.name }}</h1>
-  <a href="{% url 'documents:rfi_create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Raise RFI</a>
+  <a href="{% url 'documents:rfi-create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Raise RFI</a>
 </div>
 <div class="card border-0 shadow-sm">
   <div class="card-body p-0">
@@ -16,7 +16,7 @@
       <tbody>
         {% for rfi in rfis %}
         <tr>
-          <td class="font-monospace fw-semibold"><a href="{% url 'documents:rfi_update' project.pk rfi.pk %}">{{ rfi.rfi_number }}</a></td>
+          <td class="font-monospace fw-semibold"><a href="{% url 'documents:rfi-update' project.pk rfi.pk %}">{{ rfi.rfi_number }}</a></td>
           <td>{{ rfi.date_raised|date:"d M Y" }}</td>
           <td>{{ rfi.subject|truncatechars:40 }}</td>
           <td>{{ rfi.directed_to }}</td>

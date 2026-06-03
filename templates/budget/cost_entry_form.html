@@ -14,7 +14,7 @@
         <form method="post" enctype="multipart/form-data">{% csrf_token %}{{ form|crispy }}
           <div class="d-flex gap-2 mt-3">
             <button type="submit" class="btn btn-primary">Save</button>
-            <a href="{% url 'budget:cost_entry_list' project.pk %}" class="btn btn-outline-secondary">Cancel</a>
+            <a href="{% url 'budget:costentry-list' project.pk %}" class="btn btn-outline-secondary">Cancel</a>
           </div>
         </form>
       </div>

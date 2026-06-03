@@ -14,7 +14,7 @@
         <form method="post">{% csrf_token %}{{ form|crispy }}
           <div class="d-flex gap-2 mt-3">
             <button type="submit" class="btn btn-primary">Save</button>
-            <a href="{% url 'schedule:activity_list' project.pk %}" class="btn btn-outline-secondary">Cancel</a>
+            <a href="{% url 'schedule:activity-list' project.pk %}" class="btn btn-outline-secondary">Cancel</a>
           </div>
         </form>
       </div>

@@ -145,6 +145,18 @@ class FunderCreateView(LoginRequiredMixin, SetAuditUserMixin, CreateView):
         return response
 
 
+class FunderUpdateView(LoginRequiredMixin, SetAuditUserMixin, UpdateView):
+    model = Funder
+    form_class = FunderForm
+    template_name = "projects/funder_form.html"
+    success_url = reverse_lazy("projects:funder_list")
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, f'Funder "{self.object.name}" updated successfully.')
+        return response
+
+
 # ---------------------------------------------------------------------------
 # Project Views
 # ---------------------------------------------------------------------------

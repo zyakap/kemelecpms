@@ -6,9 +6,9 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Schedule — {{ project.name }}</h1>
   <div class="d-flex gap-2">
-    <a href="{% url 'schedule:activity_create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Activity</a>
+    <a href="{% url 'schedule:activity-create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Activity</a>
     <a href="{% url 'schedule:wbs' project.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-diagram-3 me-1"></i>WBS</a>
-    <a href="{% url 'schedule:look_ahead_list' project.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-calendar-week me-1"></i>Look-Ahead</a>
+    <a href="{% url 'schedule:lookahead-list' project.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-calendar-week me-1"></i>Look-Ahead</a>
   </div>
 </div>
 <div class="card border-0 shadow-sm">
@@ -40,7 +40,7 @@
             </td>
             <td>{{ a.responsible.get_full_name|default:"—" }}</td>
             <td>
-              <a href="{% url 'schedule:activity_update' project.pk a.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+              <a href="{% url 'schedule:activity-update' project.pk a.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
             </td>
           </tr>
           {% empty %}

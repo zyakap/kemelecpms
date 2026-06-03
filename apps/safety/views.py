@@ -316,6 +316,18 @@ class SWMSCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
+class SWMSUpdateView(LoginRequiredMixin, UpdateView):
+    model = SWMS
+    form_class = SWMSForm
+    template_name = "safety/swms_form.html"
+    success_url = reverse_lazy("safety:swms_list")
+
+    def form_valid(self, form):
+        form.instance.updated_by = self.request.user
+        messages.success(self.request, "SWMS document updated.")
+        return super().form_valid(form)
+
+
 # ---------------------------------------------------------------------------
 # PPE Issue views
 # ---------------------------------------------------------------------------

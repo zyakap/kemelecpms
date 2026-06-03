@@ -62,6 +62,7 @@ urlpatterns = [
     # ------------------------------------------------------------------
     path("swms/", views.SWMSListView.as_view(), name="swms_list"),
     path("swms/add/", views.SWMSCreateView.as_view(), name="swms_add"),
+    path("swms/<int:pk>/edit/", views.SWMSUpdateView.as_view(), name="swms_update"),
 
     # ------------------------------------------------------------------
     # PPE Issue Records

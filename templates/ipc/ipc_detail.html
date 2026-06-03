@@ -14,15 +14,15 @@
   </div>
   <div class="d-flex gap-2">
     {% if ipc.status == 'DRAFT' %}
-    <form method="post" action="{% url 'ipc:ipc_submit' project.pk ipc.pk %}">{% csrf_token %}
+    <form method="post" action="{% url 'ipc:ipc-submit' project.pk ipc.pk %}">{% csrf_token %}
       <button type="submit" class="btn btn-primary btn-sm">Submit for Review</button>
     </form>
     {% endif %}
     {% if ipc.status == 'SUBMITTED' %}
-    <a href="{% url 'ipc:certification_create' project.pk ipc.pk %}" class="btn btn-success btn-sm">Record Certification</a>
+    <a href="{% url 'ipc:certification-create' project.pk ipc.pk %}" class="btn btn-success btn-sm">Record Certification</a>
     {% endif %}
     {% if ipc.status == 'CERTIFIED' and not ipc.payments.exists %}
-    <a href="{% url 'ipc:payment_create' project.pk ipc.pk %}" class="btn btn-info btn-sm">Record Payment</a>
+    <a href="{% url 'ipc:payment-create' project.pk ipc.pk %}" class="btn btn-info btn-sm">Record Payment</a>
     {% endif %}
   </div>
 </div>

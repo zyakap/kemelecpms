@@ -30,7 +30,7 @@
 <div class="card border-0 shadow-sm">
   <div class="card-header bg-white d-flex justify-content-between align-items-center">
     <span class="fw-semibold" style="color:var(--kc-primary)">{{ selected_project.name }} — {{ selected_date|date:"d F Y" }}</span>
-    <a href="{% url 'resources:attendance_bulk_create' selected_project.pk %}?date={{ selected_date|date:'Y-m-d' }}" class="btn btn-primary btn-sm">
+    <a href="{% url 'resources:attendance-bulk' selected_project.pk %}?date={{ selected_date|date:'Y-m-d' }}" class="btn btn-primary btn-sm">
       <i class="bi bi-pencil-square me-1"></i>Record Attendance
     </a>
   </div>

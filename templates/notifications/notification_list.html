@@ -4,7 +4,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Notifications</h1>
-  <form method="post" action="{% url 'notifications:mark_all_read' %}">
+  <form method="post" action="{% url 'notifications:notification-read-all' %}">
     {% csrf_token %}<button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-check-all me-1"></i>Mark All Read</button>
   </form>
 </div>
@@ -16,7 +16,7 @@
     {% for n in notifications %}
     {% if not n.is_read %}
     <div class="list-group-item d-flex gap-3 align-items-start notification-item {% if not n.is_read %}bg-light{% endif %}"
-         data-mark-url="{% url 'notifications:mark_read' n.pk %}">
+         data-mark-url="{% url 'notifications:notification-read' n.pk %}">
       <div class="fs-4 text-primary"><i class="bi {{ n.icon_class }}"></i></div>
       <div class="flex-grow-1">
         <div class="fw-semibold">{{ n.title }}</div>
@@ -26,7 +26,7 @@
       {% if n.link %}
       <a href="{{ n.link }}" class="btn btn-sm btn-outline-primary">View</a>
       {% endif %}
-      <form method="post" action="{% url 'notifications:mark_read' n.pk %}">
+      <form method="post" action="{% url 'notifications:notification-read' n.pk %}">
         {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-check-lg"></i></button>
       </form>
     </div>

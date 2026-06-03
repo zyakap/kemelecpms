@@ -330,3 +330,25 @@ class SubcontractCreateView(ProjectMixin, CreateView):
 
     def get_success_url(self):
         return reverse_lazy("budget:subcontract-list", kwargs={"project_pk": self.get_project().pk})
+
+
+class SubcontractUpdateView(ProjectMixin, UpdateView):
+    model = Subcontract
+    form_class = SubcontractForm
+    template_name = "budget/subcontract_form.html"
+
+    def get_queryset(self):
+        return Subcontract.objects.filter(project=self.get_project())
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["project"] = self.get_project()
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.updated_by = self.request.user
+        messages.success(self.request, "Subcontract updated successfully.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy("budget:subcontract-list", kwargs={"project_pk": self.get_project().pk})

@@ -19,7 +19,7 @@
         {% if worker.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-dark">Inactive</span>{% endif %}
       </div>
       <div class="mt-3">
-        <a href="{% url 'resources:worker_update' worker.pk %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+        <a href="{% url 'resources:worker-update' worker.pk %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
       </div>
     </div>
   </div>
