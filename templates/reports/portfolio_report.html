@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}Portfolio Report — {{ report_date|date:"d M Y" }}{% endblock %}
+{% block active_nav %}reports{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Portfolio Report</h1>
+    <div class="text-muted small">All Active Projects · Generated {{ report_date|date:"d M Y" }}</div>
+  </div>
+  <a href="?format=pdf" class="btn btn-danger btn-sm" target="_blank"><i class="bi bi-file-pdf me-1"></i>PDF</a>
+</div>
+
+<!-- Summary KPIs -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body text-center">
+        <div class="fs-4 fw-bold" style="color:var(--kc-primary)">{{ total_projects }}</div>
+        <div class="small text-muted">Active Projects</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body text-center">
+        {% for row in projects %}{% if forloop.first %}
+        <div class="small text-muted">Total Project Value</div>
+        {% endif %}{% endfor %}
+        <div class="fs-5 fw-bold" style="color:var(--kc-primary)">
+          {% with total=0 %}
+          K{% for row in projects %}{{ row.contract_value|floatformat:0 }}{% if not forloop.last %} {% endif %}{% endfor %}
+          {% endwith %}
+        </div>
+        <div class="small text-muted">Portfolio Value</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body text-center">
+        <div class="fs-5 fw-bold text-success">
+          {{ projects|length }} projects tracked
+        </div>
+        <div class="small text-muted">Report Date: {{ report_date|date:"d M Y" }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body text-center">
+        {% with red_count=0 %}
+        <div class="fs-4 fw-bold text-danger">
+          {% for row in projects %}{% if row.rag == "RED" %}{{ forloop.counter }}{% endif %}{% endfor %}
+        </div>
+        {% endwith %}
+        <div class="small text-muted">Projects Over Budget</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RAG Legend -->
+<div class="d-flex gap-3 mb-3 small">
+  <span><span class="badge bg-success">GREEN</span> Budget &lt; 80% used</span>
+  <span><span class="badge bg-warning text-dark">AMBER</span> Budget 80–100% used</span>
+  <span><span class="badge bg-danger">RED</span> Over budget</span>
+</div>
+
+<!-- Portfolio Table -->
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Project Portfolio Status</div>
+  <div class="card-body p-0">
+    <table class="table table-sm table-hover mb-0">
+      <thead class="table-dark">
+        <tr>
+          <th>Project</th>
+          <th>Client</th>
+          <th>PM</th>
+          <th class="text-end">Contract Value (K)</th>
+          <th class="text-end">Budget (K)</th>
+          <th class="text-end">Spent (K)</th>
+          <th class="text-end">Remaining (K)</th>
+          <th class="text-center">% Used</th>
+          <th class="text-center">RAG</th>
+          <th class="text-center">Open Incidents</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in projects %}
+        <tr>
+          <td>
+            <a href="{{ row.project.get_absolute_url }}" class="text-decoration-none fw-semibold">
+              {{ row.project.project_id }}
+            </a>
+            <div class="small text-muted">{{ row.project.name|truncatechars:35 }}</div>
+          </td>
+          <td class="small">{{ row.project.client.name|default:"—" }}</td>
+          <td class="small">{{ row.project.project_manager.get_full_name|default:"—" }}</td>
+          <td class="text-end">{{ row.contract_value|floatformat:0 }}</td>
+          <td class="text-end">{{ row.budget|floatformat:0 }}</td>
+          <td class="text-end">{{ row.spent|floatformat:0 }}</td>
+          <td class="text-end {% if row.remaining < 0 %}text-danger{% else %}text-success{% endif %}">
+            {{ row.remaining|floatformat:0 }}
+          </td>
+          <td class="text-center">
+            <div class="progress" style="height:6px;min-width:60px;">
+              <div class="progress-bar {% if row.rag == 'RED' %}bg-danger{% elif row.rag == 'AMBER' %}bg-warning{% else %}bg-success{% endif %}"
+                   style="width:{% if row.pct > 100 %}100{% else %}{{ row.pct }}{% endif %}%"></div>
+            </div>
+            <small>{{ row.pct }}%</small>
+          </td>
+          <td class="text-center">
+            {% if row.rag == "RED" %}
+              <span class="badge bg-danger">RED</span>
+            {% elif row.rag == "AMBER" %}
+              <span class="badge bg-warning text-dark">AMBER</span>
+            {% else %}
+              <span class="badge bg-success">GREEN</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {% if row.open_incidents > 0 %}
+              <span class="badge bg-danger rounded-pill">{{ row.open_incidents }}</span>
+            {% else %}
+              <span class="text-muted">0</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="10" class="text-center text-muted py-4">No active projects found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Budget Bar Chart (visual) -->
+{% if projects %}
+<div class="card border-0 shadow-sm mt-4">
+  <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Budget Usage by Project</div>
+  <div class="card-body">
+    {% for row in projects %}
+    <div class="mb-3">
+      <div class="d-flex justify-content-between small mb-1">
+        <span class="fw-semibold">{{ row.project.project_id }} — {{ row.project.name|truncatechars:40 }}</span>
+        <span class="text-muted">K{{ row.spent|floatformat:0 }} / K{{ row.budget|floatformat:0 }} ({{ row.pct }}%)</span>
+      </div>
+      <div class="progress" style="height:14px;">
+        <div class="progress-bar {% if row.rag == 'RED' %}bg-danger{% elif row.rag == 'AMBER' %}bg-warning{% else %}bg-success{% endif %}"
+             role="progressbar"
+             style="width:{% if row.pct > 100 %}100{% else %}{{ row.pct }}{% endif %}%"
+             aria-valuenow="{{ row.pct }}" aria-valuemin="0" aria-valuemax="100">
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="text-muted small mt-4 text-end">
+  Report generated: {{ report_date|date:"d M Y" }} · Kemele Construction Ltd
+</div>
+{% endblock %}

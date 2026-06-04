@@ -1,7 +1,11 @@
+import json
+
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count, Q, Sum
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.views import View
 from django.views.generic import RedirectView, TemplateView
 
 
@@ -331,4 +335,208 @@ class ProjectDashboardView(LoginRequiredMixin, TemplateView):
                 "recent_dsrs": recent_dsrs,
             }
         )
+        return ctx
+
+
+# ---------------------------------------------------------------------------
+# S-Curve Data (JSON endpoint for Chart.js)
+# ---------------------------------------------------------------------------
+
+
+class SCurveDataView(LoginRequiredMixin, View):
+    """
+    Return monthly cumulative planned vs actual spend as JSON.
+    Used by Chart.js to render the S-curve on the project dashboard.
+    """
+
+    def get(self, request, project_pk):
+        from apps.budget.models import CostEntry
+        from apps.projects.models import Project
+        project = get_object_or_404(Project, pk=project_pk)
+
+        # Actual spend grouped by month
+        actuals = (
+            CostEntry.objects.filter(project=project)
+            .values("date__year", "date__month")
+            .annotate(total=Sum("amount"))
+            .order_by("date__year", "date__month")
+        )
+
+        labels = []
+        actual_data = []
+        cumulative = 0
+        for entry in actuals:
+            from datetime import date
+            d = date(entry["date__year"], entry["date__month"], 1)
+            labels.append(d.strftime("%b %Y"))
+            cumulative += float(entry["total"] or 0)
+            actual_data.append(round(cumulative, 2))
+
+        return JsonResponse({
+            "labels": labels,
+            "datasets": [
+                {
+                    "label": "Cumulative Spend (K)",
+                    "data": actual_data,
+                    "borderColor": "#2980B9",
+                    "backgroundColor": "rgba(41,128,185,0.1)",
+                    "fill": True,
+                    "tension": 0.3,
+                },
+            ],
+        })
+
+
+# ---------------------------------------------------------------------------
+# Financial Analytics View
+# ---------------------------------------------------------------------------
+
+
+class FinancialAnalyticsView(LoginRequiredMixin, TemplateView):
+    """Portfolio-level financial analytics for the MD."""
+
+    template_name = "dashboard/financial_analytics.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from apps.budget.models import CostCode, CostEntry
+        from apps.ipc.models import IPC, Payment
+        from apps.projects.models import Project
+
+        projects = Project.objects.filter(
+            status__in=["ACTIVE", "MOBILISATION", "PRACTICAL_COMPLETION"]
+        ).select_related("client", "project_manager")
+
+        rows = []
+        total_cv = 0
+        total_budget = 0
+        total_spent = 0
+        total_claimed = 0
+        total_paid = 0
+
+        for project in projects:
+            try:
+                cv = float(project.contract_value or 0)
+            except Exception:
+                cv = 0
+            budget = float(
+                CostCode.objects.filter(project=project)
+                .aggregate(total=Sum("budget_amount"))["total"] or 0
+            )
+            spent = float(
+                CostEntry.objects.filter(project=project)
+                .aggregate(total=Sum("amount"))["total"] or 0
+            )
+            claimed = float(
+                IPC.objects.filter(project=project, status__in=["SUBMITTED", "CERTIFIED", "PAID"])
+                .count()
+            )  # count of submitted IPCs (use for tracking)
+            paid = float(
+                Payment.objects.filter(ipc__project=project)
+                .aggregate(total=Sum("amount"))["total"] or 0
+            )
+            outstanding = max(0, float(cv) * 0.8 - paid)  # approximate from contract value
+
+            if budget > 0:
+                pct = spent / budget * 100
+                rag = "RED" if pct > 100 else "AMBER" if pct >= 80 else "GREEN"
+            else:
+                pct = 0
+                rag = "GREEN"
+
+            total_cv += cv
+            total_budget += budget
+            total_spent += spent
+            total_paid += paid
+
+            rows.append({
+                "project": project,
+                "contract_value": cv,
+                "budget": budget,
+                "spent": spent,
+                "remaining": budget - spent,
+                "pct": round(pct, 1),
+                "rag": rag,
+                "paid": paid,
+                "outstanding": outstanding,
+            })
+
+        ctx.update({
+            "rows": rows,
+            "total_cv": total_cv,
+            "total_budget": total_budget,
+            "total_spent": total_spent,
+            "total_remaining": total_budget - total_spent,
+            "total_paid": total_paid,
+            "breadcrumbs": [{"label": "Financial Analytics"}],
+        })
+        return ctx
+
+
+# ---------------------------------------------------------------------------
+# Safety Analytics View
+# ---------------------------------------------------------------------------
+
+
+class SafetyAnalyticsView(LoginRequiredMixin, TemplateView):
+    """Portfolio-level safety statistics."""
+
+    template_name = "dashboard/safety_analytics.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from apps.resources.models import AttendanceRecord
+        from apps.safety.models import Incident, ToolboxTalk
+        from apps.projects.models import Project
+
+        today = timezone.now().date()
+        ytd_start = today.replace(month=1, day=1)
+
+        projects = Project.objects.filter(status__in=["ACTIVE", "MOBILISATION"])
+
+        ytd_incidents = Incident.objects.filter(
+            project__in=projects,
+            date__gte=ytd_start,
+        )
+        ltis = ytd_incidents.filter(incident_type="LTI")
+        fatalities = ytd_incidents.filter(incident_type="FATALITY")
+        near_misses = ytd_incidents.filter(incident_type="NEAR_MISS")
+
+        # Man-hours YTD (attendance records × 8 hrs per day as approximation)
+        attendance_count = AttendanceRecord.objects.filter(
+            project__in=projects,
+            date__gte=ytd_start,
+            is_present=True,
+        ).count()
+        man_hours_ytd = attendance_count * 8
+
+        # LTIFR = LTIs per million man-hours
+        ltifr = round((ltis.count() / man_hours_ytd * 1_000_000), 2) if man_hours_ytd else 0
+
+        per_project = []
+        for project in projects:
+            p_incidents = Incident.objects.filter(project=project, date__gte=ytd_start)
+            per_project.append({
+                "project": project,
+                "total": p_incidents.count(),
+                "lti": p_incidents.filter(incident_type="LTI").count(),
+                "near_miss": p_incidents.filter(incident_type="NEAR_MISS").count(),
+                "open": p_incidents.filter(status__in=["OPEN", "UNDER_INVESTIGATION"]).count(),
+                "toolbox_talks": ToolboxTalk.objects.filter(
+                    project=project, date__gte=ytd_start
+                ).count(),
+            })
+
+        ctx.update({
+            "ytd_start": ytd_start,
+            "total_incidents": ytd_incidents.count(),
+            "ltis": ltis.count(),
+            "fatalities": fatalities.count(),
+            "near_misses": near_misses.count(),
+            "man_hours_ytd": man_hours_ytd,
+            "ltifr": ltifr,
+            "per_project": per_project,
+            "open_incidents": ytd_incidents.filter(status__in=["OPEN", "UNDER_INVESTIGATION"]).count(),
+            "breadcrumbs": [{"label": "Safety Analytics"}],
+        })
         return ctx

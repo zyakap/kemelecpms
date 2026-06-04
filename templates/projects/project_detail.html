@@ -503,4 +503,45 @@
   </div><!-- /tab-content -->
 </div>
 
+<!-- Project Closeout Actions -->
+{% if project.status == "ACTIVE" or project.status == "MOBILISATION" or project.status == "PRACTICAL_COMPLETION" %}
+<div class="card border-0 shadow-sm mt-4">
+  <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Project Closeout</div>
+  <div class="card-body">
+    <div class="d-flex gap-2 flex-wrap">
+      {% if project.status not in "PRACTICAL_COMPLETION,DEFECTS_LIABILITY,CLOSED" %}
+      <form method="post" action="{% url 'projects:project_closeout' project.pk %}" class="d-inline">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="practical_completion">
+        <input type="date" name="completion_date" class="form-control form-control-sm d-inline" style="width:180px;" placeholder="Completion Date">
+        <button type="submit" class="btn btn-warning btn-sm ms-1"
+                onclick="return confirm('Mark this project as Practical Completion?')">
+          <i class="bi bi-check2-circle me-1"></i>Mark Practical Completion
+        </button>
+      </form>
+      {% endif %}
+
+      {% if project.status == "PRACTICAL_COMPLETION" %}
+      <form method="post" action="{% url 'projects:project_closeout' project.pk %}" class="d-inline">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="close">
+        <button type="submit" class="btn btn-secondary btn-sm"
+                onclick="return confirm('Close this project permanently?')">
+          <i class="bi bi-archive me-1"></i>Close Project
+        </button>
+      </form>
+      {% endif %}
+
+      <form method="post" action="{% url 'projects:project_closeout' project.pk %}" class="d-inline">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="archive_to_library">
+        <button type="submit" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-book me-1"></i>Archive to Tender Library
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% endblock %}

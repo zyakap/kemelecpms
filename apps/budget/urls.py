@@ -75,4 +75,10 @@ urlpatterns = [
         views.SubcontractUpdateView.as_view(),
         name="subcontract-update",
     ),
+    # BoQ Import
+    path(
+        "projects/<int:project_pk>/boq/import/",
+        views.BoQImportView.as_view(),
+        name="boq-import",
+    ),
 ]

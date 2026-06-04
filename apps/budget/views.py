@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
+from django.views import View
 from django.views.generic import (
     CreateView,
     DetailView,
@@ -352,3 +353,108 @@ class SubcontractUpdateView(ProjectMixin, UpdateView):
 
     def get_success_url(self):
         return reverse_lazy("budget:subcontract-list", kwargs={"project_pk": self.get_project().pk})
+
+
+# ---------------------------------------------------------------------------
+# BoQ Import (CSV / Excel)
+# ---------------------------------------------------------------------------
+
+
+class BoQImportView(ProjectMixin, View):
+    """
+    Import BoQ items from a CSV or Excel file.
+
+    Expected columns (case-insensitive, order flexible):
+    item_number, description, unit, quantity, unit_rate, section (optional)
+    """
+
+    template_name = "budget/boq_import.html"
+
+    def get(self, request, project_pk):
+        from django.shortcuts import render
+        project = self.get_project()
+        return render(request, self.template_name, {"project": project, "breadcrumbs": [
+            {"label": "Projects", "url": "/projects/"},
+            {"label": project.name, "url": project.get_absolute_url()},
+            {"label": "BoQ Import"},
+        ]})
+
+    def post(self, request, project_pk):
+        from django.shortcuts import render
+        project = self.get_project()
+        uploaded = request.FILES.get("file")
+        if not uploaded:
+            messages.error(request, "Please select a file to upload.")
+            return render(request, self.template_name, {"project": project})
+
+        ext = uploaded.name.rsplit(".", 1)[-1].lower()
+        try:
+            if ext == "csv":
+                rows = self._parse_csv(uploaded)
+            elif ext in ("xlsx", "xls"):
+                rows = self._parse_excel(uploaded)
+            else:
+                messages.error(request, "Unsupported file type. Use CSV or Excel (.xlsx).")
+                return render(request, self.template_name, {"project": project})
+        except Exception as exc:
+            messages.error(request, f"Error reading file: {exc}")
+            return render(request, self.template_name, {"project": project})
+
+        created = 0
+        errors = []
+        for i, row in enumerate(rows, start=2):  # start=2 (row 1 is header)
+            try:
+                item_number = str(row.get("item_number", "")).strip()
+                description = str(row.get("description", "")).strip()
+                if not item_number or not description:
+                    errors.append(f"Row {i}: missing item_number or description — skipped.")
+                    continue
+                unit = str(row.get("unit", "nr")).strip().lower() or "nr"
+                quantity = Decimal(str(row.get("quantity", "0") or "0").replace(",", ""))
+                unit_rate = Decimal(str(row.get("unit_rate", "0") or "0").replace(",", ""))
+                trade_section = str(row.get("trade_section", row.get("section", "OTHER")) or "OTHER").strip().upper()
+
+                BoQItem.objects.update_or_create(
+                    project=project,
+                    item_number=item_number,
+                    defaults={
+                        "description": description,
+                        "unit": unit,
+                        "quantity": quantity,
+                        "unit_rate": unit_rate,
+                        "trade_section": trade_section,
+                        "created_by": request.user,
+                        "updated_by": request.user,
+                    },
+                )
+                created += 1
+            except Exception as exc:
+                errors.append(f"Row {i}: {exc}")
+
+        messages.success(request, f"Import complete: {created} items imported/updated.")
+        if errors:
+            for err in errors[:10]:
+                messages.warning(request, err)
+        return redirect(reverse_lazy("budget:boq-list", kwargs={"project_pk": project.pk}))
+
+    def _parse_csv(self, f):
+        import csv, io
+        content = f.read().decode("utf-8-sig")
+        reader = csv.DictReader(io.StringIO(content))
+        return [{k.strip().lower(): v for k, v in row.items()} for row in reader]
+
+    def _parse_excel(self, f):
+        from openpyxl import load_workbook
+        import io
+        wb = load_workbook(io.BytesIO(f.read()), read_only=True, data_only=True)
+        ws = wb.active
+        rows = list(ws.iter_rows(values_only=True))
+        if not rows:
+            return []
+        headers = [str(h).strip().lower() if h else f"col{i}" for i, h in enumerate(rows[0])]
+        result = []
+        for row in rows[1:]:
+            if all(v is None for v in row):
+                continue
+            result.append({headers[i]: row[i] for i in range(len(headers))})
+        return result
