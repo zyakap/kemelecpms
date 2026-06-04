@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}{% if form.instance.pk %}Edit Archive{% else %}Archive Project{% endif %} — Tender Library{% endblock %}
+{% block active_nav %}tender{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">
+        {% if form.instance.pk %}Edit Archive — {{ project.name }}{% else %}Archive Project to Tender Library{% endif %}
+      </div>
+      <div class="card-body">
+        {% if not form.instance.pk %}
+        <div class="alert alert-info small"><i class="bi bi-info-circle me-2"></i>Archiving copies a snapshot of this project's financial and scope data into the tender library for future bid estimates.</div>
+        {% if project %}<input type="hidden" name="project" value="{{ project.pk }}">{% endif %}
+        {% endif %}
+        <form method="post">{% csrf_token %}
+          {% if not form.instance.pk and project %}<input type="hidden" name="project" value="{{ project.pk }}">{% endif %}
+          {{ form|crispy }}
+          <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-primary">{% if form.instance.pk %}Update{% else %}Archive Project{% endif %}</button>
+            <a href="{% url 'tender:archive-list' %}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -13,15 +13,27 @@
       <div class="card-body">
         <form method="post">{% csrf_token %}
           {{ form|crispy }}
-          {% if formset %}
+          {% if item_formset %}
           <hr>
           <h6 class="fw-semibold mb-3">Requisition Items</h6>
-          {{ formset.management_form }}
-          {% for item_form in formset %}
-          <div class="row g-2 mb-2 align-items-start border rounded p-2">
-            {% for field in item_form %}
-            <div class="col">{{ field }}</div>
+          {{ item_formset.management_form }}
+          {% for item_form in item_formset %}
+          <div class="row g-2 mb-2 align-items-start border rounded p-2 position-relative">
+            {% for field in item_form.visible_fields %}
+            <div class="col-md-2">
+              <label class="form-label small text-muted">{{ field.label }}</label>
+              {{ field }}
+              {% if field.errors %}<div class="invalid-feedback d-block">{{ field.errors|join:", " }}</div>{% endif %}
+            </div>
             {% endfor %}
+            {{ item_form.id }}
+            {% if item_formset.can_delete %}
+            <div class="col-12 text-end">
+              <label class="small text-danger">
+                {{ item_form.DELETE }} Remove this item
+              </label>
+            </div>
+            {% endif %}
           </div>
           {% endfor %}
           {% endif %}

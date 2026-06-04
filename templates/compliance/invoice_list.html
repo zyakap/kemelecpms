@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Tax Invoices — {{ project.name }}{% endblock %}
+{% block active_nav %}compliance{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">IRC Tax Invoices</h1>
+  <a href="{% url 'compliance:invoice-create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle me-1"></i>New Invoice</a>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>Invoice No.</th><th>Date</th><th>Client</th><th>Subtotal</th><th>GST</th><th>Total</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for inv in invoices %}
+        <tr>
+          <td><a href="{% url 'compliance:invoice-detail' project.pk inv.pk %}" class="fw-semibold">{{ inv.invoice_number }}</a></td>
+          <td>{{ inv.invoice_date|date:"d M Y" }}</td>
+          <td>{{ inv.client_name }}</td>
+          <td class="text-end">K{{ inv.subtotal|floatformat:2 }}</td>
+          <td class="text-end">K{{ inv.gst_amount|floatformat:2 }}</td>
+          <td class="text-end fw-semibold">K{{ inv.total_amount|floatformat:2 }}</td>
+          <td>
+            <span class="badge bg-{% if inv.status == 'DRAFT' %}secondary{% elif inv.status == 'ISSUED' %}primary{% elif inv.status == 'PAID' %}success{% else %}danger{% endif %}">{{ inv.get_status_display }}</span>
+          </td>
+          <td>
+            <a href="{% url 'compliance:invoice-pdf' project.pk inv.pk %}" class="btn btn-sm btn-outline-danger" title="PDF"><i class="bi bi-file-pdf"></i></a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-muted text-center py-4">No tax invoices yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

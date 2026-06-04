@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>IPC {{ object.ipc_number }} — {{ project.name }}</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 10pt; color: #222; margin: 0; padding: 20mm; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1a3a5c; padding-bottom: 10px; margin-bottom: 20px; }
+  .company-name { font-size: 16pt; font-weight: bold; color: #1a3a5c; }
+  .doc-title { font-size: 13pt; font-weight: bold; color: #1a3a5c; text-align: right; }
+  .doc-number { font-size: 11pt; color: #555; text-align: right; }
+  .section-title { background: #1a3a5c; color: white; font-weight: bold; padding: 4px 8px; margin: 15px 0 8px; font-size: 10pt; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+  th { background: #e8edf3; border: 1px solid #ccc; padding: 5px 8px; text-align: left; font-size: 9pt; }
+  td { border: 1px solid #ddd; padding: 5px 8px; font-size: 9pt; }
+  .text-right { text-align: right; }
+  .total-row { font-weight: bold; background: #f0f4f8; }
+  dl.detail-grid { display: grid; grid-template-columns: 160px 1fr; gap: 3px 10px; }
+  dt { color: #666; font-weight: normal; }
+  dd { margin: 0; }
+  .signature-block { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+  .sig-line { border-top: 1px solid #333; padding-top: 5px; margin-top: 40px; }
+  .footer { position: fixed; bottom: 10mm; left: 20mm; right: 20mm; border-top: 1px solid #ccc; padding-top: 5px; font-size: 8pt; color: #888; display: flex; justify-content: space-between; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 8pt; font-weight: bold; }
+  .badge-draft { background: #f0f0f0; color: #555; }
+  .badge-submitted { background: #cce5ff; color: #004085; }
+  .badge-certified { background: #d4edda; color: #155724; }
+  .badge-paid { background: #d1ecf1; color: #0c5460; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="company-name">Kemele Construction</div>
+    <div style="color:#666; font-size:9pt;">Papua New Guinea</div>
+  </div>
+  <div>
+    <div class="doc-title">INTERIM PAYMENT CLAIM</div>
+    <div class="doc-number">{{ object.ipc_number }}</div>
+    <div style="text-align:right;">
+      <span class="badge badge-{{ object.status|lower }}">{{ object.get_status_display }}</span>
+    </div>
+  </div>
+</div>
+
+<div class="section-title">Project Details</div>
+<dl class="detail-grid">
+  <dt>Project</dt><dd>{{ project.project_id }} — {{ project.name }}</dd>
+  <dt>Client</dt><dd>{{ project.client.name|default:"—" }}</dd>
+  <dt>Claim Period</dt><dd>{{ object.claim_period_from|date:"d M Y" }} to {{ object.claim_period_to|date:"d M Y" }}</dd>
+  <dt>Submitted Date</dt><dd>{{ object.submitted_date|date:"d M Y"|default:"—" }}</dd>
+  <dt>Contract Value</dt><dd>K{{ project.contract_value|floatformat:2 }}</dd>
+</dl>
+
+<div class="section-title">Claim Summary</div>
+<table>
+  <thead>
+    <tr>
+      <th>Item</th>
+      <th>BoQ Reference</th>
+      <th>Description</th>
+      <th class="text-right">Contract Qty</th>
+      <th class="text-right">Progress %</th>
+      <th class="text-right">Value This Claim</th>
+      <th class="text-right">Cumulative Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in line_items %}
+    <tr>
+      <td>{{ forloop.counter }}</td>
+      <td>{{ item.boq_item.item_number|default:"—" }}</td>
+      <td>{{ item.description|default:item.boq_item.description }}</td>
+      <td class="text-right">{{ item.boq_item.quantity|floatformat:2|default:"—" }}</td>
+      <td class="text-right">{{ item.progress_pct|floatformat:1 }}%</td>
+      <td class="text-right">K{{ item.value_this_claim|floatformat:2 }}</td>
+      <td class="text-right">K{{ item.cumulative_value|floatformat:2 }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="7" style="text-align:center;color:#888;">No line items</td></tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr class="total-row">
+      <td colspan="5">Gross Claim Amount</td>
+      <td class="text-right">K{{ object.gross_claim|floatformat:2|default:"0.00" }}</td>
+      <td></td>
+    </tr>
+  </tfoot>
+</table>
+
+{% if certifications %}
+<div class="section-title">Certifications</div>
+<table>
+  <thead>
+    <tr><th>Certification Date</th><th>Certified By</th><th class="text-right">Amount Certified</th></tr>
+  </thead>
+  <tbody>
+    {% for cert in certifications %}
+    <tr>
+      <td>{{ cert.certification_date|date:"d M Y" }}</td>
+      <td>{{ cert.certified_by }}</td>
+      <td class="text-right">K{{ cert.certified_amount|floatformat:2 }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if payments %}
+<div class="section-title">Payments Received</div>
+<table>
+  <thead>
+    <tr><th>Payment Date</th><th>Reference</th><th class="text-right">Amount</th></tr>
+  </thead>
+  <tbody>
+    {% for pmt in payments %}
+    <tr>
+      <td>{{ pmt.payment_date|date:"d M Y" }}</td>
+      <td>{{ pmt.payment_reference }}</td>
+      <td class="text-right">K{{ pmt.amount|floatformat:2 }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if object.notes %}
+<div class="section-title">Notes</div>
+<p>{{ object.notes }}</p>
+{% endif %}
+
+<div class="signature-block">
+  <div>
+    <div class="sig-line">Prepared By</div>
+    <p>Name: ___________________________</p>
+    <p>Date: ___________________________</p>
+  </div>
+  <div>
+    <div class="sig-line">Approved By (PM)</div>
+    <p>Name: ___________________________</p>
+    <p>Date: ___________________________</p>
+  </div>
+</div>
+
+<div class="footer">
+  <span>Kemele Construction — CONFIDENTIAL</span>
+  <span>{{ object.ipc_number }} — Generated {{ "now"|date:"d M Y" }}</span>
+  <span>Page <pdf:pagenumber> of <pdf:pagecount></span>
+</div>
+
+</body>
+</html>

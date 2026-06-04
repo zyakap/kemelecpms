@@ -45,6 +45,8 @@ LOCAL_APPS = [
     "apps.ipc",
     "apps.documents",
     "apps.notifications",
+    "apps.compliance",
+    "apps.tender",
     "apps.dashboard",
 ]
 

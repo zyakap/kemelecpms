@@ -376,3 +376,44 @@ class DSRPhotoUploadView(LoginRequiredMixin, View):
         return JsonResponse(
             {"success": False, "errors": form.errors}, status=400
         )
+
+
+# ---------------------------------------------------------------------------
+# PDF view
+# ---------------------------------------------------------------------------
+
+
+class DSRPDFView(LoginRequiredMixin, DetailView):
+    """Render a DSR as a print-ready PDF using WeasyPrint."""
+
+    template_name = "pdf/dsr.html"
+    model = DailySiteReport
+    context_object_name = "dsr"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        dsr = self.object
+        ctx["activities"] = dsr.activities.all()
+        ctx["labour_entries"] = dsr.labour_entries.select_related("worker").all()
+        ctx["equipment_entries"] = dsr.equipment_entries.select_related("equipment").all()
+        ctx["material_deliveries"] = dsr.material_deliveries.all()
+        ctx["photos"] = dsr.photos.all()
+        ctx["issues"] = dsr.issues.all()
+        return ctx
+
+    def render_to_response(self, context, **response_kwargs):
+        from django.http import HttpResponse
+        try:
+            from weasyprint import HTML
+            from django.template.loader import render_to_string
+            html_string = render_to_string(self.template_name, context, request=self.request)
+            html = HTML(string=html_string, base_url=self.request.build_absolute_uri("/"))
+            pdf_bytes = html.write_pdf()
+            response = HttpResponse(pdf_bytes, content_type="application/pdf")
+            response["Content-Disposition"] = f'inline; filename="DSR_{self.object.dsr_number}.pdf"'
+            return response
+        except ImportError:
+            from django.contrib import messages
+            from django.shortcuts import redirect
+            messages.error(self.request, "PDF generation requires WeasyPrint.")
+            return redirect(self.object.get_absolute_url())

@@ -27,4 +27,6 @@ urlpatterns = [
         views.DSRPhotoUploadView.as_view(),
         name="dsr_photo_upload",
     ),
+    # PDF
+    path("<int:pk>/pdf/", views.DSRPDFView.as_view(), name="dsr_pdf"),
 ]

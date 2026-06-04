@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Cost Rate Database — Tender Library{% endblock %}
+{% block active_nav %}tender{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Cost Intelligence Database</h1>
+  <a href="{% url 'tender:rate-create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle me-1"></i>Add Rate</a>
+</div>
+
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <form method="get" class="row g-2 align-items-center">
+      <div class="col-md-3">
+        <input type="text" name="q" class="form-control form-control-sm" placeholder="Search description…" value="{{ q }}">
+      </div>
+      <div class="col-auto">
+        <select name="trade" class="form-select form-select-sm">
+          <option value="">All Trades</option>
+          {% for val, label in trade_choices %}<option value="{{ val }}" {% if selected_trade == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <select name="region" class="form-select form-select-sm">
+          <option value="">All Regions</option>
+          {% for val, label in region_choices %}<option value="{{ val }}" {% if selected_region == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-auto"><button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i> Filter</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>Description</th><th>Trade</th><th>Unit</th><th>Unit Rate (K)</th><th>Region</th><th>Year</th><th>Verified</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for rate in rates %}
+        <tr>
+          <td>{{ rate.description }}</td>
+          <td><span class="badge bg-secondary">{{ rate.get_trade_display }}</span></td>
+          <td>{{ rate.unit }}</td>
+          <td class="text-end fw-semibold">{{ rate.unit_rate|floatformat:2 }}</td>
+          <td>{{ rate.get_region_display }}</td>
+          <td>{{ rate.year }}</td>
+          <td>{% if rate.is_verified %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td>
+          <td><a href="{% url 'tender:rate-update' rate.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-muted text-center py-4">No cost rates yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

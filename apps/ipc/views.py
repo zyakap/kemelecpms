@@ -331,3 +331,42 @@ class IPCLedgerView(ProjectMixin, TemplateView):
             }
         )
         return ctx
+
+
+# ---------------------------------------------------------------------------
+# PDF views
+# ---------------------------------------------------------------------------
+
+
+class IPCPDFView(ProjectMixin, DetailView):
+    """Render an IPC as a print-ready PDF using WeasyPrint."""
+
+    template_name = "pdf/ipc.html"
+
+    def get_queryset(self):
+        return IPC.objects.filter(project=self.get_project())
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["project"] = self.get_project()
+        ctx["line_items"] = IPCLineItem.objects.filter(ipc=self.object).select_related("boq_item")
+        ctx["certifications"] = Certification.objects.filter(ipc=self.object)
+        ctx["payments"] = Payment.objects.filter(ipc=self.object)
+        return ctx
+
+    def render_to_response(self, context, **response_kwargs):
+        from django.http import HttpResponse
+        try:
+            from weasyprint import HTML
+            from django.template.loader import render_to_string
+            html_string = render_to_string(self.template_name, context, request=self.request)
+            html = HTML(string=html_string, base_url=self.request.build_absolute_uri("/"))
+            pdf_bytes = html.write_pdf()
+            response = HttpResponse(pdf_bytes, content_type="application/pdf")
+            response["Content-Disposition"] = f'inline; filename="IPC_{self.object.ipc_number}.pdf"'
+            return response
+        except ImportError:
+            from django.contrib import messages
+            from django.shortcuts import redirect
+            messages.error(self.request, "PDF generation requires WeasyPrint.")
+            return redirect(self.object.get_absolute_url())

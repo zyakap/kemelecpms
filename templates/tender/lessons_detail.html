@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ lesson.title }} — Lessons Learned{% endblock %}
+{% block active_nav %}tender{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <span class="badge bg-secondary mb-1">{{ lesson.get_category_display }}</span>
+    <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">{{ lesson.title }}</h1>
+    <div class="text-muted small">{{ lesson.project.name }} · by {{ lesson.recorded_by.get_full_name|default:"—" }} · {{ lesson.created_at|date:"d M Y" }}</div>
+  </div>
+  <a href="{% url 'tender:lessons-update' lesson.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+</div>
+
+<div class="row g-4">
+  {% if lesson.what_went_well %}
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm border-start border-success border-3">
+      <div class="card-header bg-white fw-semibold text-success"><i class="bi bi-check-circle me-2"></i>What Went Well</div>
+      <div class="card-body small">{{ lesson.what_went_well|linebreaks }}</div>
+    </div>
+  </div>
+  {% endif %}
+  {% if lesson.what_went_wrong %}
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm border-start border-danger border-3">
+      <div class="card-header bg-white fw-semibold text-danger"><i class="bi bi-x-circle me-2"></i>What Went Wrong</div>
+      <div class="card-body small">{{ lesson.what_went_wrong|linebreaks }}</div>
+    </div>
+  </div>
+  {% endif %}
+  <div class="col-12">
+    <div class="card border-0 shadow-sm border-start border-warning border-3">
+      <div class="card-header bg-white fw-semibold" style="color:#856404"><i class="bi bi-lightbulb me-2"></i>Recommendation for Next Project</div>
+      <div class="card-body">{{ lesson.recommendation|linebreaks }}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

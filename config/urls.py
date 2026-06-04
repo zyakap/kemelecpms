@@ -18,6 +18,8 @@ urlpatterns = [
     path("ipc/", include("apps.ipc.urls")),
     path("documents/", include("apps.documents.urls")),
     path("notifications/", include("apps.notifications.urls")),
+    path("compliance/", include("apps.compliance.urls")),
+    path("tender/", include("apps.tender.urls")),
     path("api/", include("apps.core.api_urls")),
     path("", include("apps.dashboard.home_urls")),
 ]

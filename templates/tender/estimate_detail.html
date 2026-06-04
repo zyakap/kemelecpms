@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}{{ estimate.tender_reference }} — Bid Estimate{% endblock %}
+{% block active_nav %}tender{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">{{ estimate.tender_reference }}</h1>
+    <div class="text-muted small">{{ estimate.title }}</div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'tender:estimate-update' estimate.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+    <form method="post" action="{% url 'tender:estimate-clone' estimate.pk %}">{% csrf_token %}
+      <button class="btn btn-outline-info btn-sm"><i class="bi bi-copy me-1"></i>Clone</button>
+    </form>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Details</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-5 text-muted">Status</dt>
+          <dd class="col-7"><span class="badge bg-{% if estimate.status == 'WON' %}success{% elif estimate.status == 'LOST' %}danger{% elif estimate.status == 'SUBMITTED' %}primary{% elif estimate.status == 'DRAFT' %}secondary{% else %}info{% endif %}">{{ estimate.get_status_display }}</span></dd>
+          <dt class="col-5 text-muted">Client</dt><dd class="col-7">{{ estimate.client_name }}</dd>
+          <dt class="col-5 text-muted">Funder</dt><dd class="col-7">{{ estimate.funder|default:"—" }}</dd>
+          <dt class="col-5 text-muted">Location</dt><dd class="col-7">{{ estimate.location|default:"—" }}</dd>
+          <dt class="col-5 text-muted">Due Date</dt><dd class="col-7">{{ estimate.tender_due_date|date:"d M Y"|default:"—" }}</dd>
+          <dt class="col-5 text-muted">Target Margin</dt><dd class="col-7">{{ estimate.margin_pct }}%</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mt-3">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Financials</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-6 text-muted">Estimate Total</dt><dd class="col-6 text-end">K{{ estimate.estimate_total|floatformat:2 }}</dd>
+          <dt class="col-6 text-muted">Bid Amount</dt><dd class="col-6 text-end fw-semibold">K{{ estimate.bid_amount|floatformat:2 }}</dd>
+          <dt class="col-6 text-muted">Margin Amount</dt>
+          <dd class="col-6 text-end {% if estimate.bid_margin_amount >= 0 %}text-success{% else %}text-danger{% endif %}">K{{ estimate.bid_margin_amount|floatformat:2 }}</dd>
+        </dl>
+      </div>
+    </div>
+    {% if estimate.cloned_from %}
+    <div class="card border-0 shadow-sm mt-3">
+      <div class="card-body small text-muted">Cloned from: <a href="{% url 'tender:estimate-detail' estimate.cloned_from.pk %}">{{ estimate.cloned_from.tender_reference }}</a></div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-md-8">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Estimate Items ({{ items|length }})</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0 small">
+          <thead class="table-light">
+            <tr><th>Trade</th><th>Description</th><th>Unit</th><th class="text-end">Qty</th><th class="text-end">Rate</th><th class="text-end">Amount</th></tr>
+          </thead>
+          <tbody>
+            {% regroup items by get_trade_display as trade_groups %}
+            {% for trade_group in trade_groups %}
+            <tr class="table-secondary"><td colspan="6" class="fw-semibold">{{ trade_group.grouper }}</td></tr>
+            {% for item in trade_group.list %}
+            <tr>
+              <td></td>
+              <td>{{ item.description }}</td>
+              <td>{{ item.unit }}</td>
+              <td class="text-end">{{ item.quantity|floatformat:2 }}</td>
+              <td class="text-end">K{{ item.unit_rate|floatformat:2 }}</td>
+              <td class="text-end">K{{ item.amount|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+            {% endfor %}
+          </tbody>
+          <tfoot class="table-light">
+            <tr><td colspan="5" class="fw-bold text-end">TOTAL</td><td class="fw-bold text-end">K{{ estimate.estimate_total|floatformat:2 }}</td></tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    {% if estimate.notes %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Notes</div>
+      <div class="card-body small">{{ estimate.notes|linebreaks }}</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
