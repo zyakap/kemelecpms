@@ -6,9 +6,15 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
   <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Bill of Quantities — {{ project.name }}</h1>
-  <div class="d-flex gap-2">
+  <div class="d-flex gap-2 flex-wrap">
     <a href="{% url 'budget:boq-create' project.pk %}" class="btn btn-primary btn-sm">
       <i class="bi bi-plus-lg me-1"></i>Add Item
+    </a>
+    <a href="{% url 'budget:boq-import' project.pk %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-upload me-1"></i>Import
+    </a>
+    <a href="{% url 'reports:boq-export' project.pk %}" class="btn btn-success btn-sm">
+      <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
     </a>
     <a href="{% url 'budget:dashboard' project.pk %}" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-speedometer2 me-1"></i>Budget Dashboard

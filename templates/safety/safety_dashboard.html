@@ -5,7 +5,10 @@
 {% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Safety Dashboard{% if project %} — {{ project.name }}{% endif %}</h1>
-  <a href="{% url 'safety:incident_add' %}" class="btn btn-danger btn-sm"><i class="bi bi-exclamation-triangle me-1"></i>Report Incident</a>
+  <div class="d-flex gap-2">
+    {% if project %}<a href="{% url 'reports:safety-export' project.pk %}" class="btn btn-success btn-sm"><i class="bi bi-file-earmark-excel me-1"></i>Export Report</a>{% endif %}
+    <a href="{% url 'safety:incident_add' %}" class="btn btn-danger btn-sm"><i class="bi bi-exclamation-triangle me-1"></i>Report Incident</a>
+  </div>
 </div>
 
 <div class="row g-3 mb-4">

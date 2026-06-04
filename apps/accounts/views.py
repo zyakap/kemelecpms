@@ -42,6 +42,9 @@ class login_view(LoginView):  # noqa: N801  (kept lowercase to match spec)
     redirect_authenticated_user = True
 
     def get_success_url(self):
+        from apps.core.models import AuditLog
+        AuditLog.log(self.request.user, AuditLog.ACTION_LOGIN, request=self.request,
+                     model_name="User", object_repr=str(self.request.user))
         return self.get_redirect_url() or reverse_lazy("dashboard:index")
 
 

@@ -270,6 +270,8 @@ class DSRSubmitView(LoginRequiredMixin, View):
         dsr.status = DailySiteReport.STATUS_SUBMITTED
         dsr.updated_by = request.user
         dsr.save(update_fields=["status", "updated_by", "updated_at"])
+        from apps.core.models import AuditLog
+        AuditLog.log(request.user, AuditLog.ACTION_SUBMIT, dsr, request=request)
         messages.success(request, f"{dsr.dsr_number} submitted for approval.")
         return redirect(dsr.get_absolute_url())
 
@@ -302,6 +304,8 @@ class DSRApproveView(LoginRequiredMixin, View):
                 "updated_at",
             ]
         )
+        from apps.core.models import AuditLog
+        AuditLog.log(request.user, AuditLog.ACTION_APPROVE, dsr, request=request)
         messages.success(request, f"{dsr.dsr_number} approved and locked.")
         return redirect(dsr.get_absolute_url())
 

@@ -177,10 +177,12 @@ class IPCSubmitView(LoginRequiredMixin, View):
                 reverse_lazy("ipc:ipc-detail", kwargs={"project_pk": project_pk, "pk": pk})
             )
         from django.utils import timezone
+        from apps.core.models import AuditLog
         ipc.status = IPC.STATUS_SUBMITTED
         ipc.submitted_date = ipc.submitted_date or timezone.now().date()
         ipc.updated_by = request.user
         ipc.save(update_fields=["status", "submitted_date", "updated_by", "updated_at"])
+        AuditLog.log(request.user, AuditLog.ACTION_SUBMIT, ipc, request=request)
         messages.success(request, f"{ipc.ipc_number} submitted successfully.")
         return redirect(
             reverse_lazy("ipc:ipc-detail", kwargs={"project_pk": project_pk, "pk": pk})
