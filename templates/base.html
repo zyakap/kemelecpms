@@ -376,17 +376,18 @@
   </a>
 
   <!-- Nav Links -->
+  {% with p=request.path %}
   <div class="pt-2 pb-2 flex-grow-1">
     <div class="nav-section-label">Main</div>
 
     <a href="/dashboard/portfolio/"
-       class="nav-link {% block active_dashboard %}{% endblock %}"
+       class="nav-link {% if '/dashboard/portfolio/' in p or p == '/' %}active{% endif %}"
        title="Dashboard">
       <i class="bi bi-speedometer2"></i> Dashboard
     </a>
 
     <a href="/projects/"
-       class="nav-link {% block active_projects %}{% endblock %}"
+       class="nav-link {% if '/projects/' in p %}active{% endif %}"
        title="Projects">
       <i class="bi bi-folder2"></i> Projects
     </a>
@@ -394,33 +395,39 @@
     <div class="nav-section-label">Finance</div>
 
     <a href="/budget/"
-       class="nav-link {% block active_budget %}{% endblock %}"
+       class="nav-link {% if '/budget/' in p %}active{% endif %}"
        title="Budget">
       <i class="bi bi-cash-stack"></i> Budget
     </a>
 
     <a href="/ipc/"
-       class="nav-link {% block active_ipc %}{% endblock %}"
+       class="nav-link {% if '/ipc/' in p %}active{% endif %}"
        title="IPC / Claims">
       <i class="bi bi-receipt"></i> IPC / Claims
+    </a>
+
+    <a href="/compliance/"
+       class="nav-link {% if '/compliance/' in p %}active{% endif %}"
+       title="Compliance">
+      <i class="bi bi-clipboard-check"></i> Compliance
     </a>
 
     <div class="nav-section-label">Planning</div>
 
     <a href="/schedule/"
-       class="nav-link {% block active_schedule %}{% endblock %}"
+       class="nav-link {% if '/schedule/' in p %}active{% endif %}"
        title="Schedule">
       <i class="bi bi-calendar3"></i> Schedule
     </a>
 
     <a href="/resources/"
-       class="nav-link {% block active_resources %}{% endblock %}"
+       class="nav-link {% if '/resources/' in p %}active{% endif %}"
        title="Resources">
       <i class="bi bi-people"></i> Resources
     </a>
 
     <a href="/procurement/"
-       class="nav-link {% block active_procurement %}{% endblock %}"
+       class="nav-link {% if '/procurement/' in p %}active{% endif %}"
        title="Procurement">
       <i class="bi bi-cart3"></i> Procurement
     </a>
@@ -428,19 +435,19 @@
     <div class="nav-section-label">Site</div>
 
     <a href="/dsr/"
-       class="nav-link {% block active_dsr %}{% endblock %}"
+       class="nav-link {% if '/dsr/' in p %}active{% endif %}"
        title="Daily Reports">
       <i class="bi bi-clipboard2-check"></i> Daily Reports
     </a>
 
     <a href="/safety/"
-       class="nav-link {% block active_safety %}{% endblock %}"
+       class="nav-link {% if '/safety/' in p %}active{% endif %}"
        title="Safety">
       <i class="bi bi-shield-check"></i> Safety
     </a>
 
     <a href="/quality/"
-       class="nav-link {% block active_quality %}{% endblock %}"
+       class="nav-link {% if '/quality/' in p %}active{% endif %}"
        title="Quality">
       <i class="bi bi-patch-check"></i> Quality
     </a>
@@ -448,26 +455,80 @@
     <div class="nav-section-label">Management</div>
 
     <a href="/documents/"
-       class="nav-link {% block active_documents %}{% endblock %}"
+       class="nav-link {% if '/documents/' in p %}active{% endif %}"
        title="Documents">
       <i class="bi bi-folder"></i> Documents
     </a>
 
     <a href="/notifications/"
-       class="nav-link {% block active_notifications %}{% endblock %}"
+       class="nav-link {% if '/notifications/' in p %}active{% endif %}"
        title="Notifications">
       <i class="bi bi-bell"></i> Notifications
     </a>
 
+    <div class="nav-section-label">Intelligence</div>
+
+    <a href="/tender/library/"
+       class="nav-link {% if '/tender/library/' in p or '/tender/lessons/' in p or '/tender/rates/' in p or '/tender/estimates/' in p %}active{% endif %}"
+       title="Tender Library">
+      <i class="bi bi-archive"></i> Tender Library
+    </a>
+
+    <a href="/tender/documents/"
+       class="nav-link {% if '/tender/documents/' in p %}active{% endif %}"
+       title="Document Library">
+      <i class="bi bi-folder2-open"></i> Document Library
+    </a>
+
+    <a href="/reports/"
+       class="nav-link {% if '/reports/' in p %}active{% endif %}"
+       title="Reports">
+      <i class="bi bi-file-earmark-bar-graph"></i> Reports
+    </a>
+
+    {% if user.is_staff or user.is_md or user.is_admin %}
+    <div class="nav-section-label">Analytics</div>
+
+    <a href="/dashboard/analytics/financial/"
+       class="nav-link {% if '/analytics/financial/' in p %}active{% endif %}"
+       title="Financial Analytics">
+      <i class="bi bi-bar-chart-line"></i> Financial
+    </a>
+
+    <a href="/dashboard/analytics/safety/"
+       class="nav-link {% if '/analytics/safety/' in p %}active{% endif %}"
+       title="Safety Analytics">
+      <i class="bi bi-heart-pulse"></i> Safety
+    </a>
+
+    <a href="/dashboard/analytics/schedule/"
+       class="nav-link {% if '/analytics/schedule/' in p %}active{% endif %}"
+       title="Schedule Analytics">
+      <i class="bi bi-calendar-range"></i> Schedule
+    </a>
+
+    <a href="/dashboard/analytics/resources/"
+       class="nav-link {% if '/analytics/resources/' in p %}active{% endif %}"
+       title="Resource Analytics">
+      <i class="bi bi-people-fill"></i> Resources
+    </a>
+    {% endif %}
+
     {% if user.is_staff %}
     <div class="nav-section-label">System</div>
+    <a href="/accounts/audit/"
+       class="nav-link {% if '/accounts/audit/' in p %}active{% endif %}"
+       title="Audit Log">
+      <i class="bi bi-journal-text"></i> Audit Log
+    </a>
     <a href="/admin/"
-       class="nav-link {% block active_admin %}{% endblock %}"
+       class="nav-link {% if p == '/admin/' %}active{% endif %}"
        title="Admin Panel">
       <i class="bi bi-gear"></i> Admin
     </a>
     {% endif %}
   </div>
+  {% endwith %}
 
   <div class="sidebar-footer text-center">
     v1.0 &nbsp;&middot;&nbsp; &copy; {% now "Y" %} Kemele Construction

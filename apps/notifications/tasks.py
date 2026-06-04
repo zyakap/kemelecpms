@@ -95,3 +95,45 @@ def send_overdue_compliance_reminders():
                 message=f"Compliance item '{entry.title}' was due on {entry.due_date} and is now overdue.",
                 link=f"/compliance/calendar/{entry.pk}/",
             )
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def send_sms_notification(self, mobile_number, message):
+    """
+    Send an SMS notification via a configured HTTP gateway.
+
+    Set SMS_GATEWAY_URL, SMS_API_KEY, and SMS_FROM_NUMBER in settings/env
+    to enable. Compatible with Digicel PNG Business SMS API and most
+    generic HTTP SMS gateways.
+    """
+    import requests as req
+
+    gateway_url = getattr(settings, "SMS_GATEWAY_URL", "")
+    api_key = getattr(settings, "SMS_API_KEY", "")
+    if not gateway_url or not api_key:
+        return  # SMS not configured — skip silently
+
+    from_number = getattr(settings, "SMS_FROM_NUMBER", "KEMELE")
+    try:
+        resp = req.post(
+            gateway_url,
+            json={
+                "to": mobile_number,
+                "from": from_number,
+                "message": message,
+                "api_key": api_key,
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+    except Exception as exc:
+        raise self.retry(exc=exc)
+
+
+@shared_task
+def sms_notify_users(user_ids, message):
+    """Send an SMS to a list of user IDs (uses their phone field)."""
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    for user in User.objects.filter(pk__in=user_ids).exclude(phone=""):
+        send_sms_notification.delay(user.phone, message)

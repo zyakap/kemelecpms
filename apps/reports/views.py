@@ -629,3 +629,81 @@ class PortfolioReportView(LoginRequiredMixin, TemplateView):
                 from django.contrib import messages
                 messages.error(self.request, "PDF generation requires WeasyPrint.")
         return super().render_to_response(context, **response_kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Reports Index
+# ---------------------------------------------------------------------------
+
+
+class ReportsIndexView(LoginRequiredMixin, TemplateView):
+    """Landing page listing all available reports and exports."""
+    template_name = "reports/index.html"
+
+
+# ---------------------------------------------------------------------------
+# Accounting Export (MYOB-compatible CSV)
+# ---------------------------------------------------------------------------
+
+
+class AccountingExportView(LoginRequiredMixin, View):
+    """
+    Export cost entries in a MYOB General Journal CSV format.
+
+    Columns: Date, Account, Description, Debit, Credit, Reference, Tax Code
+    """
+
+    def get(self, request, project_pk):
+        import csv
+        from django.http import HttpResponse
+
+        project = get_object_or_404(Project, pk=project_pk)
+        entries = CostEntry.objects.filter(project=project).select_related(
+            "cost_code"
+        ).order_by("date")
+
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = (
+            f'attachment; filename="Accounting_{project.project_id}.csv"'
+        )
+
+        writer = csv.writer(response)
+        writer.writerow([
+            "Date",
+            "Account Code",
+            "Account Description",
+            "Description / Memo",
+            "Debit",
+            "Credit",
+            "Reference",
+            "Tax Code",
+            "Entry Type",
+            "Project",
+        ])
+
+        for entry in entries:
+            amount = float(entry.amount or 0)
+            debit = amount if entry.entry_type == "ACTUAL" else 0
+            credit = amount if entry.entry_type == "COMMITTED" else 0
+            writer.writerow([
+                entry.date.strftime("%d/%m/%Y"),
+                entry.cost_code.code if entry.cost_code else "",
+                entry.cost_code.description if entry.cost_code else "",
+                entry.description or "",
+                f"{debit:.2f}" if debit else "",
+                f"{credit:.2f}" if credit else "",
+                entry.reference or "",
+                "G10",  # GST standard-rated (PNG IRC)
+                entry.get_entry_type_display(),
+                project.project_id,
+            ])
+
+        from apps.core.models import AuditLog
+        AuditLog.log(
+            user=request.user,
+            action=AuditLog.ACTION_EXPORT,
+            model_name="CostEntry",
+            object_repr=f"{project.project_id} accounting export",
+            request=request,
+        )
+        return response

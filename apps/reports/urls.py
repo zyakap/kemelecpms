@@ -42,4 +42,16 @@ urlpatterns = [
         views.PortfolioReportView.as_view(),
         name="portfolio-report",
     ),
+    # Accounting export (MYOB-compatible CSV)
+    path(
+        "projects/<int:project_pk>/export/accounting/",
+        views.AccountingExportView.as_view(),
+        name="accounting-export",
+    ),
+    # Reports index (landing page)
+    path(
+        "",
+        views.ReportsIndexView.as_view(),
+        name="index",
+    ),
 ]
