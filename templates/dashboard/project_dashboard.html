@@ -145,6 +145,17 @@
   </div>
 </div>
 
+<!-- S-Curve Chart -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <span class="fw-semibold" style="color:var(--kc-primary)"><i class="bi bi-graph-up me-2"></i>Cumulative Spend (S-Curve)</span>
+    <span class="badge bg-light text-dark border">Budget: K{{ total_budget|floatformat:0 }}</span>
+  </div>
+  <div class="card-body">
+    <canvas id="scurveChart" height="80"></canvas>
+  </div>
+</div>
+
 <div class="row g-4">
   <!-- Recent DSRs -->
   <div class="col-lg-7">
@@ -215,4 +226,40 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  fetch('/dashboard/api/scurve/{{ project.pk }}/')
+    .then(r => r.json())
+    .then(data => {
+      if (!data.labels || data.labels.length === 0) {
+        const body = document.getElementById('scurveChart').closest('.card-body');
+        if (body) body.innerHTML = '<p class="text-muted text-center small py-3">No cost entries yet — the S-curve will appear once cost data is recorded.</p>';
+        return;
+      }
+      new Chart(document.getElementById('scurveChart'), {
+        type: 'line',
+        data: data,
+        options: {
+          responsive: true,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'top' },
+            tooltip: { callbacks: { label: ctx => `K${ctx.parsed.y.toLocaleString()}` } }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { callback: v => `K${v.toLocaleString()}` }
+            }
+          }
+        }
+      });
+    })
+    .catch(() => {});
+})();
+</script>
 {% endblock %}

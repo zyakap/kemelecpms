@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}Schedule Analytics{% endblock %}
+{% block active_nav %}dashboard{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Schedule Analytics</h1>
+    <div class="text-muted small">Active Projects — as at {{ today|date:"d M Y" }}</div>
+  </div>
+</div>
+
+<!-- KPI Row -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3 col-sm-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body text-center">
+        <div class="fs-3 fw-bold" style="color:var(--kc-primary)">{{ total_projects }}</div>
+        <div class="small text-muted">Projects Tracked</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body text-center">
+        <div class="fs-3 fw-bold text-success">{{ on_schedule_count }}</div>
+        <div class="small text-muted">On Schedule</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6">
+    <div class="card border-0 shadow-sm h-100 {% if behind_count > 0 %}border-danger{% endif %}">
+      <div class="card-body text-center">
+        <div class="fs-3 fw-bold {% if behind_count > 0 %}text-danger{% else %}text-success{% endif %}">
+          {{ behind_count }}
+        </div>
+        <div class="small text-muted">Behind Schedule</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6">
+    <div class="card border-0 shadow-sm h-100 {% if overdue_milestones %}border-warning{% endif %}">
+      <div class="card-body text-center">
+        <div class="fs-3 fw-bold {% if overdue_milestones %}text-danger{% else %}text-success{% endif %}">
+          {{ overdue_milestones|length }}
+        </div>
+        <div class="small text-muted">Overdue Milestones</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Per-Project Schedule Status -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Schedule Performance by Project</div>
+  <div class="card-body p-0">
+    <table class="table table-sm table-hover mb-0">
+      <thead class="table-dark">
+        <tr>
+          <th>Project</th>
+          <th class="text-center">Milestones</th>
+          <th class="text-center">Achieved</th>
+          <th class="text-center">Overdue</th>
+          <th class="text-center">Due (30 days)</th>
+          <th class="text-center">% Complete</th>
+          <th class="text-center">Schedule Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in per_project %}
+        <tr>
+          <td>
+            <a href="{{ row.project.get_absolute_url }}" class="text-decoration-none fw-semibold small">
+              {{ row.project.project_id }}
+            </a>
+            <div class="small text-muted">{{ row.project.name|truncatechars:30 }}</div>
+          </td>
+          <td class="text-center small">{{ row.total_ms }}</td>
+          <td class="text-center small text-success">{{ row.achieved_ms }}</td>
+          <td class="text-center small {% if row.overdue_ms > 0 %}text-danger fw-bold{% endif %}">
+            {{ row.overdue_ms }}
+          </td>
+          <td class="text-center small {% if row.due_30 > 0 %}text-warning fw-bold{% endif %}">
+            {{ row.due_30 }}
+          </td>
+          <td class="text-center small">
+            <div class="progress mb-1" style="height:5px;">
+              <div class="progress-bar {% if row.status == 'BEHIND' %}bg-danger{% else %}bg-success{% endif %}"
+                   style="width:{{ row.pct }}%"></div>
+            </div>
+            {{ row.pct }}%
+          </td>
+          <td class="text-center">
+            {% if row.status == "BEHIND" %}
+              <span class="badge bg-danger">BEHIND</span>
+            {% else %}
+              <span class="badge bg-success">ON TRACK</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-4">No active projects.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Overdue Milestones -->
+{% if overdue_milestones %}
+<div class="card border-0 shadow-sm border-danger mb-4">
+  <div class="card-header bg-danger text-white fw-semibold">
+    <i class="bi bi-exclamation-triangle me-2"></i>Overdue Milestones ({{ overdue_milestones|length }})
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0 small">
+      <thead class="table-light">
+        <tr><th>Project</th><th>Milestone</th><th>Target Date</th><th>Days Overdue</th></tr>
+      </thead>
+      <tbody>
+        {% for ms in overdue_milestones %}
+        <tr class="table-danger">
+          <td>{{ ms.project.project_id }}</td>
+          <td>{{ ms.name }}</td>
+          <td>{{ ms.target_date|date:"d M Y" }}</td>
+          <td class="fw-bold text-danger">{{ today|timeuntil:ms.target_date }} overdue</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Upcoming Milestones by Horizon -->
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-danger text-white fw-semibold small">
+        <i class="bi bi-calendar-check me-1"></i>Due in Next 30 Days ({{ upcoming_30|length }})
+      </div>
+      <div class="card-body p-0">
+        {% if upcoming_30 %}
+        <ul class="list-group list-group-flush small">
+          {% for ms in upcoming_30 %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <div class="fw-semibold">{{ ms.name|truncatechars:35 }}</div>
+              <div class="text-muted">{{ ms.project.project_id }}</div>
+            </div>
+            <span class="badge bg-danger rounded-pill">{{ ms.target_date|date:"d M" }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-center text-muted py-3 small">None due in 30 days</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-warning text-dark fw-semibold small">
+        <i class="bi bi-calendar-check me-1"></i>31–60 Days ({{ upcoming_60|length }})
+      </div>
+      <div class="card-body p-0">
+        {% if upcoming_60 %}
+        <ul class="list-group list-group-flush small">
+          {% for ms in upcoming_60 %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <div class="fw-semibold">{{ ms.name|truncatechars:35 }}</div>
+              <div class="text-muted">{{ ms.project.project_id }}</div>
+            </div>
+            <span class="badge bg-warning text-dark rounded-pill">{{ ms.target_date|date:"d M" }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-center text-muted py-3 small">None due in 31–60 days</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold small" style="color:var(--kc-primary)">
+        <i class="bi bi-calendar-check me-1"></i>61–90 Days ({{ upcoming_90|length }})
+      </div>
+      <div class="card-body p-0">
+        {% if upcoming_90 %}
+        <ul class="list-group list-group-flush small">
+          {% for ms in upcoming_90 %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <div class="fw-semibold">{{ ms.name|truncatechars:35 }}</div>
+              <div class="text-muted">{{ ms.project.project_id }}</div>
+            </div>
+            <span class="badge bg-secondary rounded-pill">{{ ms.target_date|date:"d M" }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-center text-muted py-3 small">None due in 61–90 days</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

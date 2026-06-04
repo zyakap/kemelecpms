@@ -1,7 +1,7 @@
 from django import forms
 from django.forms import inlineformset_factory
 
-from .models import BidEstimate, BidEstimateItem, CostRate, LessonsLearned, TenderArchive
+from .models import BidEstimate, BidEstimateItem, CostRate, LessonsLearned, TenderArchive, TenderDocument
 
 
 class TenderArchiveForm(forms.ModelForm):
@@ -83,6 +83,24 @@ BidEstimateItemFormSet = inlineformset_factory(
     extra=3,
     can_delete=True,
 )
+
+
+class TenderDocumentForm(forms.ModelForm):
+    class Meta:
+        model = TenderDocument
+        fields = [
+            "title",
+            "doc_type",
+            "trade_category",
+            "description",
+            "document",
+            "version",
+            "is_current",
+            "tags",
+        ]
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 3}),
+        }
 
 
 class LessonsLearnedForm(forms.ModelForm):

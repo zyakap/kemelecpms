@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import BidEstimate, BidEstimateItem, CostRate, LessonsLearned, TenderArchive
+from .models import BidEstimate, BidEstimateItem, CostRate, LessonsLearned, TenderArchive, TenderDocument
 
 
 class BidEstimateItemInline(admin.TabularInline):
@@ -33,3 +33,10 @@ class LessonsLearnedAdmin(admin.ModelAdmin):
     list_display = ["title", "project", "category", "recorded_by", "created_at"]
     list_filter = ["category", "project"]
     search_fields = ["title", "recommendation"]
+
+
+@admin.register(TenderDocument)
+class TenderDocumentAdmin(admin.ModelAdmin):
+    list_display = ["title", "doc_type", "trade_category", "version", "is_current", "created_at"]
+    list_filter = ["doc_type", "is_current", "trade_category"]
+    search_fields = ["title", "tags", "description"]

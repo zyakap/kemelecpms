@@ -25,4 +25,8 @@ urlpatterns = [
     path("lessons/new/", views.LessonsLearnedCreateView.as_view(), name="lessons-create"),
     path("lessons/<int:pk>/", views.LessonsLearnedDetailView.as_view(), name="lesson-detail"),
     path("lessons/<int:pk>/edit/", views.LessonsLearnedUpdateView.as_view(), name="lessons-update"),
+    # Reusable Document Library
+    path("documents/", views.TenderDocumentListView.as_view(), name="document-list"),
+    path("documents/new/", views.TenderDocumentCreateView.as_view(), name="document-create"),
+    path("documents/<int:pk>/edit/", views.TenderDocumentUpdateView.as_view(), name="document-update"),
 ]

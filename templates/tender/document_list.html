@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Tender Document Library{% endblock %}
+{% block active_nav %}tender{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Reusable Document Library</h1>
+  <a href="{% url 'tender:document-create' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-upload me-1"></i>Add Document
+  </a>
+</div>
+
+<!-- Filters -->
+<form method="get" class="row g-2 mb-4 align-items-end">
+  <div class="col-sm-4">
+    <label class="form-label small text-muted">Document Type</label>
+    <select name="doc_type" class="form-select form-select-sm">
+      <option value="">All Types</option>
+      {% for val, label in doc_type_choices %}
+      <option value="{{ val }}" {% if val == selected_type %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-sm-5">
+    <label class="form-label small text-muted">Search</label>
+    <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Title, tag, or keyword…">
+  </div>
+  <div class="col-sm-3 d-flex gap-2">
+    <button type="submit" class="btn btn-sm btn-outline-secondary flex-fill">Filter</button>
+    <a href="{% url 'tender:document-list' %}" class="btn btn-sm btn-outline-danger">Clear</a>
+  </div>
+</form>
+
+{% if documents %}
+<div class="row g-3">
+  {% for doc in documents %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-start justify-content-between mb-2">
+          <div>
+            <span class="badge bg-secondary mb-1">{{ doc.get_doc_type_display }}</span>
+            {% if doc.is_current %}
+              <span class="badge bg-success mb-1">Current</span>
+            {% else %}
+              <span class="badge bg-warning text-dark mb-1">Superseded</span>
+            {% endif %}
+          </div>
+          <a href="{% url 'tender:document-update' doc.pk %}" class="btn btn-xs btn-outline-secondary btn-sm">
+            <i class="bi bi-pencil"></i>
+          </a>
+        </div>
+        <h6 class="fw-semibold mb-1" style="color:var(--kc-primary)">{{ doc.title }}</h6>
+        {% if doc.trade_category %}
+          <div class="small text-muted mb-1"><i class="bi bi-tools me-1"></i>{{ doc.trade_category }}</div>
+        {% endif %}
+        {% if doc.description %}
+          <p class="small text-muted mb-2">{{ doc.description|truncatechars:80 }}</p>
+        {% endif %}
+        {% if doc.tags %}
+          <div class="mb-2">
+            {% for tag in doc.tags|split:"," %}
+            <span class="badge bg-light text-dark border me-1 small">{{ tag|strip }}</span>
+            {% endfor %}
+          </div>
+        {% endif %}
+        <div class="d-flex justify-content-between align-items-center mt-auto pt-2 border-top">
+          <small class="text-muted">v{{ doc.version }} · {{ doc.created_at|date:"d M Y" }}</small>
+          {% if doc.document %}
+          <a href="{{ doc.document.url }}" class="btn btn-sm btn-outline-primary" target="_blank">
+            <i class="bi bi-download me-1"></i>Download
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body text-center py-5">
+    <i class="bi bi-folder2-open display-4 d-block mb-3 text-muted opacity-50"></i>
+    <p class="text-muted mb-3">
+      {% if q or selected_type %}
+        No documents match your filters.
+      {% else %}
+        No documents in the library yet.
+      {% endif %}
+    </p>
+    <a href="{% url 'tender:document-create' %}" class="btn btn-primary">
+      <i class="bi bi-upload me-1"></i>Add First Document
+    </a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

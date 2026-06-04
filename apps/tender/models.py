@@ -242,6 +242,69 @@ class BidEstimateItem(TimeStampedModel):
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Reusable Document Library
+# ---------------------------------------------------------------------------
+
+
+class TenderDocument(TimeStampedModel):
+    """
+    Company-wide library of reusable tender documents: method statements,
+    CVs, certifications, company profiles, contract clause templates.
+    """
+
+    DOC_TYPE_METHOD = "METHOD_STATEMENT"
+    DOC_TYPE_CV = "CV"
+    DOC_TYPE_ORG_CHART = "ORG_CHART"
+    DOC_TYPE_CERT = "CERTIFICATION"
+    DOC_TYPE_PROFILE = "PROFILE"
+    DOC_TYPE_TEMPLATE = "TEMPLATE"
+    DOC_TYPE_CLAUSE = "CONTRACT_CLAUSE"
+    DOC_TYPE_OTHER = "OTHER"
+
+    DOC_TYPE_CHOICES = [
+        (DOC_TYPE_METHOD, "Method Statement"),
+        (DOC_TYPE_CV, "Personnel CV"),
+        (DOC_TYPE_ORG_CHART, "Organisational Chart"),
+        (DOC_TYPE_CERT, "Company Certification"),
+        (DOC_TYPE_PROFILE, "Company Profile / Capability Statement"),
+        (DOC_TYPE_TEMPLATE, "Document Template"),
+        (DOC_TYPE_CLAUSE, "Contract Clause Library"),
+        (DOC_TYPE_OTHER, "Other"),
+    ]
+
+    title = models.CharField(max_length=255)
+    doc_type = models.CharField(max_length=20, choices=DOC_TYPE_CHOICES, verbose_name="Document Type")
+    trade_category = models.CharField(
+        max_length=20, blank=True, default="",
+        help_text="Leave blank if applicable to all trades.",
+    )
+    description = models.TextField(blank=True)
+    document = models.FileField(upload_to="tender/documents/%Y/", verbose_name="File")
+    version = models.CharField(max_length=20, default="1.0")
+    is_current = models.BooleanField(default=True, verbose_name="Current Version")
+    tags = models.CharField(
+        max_length=500, blank=True,
+        help_text="Comma-separated search tags: e.g. CONCRETE,ROADS,ISO9001",
+    )
+
+    class Meta:
+        verbose_name = "Tender Document"
+        verbose_name_plural = "Tender Documents"
+        ordering = ["doc_type", "title"]
+
+    def __str__(self):
+        return f"{self.title} (v{self.version})"
+
+    def get_absolute_url(self):
+        return reverse("tender:document-list")
+
+    @property
+    def filename(self):
+        import os
+        return os.path.basename(self.document.name) if self.document else ""
+
+
 class LessonsLearned(TimeStampedModel):
     CATEGORY_COST = "COST"
     CATEGORY_SCHEDULE = "SCHEDULE"

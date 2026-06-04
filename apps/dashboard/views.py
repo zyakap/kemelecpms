@@ -540,3 +540,207 @@ class SafetyAnalyticsView(LoginRequiredMixin, TemplateView):
             "breadcrumbs": [{"label": "Safety Analytics"}],
         })
         return ctx
+
+
+# ---------------------------------------------------------------------------
+# Schedule Analytics View
+# ---------------------------------------------------------------------------
+
+
+class ScheduleAnalyticsView(LoginRequiredMixin, TemplateView):
+    """Portfolio-level schedule performance statistics."""
+
+    template_name = "dashboard/schedule_analytics.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from apps.projects.models import Milestone, Project
+
+        today = timezone.now().date()
+        projects = Project.objects.filter(
+            status__in=["ACTIVE", "MOBILISATION", "PRACTICAL_COMPLETION"]
+        ).select_related("project_manager")
+
+        per_project = []
+        on_schedule_count = 0
+        behind_count = 0
+
+        for project in projects:
+            milestones = Milestone.objects.filter(project=project)
+            total_ms = milestones.count()
+            achieved_ms = milestones.filter(is_achieved=True).count()
+            overdue_ms = milestones.filter(is_achieved=False, target_date__lt=today).count()
+            due_30 = milestones.filter(
+                is_achieved=False,
+                target_date__gte=today,
+                target_date__lte=today + timezone.timedelta(days=30),
+            ).count()
+            pct = round(achieved_ms / total_ms * 100, 1) if total_ms else 0
+
+            if overdue_ms > 0:
+                schedule_status = "BEHIND"
+                behind_count += 1
+            else:
+                schedule_status = "ON_TRACK"
+                on_schedule_count += 1
+
+            per_project.append({
+                "project": project,
+                "total_ms": total_ms,
+                "achieved_ms": achieved_ms,
+                "overdue_ms": overdue_ms,
+                "due_30": due_30,
+                "pct": pct,
+                "status": schedule_status,
+            })
+
+        overdue_milestones = (
+            Milestone.objects.filter(
+                project__in=projects,
+                is_achieved=False,
+                target_date__lt=today,
+            )
+            .select_related("project")
+            .order_by("target_date")
+        )
+
+        upcoming_30 = (
+            Milestone.objects.filter(
+                project__in=projects,
+                is_achieved=False,
+                target_date__gte=today,
+                target_date__lte=today + timezone.timedelta(days=30),
+            )
+            .select_related("project")
+            .order_by("target_date")
+        )
+
+        upcoming_60 = (
+            Milestone.objects.filter(
+                project__in=projects,
+                is_achieved=False,
+                target_date__gt=today + timezone.timedelta(days=30),
+                target_date__lte=today + timezone.timedelta(days=60),
+            )
+            .select_related("project")
+            .order_by("target_date")
+        )
+
+        upcoming_90 = (
+            Milestone.objects.filter(
+                project__in=projects,
+                is_achieved=False,
+                target_date__gt=today + timezone.timedelta(days=60),
+                target_date__lte=today + timezone.timedelta(days=90),
+            )
+            .select_related("project")
+            .order_by("target_date")
+        )
+
+        ctx.update({
+            "per_project": per_project,
+            "on_schedule_count": on_schedule_count,
+            "behind_count": behind_count,
+            "total_projects": projects.count(),
+            "overdue_milestones": overdue_milestones,
+            "upcoming_30": upcoming_30,
+            "upcoming_60": upcoming_60,
+            "upcoming_90": upcoming_90,
+            "today": today,
+            "breadcrumbs": [{"label": "Schedule Analytics"}],
+        })
+        return ctx
+
+
+# ---------------------------------------------------------------------------
+# Resource Analytics View
+# ---------------------------------------------------------------------------
+
+
+class ResourceAnalyticsView(LoginRequiredMixin, TemplateView):
+    """Portfolio-level resource utilisation statistics."""
+
+    template_name = "dashboard/resource_analytics.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from apps.resources.models import AttendanceRecord, EquipmentUtilisation
+        from apps.projects.models import Project
+
+        today = timezone.now().date()
+        ytd_start = today.replace(month=1, day=1)
+
+        projects = Project.objects.filter(status__in=["ACTIVE", "MOBILISATION"])
+
+        # Recent workforce (last 7 days, distinct workers with attendance)
+        recent_workers = (
+            AttendanceRecord.objects.filter(
+                project__in=projects,
+                date__gte=today - timezone.timedelta(days=7),
+                is_present=True,
+            )
+            .values("worker_id")
+            .distinct()
+            .count()
+        )
+
+        # YTD man-hours (attendance records × 8 hrs)
+        ytd_attendance = AttendanceRecord.objects.filter(
+            project__in=projects,
+            date__gte=ytd_start,
+            is_present=True,
+        ).count()
+        man_hours_ytd = ytd_attendance * 8
+
+        # Equipment hours YTD
+        equip_hours_ytd = (
+            EquipmentUtilisation.objects.filter(
+                allocation__project__in=projects,
+                date__gte=ytd_start,
+            )
+            .aggregate(
+                total_worked=Sum("hours_worked"),
+                total_idle=Sum("hours_idle"),
+                total_breakdown=Sum("hours_breakdown"),
+            )
+        )
+        eq_worked = float(equip_hours_ytd["total_worked"] or 0)
+        eq_idle = float(equip_hours_ytd["total_idle"] or 0)
+        eq_breakdown = float(equip_hours_ytd["total_breakdown"] or 0)
+        eq_total = eq_worked + eq_idle + eq_breakdown
+        eq_utilisation_pct = round(eq_worked / eq_total * 100, 1) if eq_total > 0 else 0
+
+        # Per-project breakdown
+        per_project = []
+        for project in projects:
+            workers_7d = (
+                AttendanceRecord.objects.filter(
+                    project=project,
+                    date__gte=today - timezone.timedelta(days=7),
+                    is_present=True,
+                )
+                .values("worker_id")
+                .distinct()
+                .count()
+            )
+            mh_project = AttendanceRecord.objects.filter(
+                project=project,
+                date__gte=ytd_start,
+                is_present=True,
+            ).count() * 8
+
+            per_project.append({
+                "project": project,
+                "workers_7d": workers_7d,
+                "man_hours_ytd": mh_project,
+            })
+
+        ctx.update({
+            "recent_workers": recent_workers,
+            "man_hours_ytd": man_hours_ytd,
+            "eq_worked_ytd": round(eq_worked, 0),
+            "eq_utilisation_pct": eq_utilisation_pct,
+            "per_project": per_project,
+            "breadcrumbs": [{"label": "Resource Analytics"}],
+        })
+        return ctx

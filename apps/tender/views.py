@@ -24,8 +24,9 @@ from .forms import (
     CostRateForm,
     LessonsLearnedForm,
     TenderArchiveForm,
+    TenderDocumentForm,
 )
-from .models import BidEstimate, BidEstimateItem, CostRate, LessonsLearned, TenderArchive
+from .models import BidEstimate, BidEstimateItem, CostRate, LessonsLearned, TenderArchive, TenderDocument
 
 
 # ---------------------------------------------------------------------------
@@ -423,6 +424,83 @@ class LessonsLearnedUpdateView(LoginRequiredMixin, UpdateView):
         ctx = super().get_context_data(**kwargs)
         ctx["breadcrumbs"] = [
             {"label": "Lessons Learned", "url": reverse_lazy("tender:lessons-list")},
+            {"label": "Edit"},
+        ]
+        return ctx
+
+
+# ---------------------------------------------------------------------------
+# Reusable Document Library
+# ---------------------------------------------------------------------------
+
+
+class TenderDocumentListView(LoginRequiredMixin, ListView):
+    model = TenderDocument
+    template_name = "tender/document_list.html"
+    context_object_name = "documents"
+
+    def get_queryset(self):
+        qs = TenderDocument.objects.all()
+        doc_type = self.request.GET.get("doc_type")
+        trade = self.request.GET.get("trade")
+        q = self.request.GET.get("q")
+        if doc_type:
+            qs = qs.filter(doc_type=doc_type)
+        if trade:
+            qs = qs.filter(trade_category__iexact=trade)
+        if q:
+            qs = qs.filter(
+                Q(title__icontains=q) | Q(tags__icontains=q) | Q(description__icontains=q)
+            )
+        return qs.order_by("doc_type", "title")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["doc_type_choices"] = TenderDocument.DOC_TYPE_CHOICES
+        ctx["selected_type"] = self.request.GET.get("doc_type", "")
+        ctx["q"] = self.request.GET.get("q", "")
+        return ctx
+
+
+class TenderDocumentCreateView(LoginRequiredMixin, CreateView):
+    model = TenderDocument
+    form_class = TenderDocumentForm
+    template_name = "tender/document_form.html"
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, "Document added to the library.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy("tender:document-list")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["breadcrumbs"] = [
+            {"label": "Document Library", "url": reverse_lazy("tender:document-list")},
+            {"label": "Add Document"},
+        ]
+        return ctx
+
+
+class TenderDocumentUpdateView(LoginRequiredMixin, UpdateView):
+    model = TenderDocument
+    form_class = TenderDocumentForm
+    template_name = "tender/document_form.html"
+
+    def form_valid(self, form):
+        form.instance.updated_by = self.request.user
+        messages.success(self.request, "Document updated.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy("tender:document-list")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["breadcrumbs"] = [
+            {"label": "Document Library", "url": reverse_lazy("tender:document-list")},
             {"label": "Edit"},
         ]
         return ctx
