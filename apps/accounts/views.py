@@ -42,6 +42,9 @@ class login_view(LoginView):  # noqa: N801  (kept lowercase to match spec)
     redirect_authenticated_user = True
 
     def get_success_url(self):
+        from apps.core.models import AuditLog
+        AuditLog.log(self.request.user, AuditLog.ACTION_LOGIN, request=self.request,
+                     model_name="User", object_repr=str(self.request.user))
         return self.get_redirect_url() or reverse_lazy("dashboard:index")
 
 
@@ -177,3 +180,33 @@ class ProfileUpdateView(LoginRequiredMixin, UpdateView):
         response = super().form_valid(form)
         messages.success(self.request, "Your profile has been updated.")
         return response
+
+
+class AuditLogView(StaffOrAdminMixin, ListView):
+    """System-wide audit trail — visible to staff and admins only."""
+
+    template_name = "accounts/audit_log.html"
+    context_object_name = "entries"
+    paginate_by = 50
+
+    def get_queryset(self):
+        from apps.core.models import AuditLog
+        qs = AuditLog.objects.select_related("user").order_by("-timestamp")
+        action = self.request.GET.get("action")
+        model = self.request.GET.get("model")
+        user_id = self.request.GET.get("user")
+        if action:
+            qs = qs.filter(action=action)
+        if model:
+            qs = qs.filter(model_name__icontains=model)
+        if user_id:
+            qs = qs.filter(user_id=user_id)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from apps.core.models import AuditLog
+        ctx["action_choices"] = AuditLog.ACTION_CHOICES
+        ctx["selected_action"] = self.request.GET.get("action", "")
+        ctx["model_filter"] = self.request.GET.get("model", "")
+        return ctx

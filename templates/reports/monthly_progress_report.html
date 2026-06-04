@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block title %}Monthly Progress Report — {{ project.name }} — {{ period_label }}{% endblock %}
+{% block active_nav %}reports{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Monthly Progress Report</h1>
+    <div class="text-muted small">{{ project.name }} · {{ period_label }}</div>
+  </div>
+  <div class="d-flex gap-2">
+    <!-- Period selector -->
+    <form method="get" class="d-flex gap-1 align-items-center">
+      <select name="month" class="form-select form-select-sm" style="width:auto;">
+        {% for m in "1,2,3,4,5,6,7,8,9,10,11,12"|split:"," %}
+        <option value="{{ m }}" {% if period_from.month|stringformat:"s" == m %}selected{% endif %}>{{ period_from|date:"M" }}</option>
+        {% endfor %}
+        {% for m_num in "1,2,3,4,5,6,7,8,9,10,11,12"|split:"," %}
+        <option value="{{ m_num }}" {% if period_from.month == m_num|add:"0" %}selected{% endif %}>Month {{ m_num }}</option>
+        {% endfor %}
+      </select>
+      <input type="number" name="year" class="form-control form-control-sm" style="width:90px;" value="{{ period_from.year }}">
+      <button type="submit" class="btn btn-sm btn-outline-secondary">Go</button>
+    </form>
+    <a href="?month={{ period_from.month }}&year={{ period_from.year }}&format=pdf" class="btn btn-danger btn-sm" target="_blank"><i class="bi bi-file-pdf me-1"></i>PDF</a>
+  </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body text-center">
+        <div class="fs-4 fw-bold" style="color:var(--kc-primary)">{{ overall_pct }}%</div>
+        <div class="small text-muted">Overall Progress</div>
+        <div class="progress mt-2" style="height:6px;"><div class="progress-bar" style="width:{{ overall_pct }}%"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body text-center">
+        <div class="fs-5 fw-bold {% if budget_pct > 100 %}text-danger{% elif budget_pct >= 80 %}text-warning{% else %}text-success{% endif %}">{{ budget_pct }}%</div>
+        <div class="small text-muted">Budget Used</div>
+        <div class="small">K{{ total_spent|floatformat:0 }} of K{{ total_budget|floatformat:0 }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body text-center">
+        <div class="fs-4 fw-bold">{{ dsr_count }}</div>
+        <div class="small text-muted">Approved DSRs This Month</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm {% if lti_count > 0 %}border-danger{% endif %}">
+      <div class="card-body text-center">
+        <div class="fs-4 fw-bold {% if incident_count > 0 %}text-danger{% else %}text-success{% endif %}">{{ incident_count }}</div>
+        <div class="small text-muted">Incidents ({{ lti_count }} LTI)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Left column -->
+  <div class="col-md-5">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Project Details</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-5 text-muted">Project ID</dt><dd class="col-7">{{ project.project_id }}</dd>
+          <dt class="col-5 text-muted">Client</dt><dd class="col-7">{{ project.client.name|default:"—" }}</dd>
+          <dt class="col-5 text-muted">Status</dt><dd class="col-7">{{ project.get_status_display }}</dd>
+          <dt class="col-5 text-muted">PM</dt><dd class="col-7">{{ project.project_manager.get_full_name|default:"—" }}</dd>
+          <dt class="col-5 text-muted">Report Period</dt><dd class="col-7">{{ period_from|date:"d M" }} – {{ period_to|date:"d M Y" }}</dd>
+          <dt class="col-5 text-muted">Generated</dt><dd class="col-7">{{ report_date|date:"d M Y" }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Budget Summary</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-7 text-muted">Total Budget</dt><dd class="col-5 text-end">K{{ total_budget|floatformat:2 }}</dd>
+          <dt class="col-7 text-muted">Committed</dt><dd class="col-5 text-end">K{{ total_committed|floatformat:2 }}</dd>
+          <dt class="col-7 text-muted">Actual Spend</dt><dd class="col-5 text-end">K{{ total_actual|floatformat:2 }}</dd>
+          <dt class="col-7 text-muted">Total Spent</dt><dd class="col-5 text-end">K{{ total_spent|floatformat:2 }}</dd>
+          <dt class="col-7 fw-semibold">Remaining</dt><dd class="col-5 text-end fw-semibold {% if budget_remaining < 0 %}text-danger{% else %}text-success{% endif %}">K{{ budget_remaining|floatformat:2 }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Safety This Month</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-7 text-muted">Total Incidents</dt><dd class="col-5">{{ incident_count }}</dd>
+          <dt class="col-7 text-muted">LTIs</dt><dd class="col-5 {% if lti_count > 0 %}text-danger fw-bold{% endif %}">{{ lti_count }}</dd>
+          <dt class="col-7 text-muted">Near Misses</dt><dd class="col-5">{{ near_miss_count }}</dd>
+          <dt class="col-7 text-muted">Toolbox Talks</dt><dd class="col-5">{{ tb_count }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    {% if open_rfis or open_ncrs %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Open Items</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-7 text-muted">Open RFIs</dt><dd class="col-5">{{ open_rfis|length }}</dd>
+          <dt class="col-7 text-muted">Open NCRs</dt><dd class="col-5">{{ open_ncrs|length }}</dd>
+        </dl>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Right column -->
+  <div class="col-md-7">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Overall Progress: {{ overall_pct }}%</div>
+      <div class="card-body">
+        <div class="progress mb-3" style="height:20px;">
+          <div class="progress-bar bg-success" style="width:{{ overall_pct }}%">{{ overall_pct }}%</div>
+        </div>
+        <div class="small text-muted">{{ achieved_milestones }} of {{ total_milestones }} milestones achieved</div>
+      </div>
+    </div>
+
+    {% if milestones %}
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Milestone Status</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0 small">
+          <thead class="table-light">
+            <tr><th>Milestone</th><th>Target Date</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            {% for ms in milestones|slice:":10" %}
+            <tr>
+              <td>{{ ms.name }}</td>
+              <td>{{ ms.target_date|date:"d M Y" }}</td>
+              <td>{% if ms.is_achieved %}<span class="badge bg-success">Achieved</span>{% elif ms.target_date < report_date %}<span class="badge bg-danger">Overdue</span>{% else %}<span class="badge bg-secondary">Pending</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if dsrs %}
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">DSRs This Period ({{ dsr_count }})</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0 small">
+          <thead class="table-light"><tr><th>Date</th><th>DSR No.</th><th>Weather</th><th>Prepared By</th></tr></thead>
+          <tbody>
+            {% for dsr in dsrs|slice:":10" %}
+            <tr>
+              <td>{{ dsr.date|date:"d M Y" }}</td>
+              <td><a href="{% url 'dsr:dsr_detail' dsr.pk %}">{{ dsr.dsr_number }}</a></td>
+              <td>{{ dsr.get_weather_am_display }}</td>
+              <td>{{ dsr.prepared_by.get_full_name|default:dsr.prepared_by.email }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if photos %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Site Photos ({{ photos|length }})</div>
+      <div class="card-body">
+        <div class="row g-2">
+          {% for photo in photos|slice:":6" %}
+          <div class="col-4">
+            <img src="{{ photo.photo.url }}" class="img-fluid rounded" alt="{{ photo.caption }}" style="height:100px;object-fit:cover;width:100%;">
+            {% if photo.caption %}<div class="small text-muted mt-1">{{ photo.caption|truncatechars:30 }}</div>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Upcoming Milestones -->
+{% if upcoming_milestones %}
+<div class="card border-0 shadow-sm mt-4">
+  <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Upcoming Milestones (next 60 days)</div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0 small">
+      <thead class="table-light"><tr><th>Milestone</th><th>Type</th><th>Due Date</th><th>Days Remaining</th></tr></thead>
+      <tbody>
+        {% for ms in upcoming_milestones %}
+        <tr>
+          <td>{{ ms.name }}</td>
+          <td>{{ ms.get_milestone_type_display }}</td>
+          <td>{{ ms.target_date|date:"d M Y" }}</td>
+          <td>{{ ms.target_date|timeuntil }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

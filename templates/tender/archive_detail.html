@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}{{ archive.project.name }} — Tender Archive{% endblock %}
+{% block active_nav %}tender{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">{{ archive.project.name }}</h1>
+    <div class="text-muted small">{{ archive.project.project_id }} · {{ archive.project.get_project_type_display }}</div>
+  </div>
+  <a href="{% url 'tender:archive-update' archive.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+</div>
+
+<div class="row g-4">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Financial Summary</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-7 text-muted">Original Contract</dt><dd class="col-5 text-end">K{{ archive.original_contract_value|floatformat:2 }}</dd>
+          <dt class="col-7 text-muted">Final Contract</dt><dd class="col-5 text-end">K{{ archive.final_contract_value|floatformat:2 }}</dd>
+          <dt class="col-7 text-muted">Total Cost</dt><dd class="col-5 text-end">K{{ archive.total_cost|floatformat:2 }}</dd>
+          <dt class="col-7 fw-semibold">Margin</dt><dd class="col-5 text-end fw-semibold" style="color:var(--kc-primary)">{{ archive.margin_pct }}%</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mt-3">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Programme</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-7 text-muted">Planned Duration</dt><dd class="col-5 text-end">{{ archive.planned_duration_days }} days</dd>
+          <dt class="col-7 text-muted">Actual Duration</dt><dd class="col-5 text-end">{{ archive.actual_duration_days }} days</dd>
+          {% if archive.planned_duration_days and archive.actual_duration_days %}
+          <dt class="col-7 text-muted">Variance</dt>
+          <dd class="col-5 text-end {% if archive.actual_duration_days > archive.planned_duration_days %}text-danger{% else %}text-success{% endif %}">
+            {{ archive.actual_duration_days|add:"-"|add:archive.planned_duration_days }} days
+          </dd>
+          {% endif %}
+        </dl>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mt-3">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Search Tags</div>
+      <div class="card-body small">
+        {% if archive.searchable_tags %}
+        {% for tag in archive.searchable_tags.split(",") %}
+        <span class="badge bg-light text-dark border me-1 mb-1">{{ tag|strip }}</span>
+        {% endfor %}
+        {% else %}—{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-8">
+    {% if archive.key_scope %}
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Key Scope of Works</div>
+      <div class="card-body small">{{ archive.key_scope|linebreaks }}</div>
+    </div>
+    {% endif %}
+    {% if archive.executive_summary %}
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Executive Summary</div>
+      <div class="card-body small">{{ archive.executive_summary|linebreaks }}</div>
+    </div>
+    {% endif %}
+    {% if archive.unique_challenges %}
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold text-warning">Unique Challenges</div>
+      <div class="card-body small">{{ archive.unique_challenges|linebreaks }}</div>
+    </div>
+    {% endif %}
+
+    {% if lessons %}
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Lessons Learned ({{ lessons|length }})</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0 small">
+          <thead class="table-light">
+            <tr><th>Category</th><th>Title</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for lesson in lessons %}
+            <tr>
+              <td><span class="badge bg-secondary">{{ lesson.get_category_display }}</span></td>
+              <td><a href="{% url 'tender:lesson-detail' lesson.pk %}">{{ lesson.title }}</a></td>
+              <td>{{ lesson.recorded_by.get_full_name|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

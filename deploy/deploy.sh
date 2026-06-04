@@ -28,9 +28,11 @@ sudo systemctl reload kemelecpms || sudo systemctl restart kemelecpms
 
 echo "--- Restarting Celery ---"
 sudo systemctl restart kemelecpms-celery || true
+sudo systemctl restart kemelecpms-celerybeat || true
 
 echo "--- Checking service status ---"
 sudo systemctl is-active kemelecpms && echo "Gunicorn: RUNNING" || echo "Gunicorn: FAILED"
-sudo systemctl is-active kemelecpms-celery && echo "Celery: RUNNING" || echo "Celery: not running"
+sudo systemctl is-active kemelecpms-celery && echo "Celery Worker: RUNNING" || echo "Celery Worker: not running"
+sudo systemctl is-active kemelecpms-celerybeat && echo "Celery Beat: RUNNING" || echo "Celery Beat: not running"
 
 echo "==> Deployment complete"

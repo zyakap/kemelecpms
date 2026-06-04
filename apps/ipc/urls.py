@@ -45,4 +45,10 @@ urlpatterns = [
         views.IPCLedgerView.as_view(),
         name="ledger",
     ),
+    # PDF
+    path(
+        "projects/<int:project_pk>/ipcs/<int:pk>/pdf/",
+        views.IPCPDFView.as_view(),
+        name="ipc-pdf",
+    ),
 ]

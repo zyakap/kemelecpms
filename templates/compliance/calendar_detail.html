@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ entry.title }} — Compliance Calendar{% endblock %}
+{% block active_nav %}compliance{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h4 fw-bold mb-0" style="color:var(--kc-primary)">{{ entry.title }}</h1>
+    <div class="text-muted small">Due {{ entry.due_date|date:"d F Y" }}</div>
+  </div>
+  <a href="{% url 'compliance:calendar-update' entry.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+</div>
+<div class="row g-4">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-5 text-muted">Status</dt>
+          <dd class="col-7"><span class="badge bg-{% if entry.status == 'PENDING' %}warning text-dark{% elif entry.status == 'OVERDUE' %}danger{% elif entry.status == 'COMPLETE' %}success{% else %}secondary{% endif %}">{{ entry.get_status_display }}</span></dd>
+          <dt class="col-5 text-muted">Category</dt><dd class="col-7">{{ entry.get_category_display }}</dd>
+          <dt class="col-5 text-muted">Project</dt><dd class="col-7">{{ entry.project.name|default:"Company-wide" }}</dd>
+          <dt class="col-5 text-muted">Responsible</dt><dd class="col-7">{{ entry.responsible.get_full_name|default:"—" }}</dd>
+          <dt class="col-5 text-muted">Due Date</dt><dd class="col-7">{{ entry.due_date|date:"d M Y" }}</dd>
+          <dt class="col-5 text-muted">Reminder</dt><dd class="col-7">{{ entry.reminder_days }} days before</dd>
+          {% if entry.completed_date %}<dt class="col-5 text-muted">Completed</dt><dd class="col-7">{{ entry.completed_date|date:"d M Y" }}</dd>{% endif %}
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-8">
+    {% if entry.description %}
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Description</div>
+      <div class="card-body small">{{ entry.description|linebreaks }}</div>
+    </div>
+    {% endif %}
+    {% if entry.completion_notes %}
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold text-success">Completion Notes</div>
+      <div class="card-body small">{{ entry.completion_notes|linebreaks }}</div>
+    </div>
+    {% endif %}
+    {% if entry.attachment %}
+    <a href="{{ entry.attachment.url }}" class="btn btn-outline-secondary btn-sm" target="_blank"><i class="bi bi-paperclip me-1"></i>Attachment</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -2,9 +2,12 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from rest_framework.authtoken.views import obtain_auth_token
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # REST API token authentication endpoint
+    path("api/auth/token/", obtain_auth_token, name="api-token-auth"),
     path("accounts/", include("apps.accounts.urls")),
     path("dashboard/", include("apps.dashboard.urls")),
     path("projects/", include("apps.projects.urls")),
@@ -18,6 +21,9 @@ urlpatterns = [
     path("ipc/", include("apps.ipc.urls")),
     path("documents/", include("apps.documents.urls")),
     path("notifications/", include("apps.notifications.urls")),
+    path("compliance/", include("apps.compliance.urls")),
+    path("tender/", include("apps.tender.urls")),
+    path("reports/", include("apps.reports.urls")),
     path("api/", include("apps.core.api_urls")),
     path("", include("apps.dashboard.home_urls")),
 ]

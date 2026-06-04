@@ -1,0 +1,20 @@
+[Unit]
+Description=Kemele CPMS Celery Beat Scheduler
+After=network.target redis.service kemelecpms.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/home/kemelecpms/kemelecpms
+EnvironmentFile=/home/kemelecpms/kemelecpms/.env
+ExecStart=/home/kemelecpms/.local/share/virtualenvs/kemelecpms/bin/celery \
+          -A config.celery beat \
+          --loglevel=info \
+          --logfile=/var/log/celery/kemelecpms_beat.log \
+          --scheduler django_celery_beat.schedulers:DatabaseScheduler
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

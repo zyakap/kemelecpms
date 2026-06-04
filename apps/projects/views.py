@@ -3,6 +3,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Q, Sum
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
+from django.views import View
 from django.views.generic import (
     CreateView,
     DetailView,
@@ -557,3 +558,47 @@ class MilestoneUpdateView(LoginRequiredMixin, UpdateView):
         return reverse(
             "projects:milestone_list", kwargs={"project_pk": self.project.pk}
         )
+
+
+# ---------------------------------------------------------------------------
+# Project Closeout / Practical Completion
+# ---------------------------------------------------------------------------
+
+
+class ProjectCloseoutView(LoginRequiredMixin, View):
+    """
+    Change project status to Practical Completion and optionally archive
+    to the Tender Library.
+    """
+
+    def post(self, request, pk):
+        from .models import Project
+        project = get_object_or_404(Project, pk=pk)
+
+        action = request.POST.get("action", "practical_completion")
+
+        if action == "practical_completion" and project.status not in (
+            Project.STATUS_PRACTICAL_COMPLETION,
+            Project.STATUS_DEFECTS_LIABILITY,
+            Project.STATUS_CLOSED,
+        ):
+            project.status = Project.STATUS_PRACTICAL_COMPLETION
+            project.actual_completion_date = request.POST.get("completion_date") or None
+            project.updated_by = request.user
+            project.save(update_fields=["status", "actual_completion_date", "updated_by"])
+            messages.success(
+                request,
+                f"Project {project.project_id} marked as Practical Completion."
+            )
+
+        elif action == "close":
+            project.status = Project.STATUS_CLOSED
+            project.updated_by = request.user
+            project.save(update_fields=["status", "updated_by"])
+            messages.success(request, f"Project {project.project_id} closed.")
+
+        elif action == "archive_to_library":
+            # Redirect to tender archive creation form pre-populated with this project
+            return redirect(f"/tender/library/new/?project={project.pk}")
+
+        return redirect(project.get_absolute_url())

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DSR {{ dsr.dsr_number }} — {{ dsr.project.name }}</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 10pt; color: #222; margin: 0; padding: 20mm; }
+  .header { display: flex; justify-content: space-between; border-bottom: 3px solid #1a3a5c; padding-bottom: 10px; margin-bottom: 20px; }
+  .company-name { font-size: 16pt; font-weight: bold; color: #1a3a5c; }
+  .doc-title { font-size: 13pt; font-weight: bold; color: #1a3a5c; text-align: right; }
+  .section-title { background: #1a3a5c; color: white; font-weight: bold; padding: 4px 8px; margin: 15px 0 8px; font-size: 10pt; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+  th { background: #e8edf3; border: 1px solid #ccc; padding: 5px 8px; text-align: left; font-size: 9pt; }
+  td { border: 1px solid #ddd; padding: 5px 8px; font-size: 9pt; }
+  dl.detail-grid { display: grid; grid-template-columns: 150px 1fr 150px 1fr; gap: 4px 10px; }
+  dt { color: #666; font-weight: normal; }
+  dd { margin: 0; font-weight: 500; }
+  .footer { position: fixed; bottom: 10mm; left: 20mm; right: 20mm; border-top: 1px solid #ccc; padding-top: 5px; font-size: 8pt; color: #888; display: flex; justify-content: space-between; }
+  .badge-approved { color: #155724; }
+  .badge-submitted { color: #004085; }
+  .badge-draft { color: #856404; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="company-name">Kemele Construction</div>
+    <div style="color:#666; font-size:9pt;">Daily Site Report</div>
+  </div>
+  <div>
+    <div class="doc-title">{{ dsr.dsr_number }}</div>
+    <div style="text-align:right; color:#555;">{{ dsr.date|date:"l, d F Y" }}</div>
+    <div style="text-align:right;" class="badge-{{ dsr.status|lower }}">{{ dsr.get_status_display }}</div>
+  </div>
+</div>
+
+<div class="section-title">Report Details</div>
+<dl class="detail-grid">
+  <dt>Project</dt><dd>{{ dsr.project.name }}</dd>
+  <dt>Date</dt><dd>{{ dsr.date|date:"d M Y" }}</dd>
+  <dt>Day No.</dt><dd>{{ dsr.day_number }}</dd>
+  <dt>Prepared By</dt><dd>{{ dsr.prepared_by.get_full_name|default:dsr.prepared_by.email }}</dd>
+  <dt>Weather (AM)</dt><dd>{{ dsr.get_weather_am_display }}</dd>
+  <dt>Weather (PM)</dt><dd>{{ dsr.get_weather_pm_display }}</dd>
+</dl>
+
+{% if activities %}
+<div class="section-title">Site Activities</div>
+<table>
+  <thead>
+    <tr><th>Activity</th><th>Location</th><th>Progress %</th><th>Crew Size</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    {% for act in activities %}
+    <tr>
+      <td>{{ act.description }}</td>
+      <td>{{ act.location|default:"—" }}</td>
+      <td>{{ act.progress_pct }}%</td>
+      <td>{{ act.crew_size|default:"—" }}</td>
+      <td>{{ act.notes|default:"—" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if labour_entries %}
+<div class="section-title">Labour</div>
+<table>
+  <thead>
+    <tr><th>Worker</th><th>Trade</th><th>Hours Worked</th><th>Overtime Hours</th></tr>
+  </thead>
+  <tbody>
+    {% for entry in labour_entries %}
+    <tr>
+      <td>{{ entry.worker.get_full_name|default:entry.worker.email }}</td>
+      <td>{{ entry.worker.trade|default:"—" }}</td>
+      <td>{{ entry.hours_worked }}</td>
+      <td>{{ entry.overtime_hours|default:"0" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if equipment_entries %}
+<div class="section-title">Plant & Equipment</div>
+<table>
+  <thead>
+    <tr><th>Equipment</th><th>Hours Used</th><th>Hours Idle</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    {% for entry in equipment_entries %}
+    <tr>
+      <td>{{ entry.equipment.name }} ({{ entry.equipment.registration|default:"—" }})</td>
+      <td>{{ entry.hours_used }}</td>
+      <td>{{ entry.hours_idle|default:"0" }}</td>
+      <td>{{ entry.notes|default:"—" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if material_deliveries %}
+<div class="section-title">Material Deliveries</div>
+<table>
+  <thead>
+    <tr><th>Material</th><th>Quantity</th><th>Unit</th><th>Delivery Note</th><th>Supplier</th></tr>
+  </thead>
+  <tbody>
+    {% for delivery in material_deliveries %}
+    <tr>
+      <td>{{ delivery.description }}</td>
+      <td>{{ delivery.quantity }}</td>
+      <td>{{ delivery.unit }}</td>
+      <td>{{ delivery.delivery_note|default:"—" }}</td>
+      <td>{{ delivery.supplier|default:"—" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if issues %}
+<div class="section-title">Issues & RFIs</div>
+<table>
+  <thead>
+    <tr><th>Issue Type</th><th>Description</th><th>Impact</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+    {% for issue in issues %}
+    <tr>
+      <td>{{ issue.get_issue_type_display }}</td>
+      <td>{{ issue.description }}</td>
+      <td>{{ issue.impact|default:"—" }}</td>
+      <td>{{ issue.get_status_display }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if dsr.summary %}
+<div class="section-title">Daily Summary</div>
+<p style="padding: 0 5px;">{{ dsr.summary }}</p>
+{% endif %}
+
+<div style="margin-top:30px; display:grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+  <div>
+    <div style="border-top:1px solid #333; padding-top:5px; margin-top:40px;">Prepared By: {{ dsr.prepared_by.get_full_name|default:dsr.prepared_by.email }}</div>
+  </div>
+  <div>
+    <div style="border-top:1px solid #333; padding-top:5px; margin-top:40px;">Approved By: {% if dsr.approved_by %}{{ dsr.approved_by.get_full_name|default:dsr.approved_by.email }}{% else %}___________________________{% endif %}</div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>Kemele Construction — {{ dsr.project.name }}</span>
+  <span>{{ dsr.dsr_number }}</span>
+  <span>Page <pdf:pagenumber> of <pdf:pagecount></span>
+</div>
+
+</body>
+</html>

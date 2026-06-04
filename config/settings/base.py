@@ -29,6 +29,7 @@ THIRD_PARTY_APPS = [
     "simple_history",
     "guardian",
     "rest_framework",
+    "rest_framework.authtoken",
 ]
 
 LOCAL_APPS = [
@@ -45,6 +46,9 @@ LOCAL_APPS = [
     "apps.ipc",
     "apps.documents",
     "apps.notifications",
+    "apps.compliance",
+    "apps.tender",
+    "apps.reports",
     "apps.dashboard",
 ]
 
@@ -148,6 +152,7 @@ SITE_URL = env("SITE_URL", default="http://localhost:8000")
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
+        "rest_framework.authentication.TokenAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -155,6 +160,11 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 25,
 }
+
+# SMS Gateway (Digicel PNG or any compatible HTTP SMS gateway)
+SMS_GATEWAY_URL = env("SMS_GATEWAY_URL", default="")
+SMS_API_KEY = env("SMS_API_KEY", default="")
+SMS_FROM_NUMBER = env("SMS_FROM_NUMBER", default="KEMELE")
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800

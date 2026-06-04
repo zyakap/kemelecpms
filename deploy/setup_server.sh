@@ -51,8 +51,9 @@ echo "--- Install systemd services ---"
 cp $APP_DIR/deploy/systemd/kemelecpms.socket /etc/systemd/system/
 cp $APP_DIR/deploy/systemd/kemelecpms.service /etc/systemd/system/
 cp $APP_DIR/deploy/systemd/kemelecpms-celery.service /etc/systemd/system/
+cp $APP_DIR/deploy/systemd/kemelecpms-celerybeat.service /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable kemelecpms.socket kemelecpms kemelecpms-celery
+systemctl enable kemelecpms.socket kemelecpms kemelecpms-celery kemelecpms-celerybeat
 
 echo "--- Configure Nginx ---"
 cp $APP_DIR/nginx/kemelecpms.conf /etc/nginx/sites-available/kemelecpms
