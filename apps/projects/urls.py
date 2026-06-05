@@ -11,7 +11,14 @@ urlpatterns = [
     path("", views.ProjectListView.as_view(), name="project_list"),
     path("create/", views.ProjectCreateView.as_view(), name="project_create"),
     path("<int:pk>/", views.ProjectDetailView.as_view(), name="project_detail"),
+    path("<int:pk>/setup/", views.ProjectSetupView.as_view(), name="project_setup"),
     path("<int:pk>/edit/", views.ProjectUpdateView.as_view(), name="project_update"),
+    path("<int:project_pk>/members/add/", views.ProjectMembershipCreateView.as_view(), name="membership_create"),
+    path(
+        "<int:project_pk>/members/<int:pk>/edit/",
+        views.ProjectMembershipUpdateView.as_view(),
+        name="membership_update",
+    ),
 
     # -----------------------------------------------------------------------
     # Contract  (nested under a project)

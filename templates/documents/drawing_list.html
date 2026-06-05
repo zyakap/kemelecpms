@@ -5,7 +5,10 @@
 {% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Drawing Register — {{ project.name }}</h1>
-  <a href="{% url 'documents:drawing-create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Drawing</a>
+  <div class="d-flex gap-2">
+    <a href="{% url 'documents:latest-ifc-list' project.pk %}" class="btn btn-outline-success btn-sm">Latest IFC</a>
+    <a href="{% url 'documents:drawing-create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Drawing</a>
+  </div>
 </div>
 <div class="card border-0 shadow-sm">
   <div class="card-body p-0">
@@ -16,14 +19,14 @@
       <tbody>
         {% for d in drawings %}
         <tr>
-          <td class="font-monospace fw-semibold">{{ d.drawing_number }}</td>
+          <td class="font-monospace fw-semibold"><a href="{{ d.get_absolute_url }}">{{ d.drawing_number }}</a></td>
           <td>{{ d.title }}</td>
           <td><span class="badge bg-secondary">{{ d.get_discipline_display }}</span></td>
           <td class="font-monospace">{{ d.current_revision }}</td>
           <td>{{ d.current_revision_date|date:"d M Y"|default:"—" }}</td>
           <td><span class="badge {% if d.status == 'IFC' %}bg-success{% elif d.status == 'SUPERSEDED' %}bg-dark{% elif d.status == 'FOR_REVIEW' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ d.get_status_display }}</span></td>
           <td class="d-flex gap-1">
-            <a href="{{ d.file.url }}" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-download"></i></a>
+            {% if d.status != 'SUPERSEDED' %}<a href="{{ d.file.url }}" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-download"></i></a>{% endif %}
             <a href="{% url 'documents:drawing-update' project.pk d.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
           </td>
         </tr>

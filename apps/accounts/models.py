@@ -91,6 +91,12 @@ class UserProfile(models.Model):
         default=0,
         help_text="Maximum PGK value this user can approve a PO for",
     )
+    financial_approval_threshold = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        help_text="Maximum PGK value this user can certify or record for financial actions",
+    )
     signature = models.ImageField(upload_to="signatures/", null=True, blank=True)
 
     def __str__(self):

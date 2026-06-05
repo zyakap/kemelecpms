@@ -160,6 +160,22 @@ class DSRActivity(TimeStampedModel):
         on_delete=models.SET_NULL,
         related_name="dsr_activities",
     )
+    schedule_activity = models.ForeignKey(
+        "schedule.Activity",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="dsr_activity_evidence",
+        help_text="Schedule activity supported by this DSR progress entry.",
+    )
+    ipc_line_item = models.ForeignKey(
+        "ipc.IPCLineItem",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="dsr_activity_evidence",
+        help_text="IPC line item supported by this DSR evidence.",
+    )
     description = models.CharField(max_length=500)
     location_on_site = models.CharField(max_length=255, blank=True)
     status = models.CharField(
@@ -346,6 +362,13 @@ class DSRMaterialUsage(TimeStampedModel):
         related_name="dsr_usages",
     )
     quantity_used = models.DecimalField(max_digits=10, decimal_places=3)
+    stock_ledger_entry = models.ForeignKey(
+        "procurement.StockLedger",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="dsr_usage_evidence",
+    )
     notes = models.TextField(blank=True)
 
     class Meta:
@@ -388,6 +411,48 @@ class DSRPhoto(TimeStampedModel):
     caption = models.CharField(max_length=255, blank=True)
     tag = models.CharField(
         max_length=20, choices=TAG_CHOICES, default=TAG_PROGRESS
+    )
+    wbs_activity = models.ForeignKey(
+        "schedule.WBSActivity",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="dsr_photo_evidence",
+    )
+    schedule_activity = models.ForeignKey(
+        "schedule.Activity",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="dsr_photo_evidence",
+    )
+    rfi = models.ForeignKey(
+        "documents.RFI",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="dsr_photo_evidence",
+    )
+    ncr = models.ForeignKey(
+        "quality.NCR",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="dsr_photo_evidence",
+    )
+    defect = models.ForeignKey(
+        "quality.Defect",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="dsr_photo_evidence",
+    )
+    incident = models.ForeignKey(
+        "safety.Incident",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="dsr_photo_evidence",
     )
     gps_lat = models.DecimalField(
         max_digits=9, decimal_places=6, null=True, blank=True, verbose_name="GPS Latitude"
@@ -440,6 +505,34 @@ class DSRIssue(TimeStampedModel):
     )
     date = models.DateField()
     action_required = models.TextField(blank=True)
+    rfi = models.ForeignKey(
+        "documents.RFI",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="dsr_issue_evidence",
+    )
+    ncr = models.ForeignKey(
+        "quality.NCR",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="dsr_issue_evidence",
+    )
+    incident = models.ForeignKey(
+        "safety.Incident",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="dsr_issue_evidence",
+    )
+    delay_event = models.ForeignKey(
+        "projects.DelayEvent",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="dsr_issue_evidence",
+    )
     resolved = models.BooleanField(default=False)
 
     class Meta:

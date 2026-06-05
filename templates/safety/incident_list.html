@@ -10,7 +10,7 @@
   <div class="card-body p-0">
     <table class="table table-hover mb-0 small">
       <thead class="table-light">
-        <tr><th>INC #</th><th>Date</th><th>Project</th><th>Type</th><th>Severity</th><th>Location</th><th>Status</th><th>Days Open</th><th></th></tr>
+        <tr><th>INC #</th><th>Date</th><th>Project</th><th>Type</th><th>LTI</th><th>Location</th><th>Status</th><th>Days Open</th><th></th></tr>
       </thead>
       <tbody>
         {% for inc in incidents %}
@@ -19,7 +19,7 @@
           <td>{{ inc.date|date:"d M Y" }}</td>
           <td>{{ inc.project.name|truncatechars:20 }}</td>
           <td><span class="badge bg-secondary">{{ inc.get_incident_type_display }}</span></td>
-          <td><span class="badge {% if inc.severity == 'CRITICAL' %}bg-danger{% elif inc.severity == 'MAJOR' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ inc.get_severity_display }}</span></td>
+          <td>{% if inc.is_lti %}<span class="badge bg-danger">LTI</span>{% else %}<span class="badge bg-secondary">No</span>{% endif %}</td>
           <td>{{ inc.location|truncatechars:25 }}</td>
           <td><span class="badge {% if inc.status == 'OPEN' %}bg-danger{% elif inc.status == 'CLOSED' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ inc.get_status_display }}</span></td>
           <td>{% if inc.status != 'CLOSED' %}{{ inc.date|timesince|truncatewords:2 }}{% else %}Closed{% endif %}</td>

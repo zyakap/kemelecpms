@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Safety Corrective Actions{% endblock %}
+{% block active_nav %}safety{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Safety Corrective Actions</h1>
+  <a href="{% url 'safety:corrective_action_add' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Action</a>
+</div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-auto"><select name="project" class="form-select form-select-sm"><option value="">All Projects</option>{% for proj in projects %}<option value="{{ proj.pk }}" {% if proj.pk|stringformat:"s" == request.GET.project %}selected{% endif %}>{{ proj.name }}</option>{% endfor %}</select></div>
+  <div class="col-auto"><select name="status" class="form-select form-select-sm"><option value="">All Statuses</option>{% for val,label in status_choices %}<option value="{{ val }}" {% if val == request.GET.status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="col-auto"><label class="form-check mt-1"><input class="form-check-input" type="checkbox" name="overdue" value="1" {% if request.GET.overdue %}checked{% endif %}> <span class="form-check-label small">Overdue only</span></label></div>
+  <div class="col-auto"><button class="btn btn-outline-secondary btn-sm">Filter</button></div>
+</form>
+<div class="card border-0 shadow-sm"><div class="card-body p-0"><table class="table table-hover mb-0 small">
+  <thead class="table-light"><tr><th>Project</th><th>Source</th><th>Action</th><th>Owner</th><th>Due</th><th>Status</th><th>Evidence</th><th></th></tr></thead>
+  <tbody>{% for action in actions %}<tr>
+    <td>{{ action.project.name|truncatechars:18 }}</td>
+    <td>{% if action.incident %}{{ action.incident.incident_number }}{% elif action.observation %}Observation{% else %}-{% endif %}</td>
+    <td>{{ action.description|truncatechars:44 }}</td>
+    <td>{{ action.assigned_to|default:"Unassigned" }}</td>
+    <td class="{% if action.is_overdue %}text-danger fw-semibold{% endif %}">{{ action.due_date|date:"d M Y" }}</td>
+    <td><span class="badge {% if action.status == 'CLOSED' %}bg-success{% elif action.is_overdue %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ action.get_status_display }}</span></td>
+    <td>{% if action.close_out_evidence %}<a href="{{ action.close_out_evidence.url }}" target="_blank">Open</a>{% else %}-{% endif %}</td>
+    <td class="text-end"><a href="{% url 'safety:corrective_action_edit' action.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
+  </tr>{% empty %}<tr><td colspan="8" class="text-muted text-center py-4">No corrective actions.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% include "partials/pagination.html" %}
+{% endblock %}

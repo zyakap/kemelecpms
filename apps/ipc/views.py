@@ -9,6 +9,14 @@ from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, TemplateView
 
+from apps.core.permissions import (
+    accessible_projects,
+    can_approve_financial_action,
+    can_certify_ipc,
+    can_manage_ipc,
+    can_record_payment,
+    can_submit_ipc,
+)
 from apps.projects.models import Project
 
 from .forms import CertificationForm, IPCForm, PaymentForm, RetentionReleaseForm
@@ -25,7 +33,10 @@ class ProjectMixin(LoginRequiredMixin):
 
     def get_project(self):
         if not hasattr(self, "_project"):
-            self._project = get_object_or_404(Project, pk=self.kwargs["project_pk"])
+            self._project = get_object_or_404(
+                accessible_projects(self.request.user),
+                pk=self.kwargs["project_pk"],
+            )
         return self._project
 
     def get_context_data(self, **kwargs):
@@ -77,6 +88,9 @@ class IPCCreateView(ProjectMixin, CreateView):
 
     def form_valid(self, form):
         project = self.get_project()
+        if not can_manage_ipc(self.request.user, project):
+            messages.error(self.request, "You do not have permission to create IPCs for this project.")
+            return redirect(reverse_lazy("ipc:ipc-list", kwargs={"project_pk": project.pk}))
         with transaction.atomic():
             ipc = form.save(commit=False)
             ipc.project = project
@@ -152,9 +166,19 @@ class IPCDetailView(ProjectMixin, DetailView):
         except Certification.DoesNotExist:
             ctx["certification"] = None
         ctx["payments"] = ipc.payments.order_by("-payment_date")
-        ctx["can_submit"] = ipc.status in (IPC.STATUS_DRAFT, IPC.STATUS_INTERNAL_REVIEW)
-        ctx["can_certify"] = ipc.status == IPC.STATUS_SUBMITTED and ctx["certification"] is None
-        ctx["can_pay"] = ipc.status in (IPC.STATUS_CERTIFIED, IPC.STATUS_DISPUTED)
+        ctx["can_submit"] = (
+            ipc.status in (IPC.STATUS_DRAFT, IPC.STATUS_INTERNAL_REVIEW)
+            and can_submit_ipc(self.request.user, ipc)
+        )
+        ctx["can_certify"] = (
+            ipc.status == IPC.STATUS_SUBMITTED
+            and ctx["certification"] is None
+            and can_certify_ipc(self.request.user, ipc)
+        )
+        ctx["can_pay"] = (
+            ipc.status in (IPC.STATUS_CERTIFIED, IPC.STATUS_DISPUTED)
+            and can_record_payment(self.request.user, ipc)
+        )
         return ctx
 
 
@@ -169,8 +193,13 @@ class IPCSubmitView(LoginRequiredMixin, View):
     http_method_names = ["post"]
 
     def post(self, request, project_pk, pk):
-        project = get_object_or_404(Project, pk=project_pk)
+        project = get_object_or_404(accessible_projects(request.user), pk=project_pk)
         ipc = get_object_or_404(IPC, pk=pk, project=project)
+        if not can_submit_ipc(request.user, ipc):
+            messages.error(request, "You do not have permission to submit this IPC.")
+            return redirect(
+                reverse_lazy("ipc:ipc-detail", kwargs={"project_pk": project_pk, "pk": pk})
+            )
         if ipc.status not in (IPC.STATUS_DRAFT, IPC.STATUS_INTERNAL_REVIEW):
             messages.error(request, "Only Draft or Internal Review IPCs can be submitted.")
             return redirect(
@@ -214,10 +243,27 @@ class CertificationCreateView(ProjectMixin, CreateView):
         ctx["ipc"] = self.get_ipc()
         return ctx
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["ipc"] = self.get_ipc()
+        return kwargs
+
     def form_valid(self, form):
         ipc = self.get_ipc()
+        if not can_certify_ipc(self.request.user, ipc):
+            messages.error(self.request, "You do not have permission to certify IPCs.")
+            return redirect(
+                reverse_lazy("ipc:ipc-detail", kwargs={"project_pk": ipc.project_id, "pk": ipc.pk})
+            )
+        if not can_approve_financial_action(self.request.user, ipc.project, form.instance.amount_certified):
+            messages.error(self.request, "Your financial approval threshold is below this certified amount.")
+            return redirect(
+                reverse_lazy("ipc:ipc-detail", kwargs={"project_pk": ipc.project_id, "pk": ipc.pk})
+            )
         form.instance.ipc = ipc
         form.instance.created_by = self.request.user
+        from apps.core.models import AuditLog
+        AuditLog.log(self.request.user, AuditLog.ACTION_APPROVE, ipc, changes="Certification recorded.", request=self.request)
         messages.success(self.request, f"Certification recorded for {ipc.ipc_number}.")
         return super().form_valid(form)
 
@@ -253,10 +299,34 @@ class PaymentCreateView(ProjectMixin, CreateView):
         ctx["ipc"] = self.get_ipc()
         return ctx
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["ipc"] = self.get_ipc()
+        return kwargs
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.fields["received_by"].initial = self.request.user
+        form.fields["received_by"].disabled = True
+        return form
+
     def form_valid(self, form):
         ipc = self.get_ipc()
+        if not can_record_payment(self.request.user, ipc):
+            messages.error(self.request, "You do not have permission to record IPC payments.")
+            return redirect(
+                reverse_lazy("ipc:ipc-detail", kwargs={"project_pk": ipc.project_id, "pk": ipc.pk})
+            )
+        if not can_approve_financial_action(self.request.user, ipc.project, form.instance.amount):
+            messages.error(self.request, "Your financial approval threshold is below this payment amount.")
+            return redirect(
+                reverse_lazy("ipc:ipc-detail", kwargs={"project_pk": ipc.project_id, "pk": ipc.pk})
+            )
         form.instance.ipc = ipc
+        form.instance.received_by = self.request.user
         form.instance.created_by = self.request.user
+        from apps.core.models import AuditLog
+        AuditLog.log(self.request.user, AuditLog.ACTION_UPDATE, ipc, changes="Payment recorded.", request=self.request)
         messages.success(self.request, "Payment recorded.")
         return super().form_valid(form)
 

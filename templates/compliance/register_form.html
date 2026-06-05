@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}{{ page_title }} - {{ project.project_id }}{% endblock %}
+{% block active_nav %}compliance{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="row justify-content-center">
+  <div class="col-lg-9">
+    <section class="content-card">
+      <div class="cc-header"><h5>{{ page_title }} - {{ project.name }}</h5></div>
+      <div class="cc-body">
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          {{ form|crispy }}
+          <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Save</button>
+            <a href="{% url list_url_name project.pk %}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

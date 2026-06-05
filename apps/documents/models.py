@@ -412,3 +412,71 @@ class ProjectDocument(TimeStampedModel):
                 kwargs={"project_pk": self.project_id},
             )
         return reverse("documents:projectdoc-templates")
+
+
+class DistributionContact(TimeStampedModel):
+    project = models.ForeignKey("projects.Project", on_delete=models.CASCADE, related_name="distribution_contacts")
+    name = models.CharField(max_length=150)
+    organization = models.CharField(max_length=200)
+    email = models.EmailField()
+    role = models.CharField(max_length=100, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["organization", "name"]
+        unique_together = [("project", "email")]
+
+    def __str__(self):
+        return f"{self.name} - {self.organization}"
+
+    def get_absolute_url(self):
+        return reverse("documents:distribution-list", kwargs={"project_pk": self.project_id})
+
+
+class DocumentTransmittal(TimeStampedModel):
+    STATUS_DRAFT = "DRAFT"
+    STATUS_SENT = "SENT"
+    STATUS_ACKNOWLEDGED = "ACKNOWLEDGED"
+    STATUS_CHOICES = [
+        (STATUS_DRAFT, "Draft"),
+        (STATUS_SENT, "Sent"),
+        (STATUS_ACKNOWLEDGED, "Acknowledged"),
+    ]
+
+    project = models.ForeignKey("projects.Project", on_delete=models.CASCADE, related_name="transmittals")
+    transmittal_number = models.CharField(max_length=30, editable=False, db_index=True)
+    subject = models.CharField(max_length=255)
+    sent_date = models.DateField()
+    recipients = models.ManyToManyField(DistributionContact, blank=True, related_name="transmittals")
+    drawings = models.ManyToManyField(Drawing, blank=True, related_name="transmittals")
+    submittals = models.ManyToManyField(Submittal, blank=True, related_name="transmittals")
+    documents = models.ManyToManyField(ProjectDocument, blank=True, related_name="transmittals")
+    sent_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="document_transmittals_sent",
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_DRAFT)
+    acknowledged_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-sent_date", "-transmittal_number"]
+        unique_together = [("project", "transmittal_number")]
+
+    def __str__(self):
+        return f"{self.transmittal_number} - {self.subject}"
+
+    def save(self, *args, **kwargs):
+        if not self.transmittal_number:
+            count = DocumentTransmittal.objects.filter(project=self.project).count() + 1
+            self.transmittal_number = f"TRN-{count:04d}"
+        super().save(*args, **kwargs)
+
+    def get_absolute_url(self):
+        return reverse(
+            "documents:transmittal-detail",
+            kwargs={"project_pk": self.project_id, "pk": self.pk},
+        )

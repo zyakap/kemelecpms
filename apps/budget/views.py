@@ -13,10 +13,26 @@ from django.views.generic import (
     UpdateView,
 )
 
-from apps.projects.models import Project
+from apps.core.permissions import accessible_projects, can_manage_project
 
-from .forms import BoQItemForm, CostCodeForm, CostEntryForm, SubcontractForm
-from .models import BoQItem, CostCode, CostEntry, Subcontract
+from .forms import (
+    BoQItemForm,
+    CostCodeForm,
+    CostEntryForm,
+    SubcontractBackChargeForm,
+    SubcontractClaimForm,
+    SubcontractForm,
+    SubcontractPerformanceReviewForm,
+)
+from .models import (
+    BoQItem,
+    CostCode,
+    CostEntry,
+    Subcontract,
+    SubcontractBackCharge,
+    SubcontractClaim,
+    SubcontractPerformanceReview,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -29,7 +45,10 @@ class ProjectMixin(LoginRequiredMixin):
 
     def get_project(self):
         if not hasattr(self, "_project"):
-            self._project = get_object_or_404(Project, pk=self.kwargs["project_pk"])
+            self._project = get_object_or_404(
+                accessible_projects(self.request.user),
+                pk=self.kwargs["project_pk"],
+            )
         return self._project
 
     def get_context_data(self, **kwargs):
@@ -55,38 +74,71 @@ class BudgetDashboardView(ProjectMixin, TemplateView):
 
         rows = []
         total_budget = Decimal("0.00")
+        total_control_budget = Decimal("0.00")
         total_committed = Decimal("0.00")
         total_actual = Decimal("0.00")
+        total_etc = Decimal("0.00")
+        total_efc = Decimal("0.00")
+        total_provisional_sum = Decimal("0.00")
+        total_contingency_drawdown = Decimal("0.00")
 
         for cc in cost_codes:
             committed = cc.total_committed
             actual = cc.total_actual
             spent = cc.total_spent
+            efc = cc.estimate_at_completion
             total_budget += cc.budget_amount
+            total_control_budget += cc.control_budget
             total_committed += committed
             total_actual += actual
+            total_etc += cc.forecast_etc
+            total_efc += efc
+            total_provisional_sum += cc.provisional_sum
+            total_contingency_drawdown += cc.contingency_drawdown
             rows.append(
                 {
                     "cost_code": cc,
                     "budget": cc.budget_amount,
+                    "control_budget": cc.control_budget,
                     "committed": committed,
                     "actual": actual,
+                    "etc": cc.forecast_etc,
+                    "efc": efc,
                     "spent": spent,
                     "variance": cc.variance,
                     "variance_pct": cc.variance_percentage,
+                    "forecast_variance": cc.forecast_variance,
+                    "forecast_pct": cc.forecast_variance_percentage,
                     "rag": cc.rag_status,
+                    "forecast_rag": cc.forecast_rag_status,
                 }
             )
 
         total_spent = total_committed + total_actual
+        contract_value = project.contract_value
+        forecast_margin = contract_value - total_efc
+        forecast_margin_pct = (
+            (forecast_margin / contract_value * 100).quantize(Decimal("0.01"))
+            if contract_value
+            else Decimal("0.00")
+        )
         ctx.update(
             {
                 "rows": rows,
+                "contract_value": contract_value,
                 "total_budget": total_budget,
+                "total_control_budget": total_control_budget,
                 "total_committed": total_committed,
                 "total_actual": total_actual,
+                "total_etc": total_etc,
+                "total_efc": total_efc,
                 "total_spent": total_spent,
-                "total_variance": total_budget - total_spent,
+                "total_variance": total_control_budget - total_spent,
+                "total_forecast_variance": total_control_budget - total_efc,
+                "total_provisional_sum": total_provisional_sum,
+                "total_contingency_drawdown": total_contingency_drawdown,
+                "forecast_margin": forecast_margin,
+                "forecast_margin_pct": forecast_margin_pct,
             }
         )
         return ctx
@@ -117,6 +169,9 @@ class CostCodeCreateView(ProjectMixin, CreateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_project(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to create cost codes for this project.")
+            return redirect(reverse_lazy("budget:costcode-list", kwargs={"project_pk": self.get_project().pk}))
         form.instance.project = self.get_project()
         form.instance.created_by = self.request.user
         messages.success(self.request, "Cost code created successfully.")
@@ -140,6 +195,9 @@ class CostCodeUpdateView(ProjectMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_project(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to update cost codes for this project.")
+            return redirect(reverse_lazy("budget:costcode-list", kwargs={"project_pk": self.get_project().pk}))
         form.instance.updated_by = self.request.user
         messages.success(self.request, "Cost code updated successfully.")
         return super().form_valid(form)
@@ -185,6 +243,9 @@ class BoQItemCreateView(ProjectMixin, CreateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_project(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to create BoQ items for this project.")
+            return redirect(reverse_lazy("budget:boq-list", kwargs={"project_pk": self.get_project().pk}))
         form.instance.project = self.get_project()
         form.instance.created_by = self.request.user
         messages.success(self.request, "BoQ item added successfully.")
@@ -208,6 +269,9 @@ class BoQItemUpdateView(ProjectMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_project(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to update BoQ items for this project.")
+            return redirect(reverse_lazy("budget:boq-list", kwargs={"project_pk": self.get_project().pk}))
         form.instance.updated_by = self.request.user
         messages.success(self.request, "BoQ item updated successfully.")
         return super().form_valid(form)
@@ -258,6 +322,9 @@ class CostEntryCreateView(ProjectMixin, CreateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_project(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to record cost entries for this project.")
+            return redirect(reverse_lazy("budget:costentry-list", kwargs={"project_pk": self.get_project().pk}))
         form.instance.project = self.get_project()
         form.instance.created_by = self.request.user
         messages.success(self.request, "Cost entry recorded successfully.")
@@ -281,6 +348,9 @@ class CostEntryUpdateView(ProjectMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_project(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to update cost entries for this project.")
+            return redirect(reverse_lazy("budget:costentry-list", kwargs={"project_pk": self.get_project().pk}))
         form.instance.updated_by = self.request.user
         messages.success(self.request, "Cost entry updated successfully.")
         return super().form_valid(form)
@@ -313,6 +383,25 @@ class SubcontractListView(ProjectMixin, ListView):
         return ctx
 
 
+class SubcontractDetailView(ProjectMixin, DetailView):
+    model = Subcontract
+    template_name = "budget/subcontract_detail.html"
+    context_object_name = "subcontract"
+
+    def get_queryset(self):
+        return Subcontract.objects.filter(project=self.get_project()).prefetch_related(
+            "claims", "backcharges", "performance_reviews"
+        )
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        subcontract = self.object
+        ctx["claims"] = subcontract.claims.order_by("-submitted_date", "-claim_number")
+        ctx["backcharges"] = subcontract.backcharges.order_by("-date")
+        ctx["performance_reviews"] = subcontract.performance_reviews.order_by("-review_date")
+        return ctx
+
+
 class SubcontractCreateView(ProjectMixin, CreateView):
     model = Subcontract
     form_class = SubcontractForm
@@ -324,6 +413,9 @@ class SubcontractCreateView(ProjectMixin, CreateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_project(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to create subcontracts for this project.")
+            return redirect(reverse_lazy("budget:subcontract-list", kwargs={"project_pk": self.get_project().pk}))
         form.instance.project = self.get_project()
         form.instance.created_by = self.request.user
         messages.success(self.request, "Subcontract created successfully.")
@@ -347,12 +439,149 @@ class SubcontractUpdateView(ProjectMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_project(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to update subcontracts for this project.")
+            return redirect(reverse_lazy("budget:subcontract-list", kwargs={"project_pk": self.get_project().pk}))
         form.instance.updated_by = self.request.user
         messages.success(self.request, "Subcontract updated successfully.")
         return super().form_valid(form)
 
     def get_success_url(self):
         return reverse_lazy("budget:subcontract-list", kwargs={"project_pk": self.get_project().pk})
+
+
+class SubcontractChildMixin(ProjectMixin):
+    def get_subcontract(self):
+        if not hasattr(self, "_subcontract"):
+            self._subcontract = get_object_or_404(
+                Subcontract,
+                pk=self.kwargs["subcontract_pk"],
+                project=self.get_project(),
+            )
+        return self._subcontract
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["subcontract"] = self.get_subcontract()
+        return ctx
+
+    def get_success_url(self):
+        subcontract = self.get_subcontract()
+        return reverse_lazy(
+            "budget:subcontract-detail",
+            kwargs={"project_pk": subcontract.project_id, "pk": subcontract.pk},
+        )
+
+
+class SubcontractClaimCreateView(SubcontractChildMixin, CreateView):
+    model = SubcontractClaim
+    form_class = SubcontractClaimForm
+    template_name = "budget/subcontract_claim_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["subcontract"] = self.get_subcontract()
+        return kwargs
+
+    def form_valid(self, form):
+        subcontract = self.get_subcontract()
+        if not can_manage_project(self.request.user, subcontract.project):
+            messages.error(self.request, "You do not have permission to create subcontract claims for this project.")
+            return redirect(self.get_success_url())
+        form.instance.subcontract = subcontract
+        form.instance.created_by = self.request.user
+        messages.success(self.request, "Subcontract claim recorded.")
+        return super().form_valid(form)
+
+
+class SubcontractClaimUpdateView(SubcontractChildMixin, UpdateView):
+    model = SubcontractClaim
+    form_class = SubcontractClaimForm
+    template_name = "budget/subcontract_claim_form.html"
+
+    def get_queryset(self):
+        return SubcontractClaim.objects.filter(subcontract=self.get_subcontract())
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["subcontract"] = self.get_subcontract()
+        return kwargs
+
+    def form_valid(self, form):
+        subcontract = self.get_subcontract()
+        if not can_manage_project(self.request.user, subcontract.project):
+            messages.error(self.request, "You do not have permission to update subcontract claims for this project.")
+            return redirect(self.get_success_url())
+        form.instance.updated_by = self.request.user
+        messages.success(self.request, "Subcontract claim updated.")
+        return super().form_valid(form)
+
+
+class SubcontractBackChargeCreateView(SubcontractChildMixin, CreateView):
+    model = SubcontractBackCharge
+    form_class = SubcontractBackChargeForm
+    template_name = "budget/subcontract_backcharge_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["subcontract"] = self.get_subcontract()
+        return kwargs
+
+    def form_valid(self, form):
+        subcontract = self.get_subcontract()
+        if not can_manage_project(self.request.user, subcontract.project):
+            messages.error(self.request, "You do not have permission to create subcontract back-charges for this project.")
+            return redirect(self.get_success_url())
+        form.instance.subcontract = subcontract
+        form.instance.created_by = self.request.user
+        messages.success(self.request, "Subcontract back-charge recorded.")
+        return super().form_valid(form)
+
+
+class SubcontractBackChargeUpdateView(SubcontractChildMixin, UpdateView):
+    model = SubcontractBackCharge
+    form_class = SubcontractBackChargeForm
+    template_name = "budget/subcontract_backcharge_form.html"
+
+    def get_queryset(self):
+        return SubcontractBackCharge.objects.filter(subcontract=self.get_subcontract())
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["subcontract"] = self.get_subcontract()
+        return kwargs
+
+    def form_valid(self, form):
+        subcontract = self.get_subcontract()
+        if not can_manage_project(self.request.user, subcontract.project):
+            messages.error(self.request, "You do not have permission to update subcontract back-charges for this project.")
+            return redirect(self.get_success_url())
+        form.instance.updated_by = self.request.user
+        messages.success(self.request, "Subcontract back-charge updated.")
+        return super().form_valid(form)
+
+
+class SubcontractPerformanceReviewCreateView(SubcontractChildMixin, CreateView):
+    model = SubcontractPerformanceReview
+    form_class = SubcontractPerformanceReviewForm
+    template_name = "budget/subcontract_performance_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["subcontract"] = self.get_subcontract()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        subcontract = self.get_subcontract()
+        if not can_manage_project(self.request.user, subcontract.project):
+            messages.error(self.request, "You do not have permission to review subcontractor performance for this project.")
+            return redirect(self.get_success_url())
+        form.instance.subcontract = subcontract
+        form.instance.reviewer = self.request.user
+        form.instance.created_by = self.request.user
+        messages.success(self.request, "Subcontractor performance review recorded.")
+        return super().form_valid(form)
 
 
 # ---------------------------------------------------------------------------
@@ -382,6 +611,9 @@ class BoQImportView(ProjectMixin, View):
     def post(self, request, project_pk):
         from django.shortcuts import render
         project = self.get_project()
+        if not can_manage_project(request.user, project):
+            messages.error(request, "You do not have permission to import BoQ items for this project.")
+            return redirect(reverse_lazy("budget:boq-list", kwargs={"project_pk": project.pk}))
         uploaded = request.FILES.get("file")
         if not uploaded:
             messages.error(request, "Please select a file to upload.")

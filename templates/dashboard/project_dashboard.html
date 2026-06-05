@@ -140,6 +140,36 @@
           <i class="bi bi-folder2 me-2"></i>Documents
         </a>
       </div>
+      <div class="col-6 col-sm-4 col-md-3">
+        <a href="{% url 'compliance:calendar' %}?project={{ pk }}" class="btn btn-outline-primary w-100 text-start">
+          <i class="bi bi-clipboard-check me-2"></i>Compliance
+        </a>
+      </div>
+      <div class="col-6 col-sm-4 col-md-3">
+        <a href="{% url 'compliance:public-procurement-list' pk %}" class="btn btn-outline-primary w-100 text-start">
+          <i class="bi bi-bank me-2"></i>Public Evidence
+        </a>
+      </div>
+      <div class="col-6 col-sm-4 col-md-3">
+        <a href="{% url 'compliance:local-content-list' pk %}" class="btn btn-outline-primary w-100 text-start">
+          <i class="bi bi-people-fill me-2"></i>Local Content
+        </a>
+      </div>
+      <div class="col-6 col-sm-4 col-md-3">
+        <a href="{% url 'compliance:authority-permit-list' pk %}" class="btn btn-outline-primary w-100 text-start">
+          <i class="bi bi-building-check me-2"></i>Permits
+        </a>
+      </div>
+      <div class="col-6 col-sm-4 col-md-3">
+        <a href="{% url 'compliance:invoice-list' pk %}" class="btn btn-outline-primary w-100 text-start">
+          <i class="bi bi-receipt-cutoff me-2"></i>Tax Invoices
+        </a>
+      </div>
+      <div class="col-6 col-sm-4 col-md-3">
+        <a href="{% url 'compliance:funder-pack-list' pk %}" class="btn btn-outline-primary w-100 text-start">
+          <i class="bi bi-file-earmark-zip me-2"></i>Funder Packs
+        </a>
+      </div>
       {% endwith %}
     </div>
   </div>
@@ -244,7 +274,7 @@
               <td>
                 {% with days=m.delay_days %}
                 <span class="badge {% if days < 0 %}bg-danger{% elif days < 7 %}bg-warning text-dark{% else %}bg-success{% endif %}">
-                  {% if days < 0 %}{{ days|abs }} overdue{% else %}{{ days }}d{% endif %}
+                  {% if days < 0 %}Overdue{% else %}{{ days }}d{% endif %}
                 </span>
                 {% endwith %}
               </td>

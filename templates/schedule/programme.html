@@ -8,6 +8,10 @@
   <div class="d-flex gap-2">
     {% if programme %}
     <a href="{% url 'schedule:programme-update' project.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit Programme</a>
+    <a href="{% url 'schedule:programme-revision-create' project.pk %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-calendar-plus me-1"></i>Revision</a>
+    <form method="post" action="{% url 'schedule:critical-path-recalculate' project.pk %}" class="d-inline">{% csrf_token %}
+      <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-diagram-3 me-1"></i>Critical Path</button>
+    </form>
     <a href="{% url 'schedule:activity-create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Activity</a>
     {% else %}
     <a href="{% url 'schedule:programme-create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Create Programme</a>
@@ -29,26 +33,53 @@
   <div class="col-md-3">
     <div class="card border-0 shadow-sm text-center p-3">
       <div class="small text-muted">Contract Duration</div>
-      <div class="h5 fw-bold mt-1" style="color:var(--kc-primary)">{{ programme.contract_duration }} days</div>
+      <div class="h5 fw-bold mt-1" style="color:var(--kc-primary)">{{ programme.baseline_duration_days }} days</div>
     </div>
   </div>
   <div class="col-md-3">
     <div class="card border-0 shadow-sm text-center p-3">
-      <div class="small text-muted">Planned Start</div>
-      <div class="h5 fw-bold mt-1">{{ programme.planned_start|date:"d M Y" }}</div>
+      <div class="small text-muted">Baseline Start</div>
+      <div class="h5 fw-bold mt-1">{{ programme.baseline_start|date:"d M Y" }}</div>
     </div>
   </div>
   <div class="col-md-3">
     <div class="card border-0 shadow-sm text-center p-3">
-      <div class="small text-muted">Planned Finish</div>
-      <div class="h5 fw-bold mt-1">{{ programme.planned_finish|date:"d M Y" }}</div>
+      <div class="small text-muted">Baseline Finish</div>
+      <div class="h5 fw-bold mt-1">{{ programme.baseline_end|date:"d M Y" }}</div>
     </div>
   </div>
   <div class="col-md-3">
     <div class="card border-0 shadow-sm text-center p-3">
-      <div class="small text-muted">Revised Finish</div>
-      <div class="h5 fw-bold mt-1">{{ programme.revised_finish|date:"d M Y"|default:"—" }}</div>
+      <div class="small text-muted">Current Finish</div>
+      <div class="h5 fw-bold mt-1">{{ programme.current_end|date:"d M Y"|default:"—" }}</div>
     </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Programme Revisions</div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr><th>Revision</th><th>Submitted</th><th>Status</th><th>Revised Finish</th><th class="text-end">EOT Days</th><th>Delay Events</th><th>Approved By</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for revision in programme_revisions %}
+        <tr>
+          <td class="font-monospace">{{ revision.revision_number }}</td>
+          <td>{{ revision.submitted_date|date:"d M Y" }}</td>
+          <td><span class="badge bg-secondary">{{ revision.get_status_display }}</span></td>
+          <td>{{ revision.revised_end|date:"d M Y" }}</td>
+          <td class="text-end">{{ revision.eot_days }}</td>
+          <td>{{ revision.delay_events.count }}</td>
+          <td>{{ revision.approved_by.get_full_name|default:"-" }}</td>
+          <td class="text-end"><a href="{% url 'schedule:programme-revision-update' project.pk revision.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-muted text-center py-3">No programme revisions recorded.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 </div>
 

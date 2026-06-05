@@ -13,6 +13,20 @@
     <a href="{% url 'compliance:invoice-update' project.pk invoice.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
   </div>
 </div>
+{% if invoice.status != 'VOID' %}
+<div class="content-card mb-3">
+  <div class="cc-header"><h5><i class="bi bi-slash-circle me-2"></i>Void Control</h5></div>
+  <div class="cc-body">
+    <form method="post" action="{% url 'compliance:invoice-void' project.pk invoice.pk %}" class="row g-2 align-items-end">
+      {% csrf_token %}
+      <div class="col-md-9"><label class="form-label small fw-semibold">Void reason</label><input type="text" name="reason" class="form-control form-control-sm" required></div>
+      <div class="col-md-3"><button class="btn btn-outline-danger btn-sm w-100" type="submit">Void Invoice</button></div>
+    </form>
+  </div>
+</div>
+{% elif invoice.void_reason %}
+<div class="alert alert-danger"><strong>Voided:</strong> {{ invoice.void_reason }}{% if invoice.voided_by %} by {{ invoice.voided_by.get_full_name }}{% endif %}</div>
+{% endif %}
 
 <div class="row g-4">
   <div class="col-md-5">

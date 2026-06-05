@@ -47,6 +47,27 @@ class CostCode(TimeStampedModel):
         default=CATEGORY_OTHER,
     )
     budget_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    forecast_etc = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="Estimate to Complete (PGK)",
+        help_text="Forecast remaining cost required to complete this cost code.",
+    )
+    provisional_sum = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="Provisional Sum (PGK)",
+        help_text="Allowance held against uncertain scope within this cost code.",
+    )
+    contingency_drawdown = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="Contingency Drawdown (PGK)",
+        help_text="Approved contingency consumed by this cost code.",
+    )
     is_contingency = models.BooleanField(default=False)
     notes = models.TextField(blank=True)
 
@@ -83,16 +104,58 @@ class CostCode(TimeStampedModel):
         return self.total_committed + self.total_actual
 
     @property
+    def control_budget(self) -> Decimal:
+        """Budget available for project control including provisional sums."""
+        return self.budget_amount + self.provisional_sum
+
+    @property
+    def etc(self) -> Decimal:
+        """Estimate to complete."""
+        return self.forecast_etc
+
+    @property
+    def efc(self) -> Decimal:
+        """Estimate final cost."""
+        return self.estimate_at_completion
+
+    @property
+    def estimate_at_completion(self) -> Decimal:
+        """Actual cost plus current commitments plus remaining forecast."""
+        return self.total_actual + self.total_committed + self.forecast_etc
+
+    @property
+    def forecast_variance(self) -> Decimal:
+        """Budget remaining against EFC (positive = forecast under budget)."""
+        return self.control_budget - self.estimate_at_completion
+
+    @property
+    def forecast_variance_percentage(self) -> Decimal:
+        if self.control_budget == 0:
+            return Decimal("100.00") if self.estimate_at_completion > 0 else Decimal("0.00")
+        return (
+            self.estimate_at_completion / self.control_budget * 100
+        ).quantize(Decimal("0.01"))
+
+    @property
+    def forecast_rag_status(self) -> str:
+        pct = self.forecast_variance_percentage
+        if pct > 100:
+            return "RED"
+        if pct >= 90:
+            return "AMBER"
+        return "GREEN"
+
+    @property
     def variance(self) -> Decimal:
         """Budget remaining (positive = under budget, negative = over budget)."""
-        return self.budget_amount - self.total_spent
+        return self.control_budget - self.total_spent
 
     @property
     def variance_percentage(self) -> Decimal:
         """Percentage of budget consumed (0–100+)."""
-        if self.budget_amount == 0:
+        if self.control_budget == 0:
             return Decimal("100.00") if self.total_spent > 0 else Decimal("0.00")
-        return (self.total_spent / self.budget_amount * 100).quantize(Decimal("0.01"))
+        return (self.total_spent / self.control_budget * 100).quantize(Decimal("0.01"))
 
     @property
     def rag_status(self) -> str:
@@ -282,3 +345,168 @@ class Subcontract(TimeStampedModel):
         if self.contract_value == 0:
             return Decimal("0.00")
         return (self.retention_held / self.contract_value * 100).quantize(Decimal("0.01"))
+
+    @property
+    def amount_claimed(self) -> Decimal:
+        return self.claims.aggregate(total=models.Sum("claimed_amount"))["total"] or Decimal("0.00")
+
+    @property
+    def amount_approved(self) -> Decimal:
+        return self.claims.aggregate(total=models.Sum("approved_amount"))["total"] or Decimal("0.00")
+
+    @property
+    def amount_paid(self) -> Decimal:
+        return self.claims.aggregate(total=models.Sum("amount_paid"))["total"] or Decimal("0.00")
+
+    @property
+    def approved_backcharges(self) -> Decimal:
+        return (
+            self.backcharges.filter(status=SubcontractBackCharge.STATUS_APPROVED)
+            .aggregate(total=models.Sum("amount"))["total"]
+            or Decimal("0.00")
+        )
+
+    @property
+    def outstanding_payment(self) -> Decimal:
+        return self.amount_approved - self.amount_paid
+
+    @property
+    def latest_performance_score(self):
+        latest = self.performance_reviews.order_by("-review_date", "-created_at").first()
+        return latest.overall_score if latest else None
+
+
+class SubcontractClaim(TimeStampedModel):
+    STATUS_SUBMITTED = "SUBMITTED"
+    STATUS_ASSESSED = "ASSESSED"
+    STATUS_APPROVED = "APPROVED"
+    STATUS_PAID = "PAID"
+    STATUS_REJECTED = "REJECTED"
+
+    STATUS_CHOICES = [
+        (STATUS_SUBMITTED, "Submitted"),
+        (STATUS_ASSESSED, "Assessed"),
+        (STATUS_APPROVED, "Approved"),
+        (STATUS_PAID, "Paid"),
+        (STATUS_REJECTED, "Rejected"),
+    ]
+
+    subcontract = models.ForeignKey(
+        Subcontract,
+        on_delete=models.CASCADE,
+        related_name="claims",
+    )
+    claim_number = models.CharField(max_length=30, editable=False, db_index=True)
+    period_from = models.DateField()
+    period_to = models.DateField()
+    submitted_date = models.DateField()
+    claimed_amount = models.DecimalField(max_digits=14, decimal_places=2)
+    assessed_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    approved_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    retention_deducted = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    backcharge_deducted = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    amount_paid = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    payment_date = models.DateField(null=True, blank=True)
+    payment_reference = models.CharField(max_length=100, blank=True)
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default=STATUS_SUBMITTED)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = "Subcontract Claim"
+        verbose_name_plural = "Subcontract Claims"
+        ordering = ["subcontract", "-submitted_date", "-claim_number"]
+        unique_together = [("subcontract", "claim_number")]
+
+    def __str__(self):
+        return f"{self.claim_number} - {self.subcontract.company_name}"
+
+    def save(self, *args, **kwargs):
+        if not self.claim_number:
+            count = SubcontractClaim.objects.filter(subcontract=self.subcontract).count() + 1
+            self.claim_number = f"SC-{self.subcontract_id}-CLM-{count:03d}"
+        super().save(*args, **kwargs)
+
+    @property
+    def net_approved(self) -> Decimal:
+        return self.approved_amount - self.retention_deducted - self.backcharge_deducted
+
+    @property
+    def outstanding_amount(self) -> Decimal:
+        return self.net_approved - self.amount_paid
+
+
+class SubcontractBackCharge(TimeStampedModel):
+    STATUS_DRAFT = "DRAFT"
+    STATUS_APPROVED = "APPROVED"
+    STATUS_RECOVERED = "RECOVERED"
+    STATUS_WAIVED = "WAIVED"
+
+    STATUS_CHOICES = [
+        (STATUS_DRAFT, "Draft"),
+        (STATUS_APPROVED, "Approved"),
+        (STATUS_RECOVERED, "Recovered"),
+        (STATUS_WAIVED, "Waived"),
+    ]
+
+    subcontract = models.ForeignKey(
+        Subcontract,
+        on_delete=models.CASCADE,
+        related_name="backcharges",
+    )
+    date = models.DateField()
+    description = models.TextField()
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    recovered_from_claim = models.ForeignKey(
+        SubcontractClaim,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="recovered_backcharges",
+    )
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default=STATUS_DRAFT)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = "Subcontract Back-Charge"
+        verbose_name_plural = "Subcontract Back-Charges"
+        ordering = ["subcontract", "-date"]
+
+    def __str__(self):
+        return f"Back-charge {self.subcontract.company_name} - {self.amount}"
+
+
+class SubcontractPerformanceReview(TimeStampedModel):
+    subcontract = models.ForeignKey(
+        Subcontract,
+        on_delete=models.CASCADE,
+        related_name="performance_reviews",
+    )
+    review_date = models.DateField()
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="subcontract_performance_reviews",
+    )
+    quality_score = models.PositiveSmallIntegerField(default=3)
+    schedule_score = models.PositiveSmallIntegerField(default=3)
+    safety_score = models.PositiveSmallIntegerField(default=3)
+    commercial_score = models.PositiveSmallIntegerField(default=3)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = "Subcontract Performance Review"
+        verbose_name_plural = "Subcontract Performance Reviews"
+        ordering = ["subcontract", "-review_date"]
+
+    def __str__(self):
+        return f"{self.subcontract.company_name} review {self.review_date}"
+
+    @property
+    def overall_score(self) -> Decimal:
+        total = (
+            self.quality_score
+            + self.schedule_score
+            + self.safety_score
+            + self.commercial_score
+        )
+        return (Decimal(total) / Decimal("4")).quantize(Decimal("0.1"))

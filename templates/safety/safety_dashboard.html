@@ -42,6 +42,36 @@
     </div>
   </div>
 </div>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <a class="card border-0 shadow-sm text-center p-3 text-decoration-none h-100" href="{% url 'safety:permit_list' %}">
+      <i class="bi bi-clipboard-check fs-2 text-primary mb-2"></i>
+      <div class="text-muted small text-uppercase mb-1">Open Permits</div>
+      <div class="fs-5 fw-bold">{{ open_permits }}</div>
+    </a>
+  </div>
+  <div class="col-6 col-lg-3">
+    <a class="card border-0 shadow-sm text-center p-3 text-decoration-none h-100" href="{% url 'safety:training_list' %}?expired=1">
+      <i class="bi bi-award fs-2 text-warning mb-2"></i>
+      <div class="text-muted small text-uppercase mb-1">Expired Training</div>
+      <div class="fs-5 fw-bold">{{ expired_training }}</div>
+    </a>
+  </div>
+  <div class="col-6 col-lg-3">
+    <a class="card border-0 shadow-sm text-center p-3 text-decoration-none h-100" href="{% url 'safety:observation_list' %}">
+      <i class="bi bi-eye fs-2 text-success mb-2"></i>
+      <div class="text-muted small text-uppercase mb-1">Open Observations</div>
+      <div class="fs-5 fw-bold">{{ open_observations }}</div>
+    </a>
+  </div>
+  <div class="col-6 col-lg-3">
+    <a class="card border-0 shadow-sm text-center p-3 text-decoration-none h-100" href="{% url 'safety:corrective_action_list' %}?overdue=1">
+      <i class="bi bi-exclamation-octagon fs-2 text-danger mb-2"></i>
+      <div class="text-muted small text-uppercase mb-1">Overdue Actions</div>
+      <div class="fs-5 fw-bold">{{ overdue_actions }}</div>
+    </a>
+  </div>
+</div>
 
 <div class="row g-4">
   <div class="col-lg-6">
@@ -67,13 +97,13 @@
       </div>
       <div class="card-body p-0">
         <table class="table mb-0 small">
-          <thead class="table-light"><tr><th>Date</th><th>Type</th><th>Severity</th><th>Status</th></tr></thead>
+          <thead class="table-light"><tr><th>Date</th><th>Type</th><th>Project</th><th>Status</th></tr></thead>
           <tbody>
             {% for inc in recent_incidents %}
             <tr>
               <td><a href="{% url 'safety:incident_detail' inc.pk %}">{{ inc.date|date:"d M" }}</a></td>
               <td>{{ inc.get_incident_type_display }}</td>
-              <td><span class="badge {% if inc.severity == 'CRITICAL' %}bg-danger{% elif inc.severity == 'MAJOR' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ inc.get_severity_display }}</span></td>
+              <td>{{ inc.project.name|truncatechars:18 }}</td>
               <td><span class="badge {% if inc.status == 'OPEN' %}bg-danger{% elif inc.status == 'CLOSED' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ inc.get_status_display }}</span></td>
             </tr>
             {% empty %}<tr><td colspan="4" class="text-muted text-center py-3">No recent incidents.</td></tr>{% endfor %}
@@ -81,6 +111,28 @@
         </table>
       </div>
     </div>
+  </div>
+</div>
+<div class="card border-0 shadow-sm mt-4">
+  <div class="card-header bg-white fw-semibold d-flex justify-content-between" style="color:var(--kc-primary)">
+    <span><i class="bi bi-check2-square me-2"></i>Corrective Action Queue</span>
+    <a href="{% url 'safety:corrective_action_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+  </div>
+  <div class="card-body p-0">
+    <table class="table mb-0 small">
+      <thead class="table-light"><tr><th>Project</th><th>Action</th><th>Owner</th><th>Due</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for action in recent_actions %}
+        <tr>
+          <td>{{ action.project.name|truncatechars:18 }}</td>
+          <td>{{ action.description|truncatechars:50 }}</td>
+          <td>{{ action.assigned_to|default:"Unassigned" }}</td>
+          <td class="{% if action.is_overdue %}text-danger fw-semibold{% endif %}">{{ action.due_date|date:"d M Y" }}</td>
+          <td><span class="badge {% if action.status == 'CLOSED' %}bg-success{% elif action.is_overdue %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ action.get_status_display }}</span></td>
+        </tr>
+        {% empty %}<tr><td colspan="5" class="text-muted text-center py-3">No corrective actions recorded.</td></tr>{% endfor %}
+      </tbody>
+    </table>
   </div>
 </div>
 {% endblock %}

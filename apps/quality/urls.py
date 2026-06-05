@@ -21,6 +21,16 @@ urlpatterns = [
         views.ITPDetailView.as_view(),
         name="itp-detail",
     ),
+    path(
+        "projects/<int:project_pk>/itps/<int:itp_pk>/checklists/add/",
+        views.InspectionChecklistCreateView.as_view(),
+        name="checklist-create",
+    ),
+    path(
+        "projects/<int:project_pk>/checklists/<int:checklist_pk>/items/add/",
+        views.InspectionChecklistItemCreateView.as_view(),
+        name="checklist-item-create",
+    ),
     # Inspection Records (scoped to an ITP item)
     path(
         "projects/<int:project_pk>/itp-items/<int:itp_item_pk>/inspect/",

@@ -9,33 +9,57 @@
     <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">{{ itp.title }}</h1>
     <div class="text-muted small">{{ project.name }} | <span class="badge bg-secondary">{{ itp.get_status_display }}</span></div>
   </div>
+  <a href="{% url 'quality:checklist-create' project.pk itp.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Checklist</a>
 </div>
 <div class="card border-0 shadow-sm mb-4">
   <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">ITP Items</div>
   <div class="card-body p-0">
     <table class="table table-hover mb-0 small">
       <thead class="table-light">
-        <tr><th>#</th><th>Activity</th><th>Hold/Witness/Review</th><th>Acceptance Criteria</th><th>Inspection Frequency</th><th>Inspections</th></tr>
+        <tr><th>#</th><th>Activity</th><th>Type</th><th>Acceptance Criteria</th><th>Status</th><th>Signoff</th><th>Inspections</th></tr>
       </thead>
       <tbody>
         {% for item in items %}
         <tr>
           <td>{{ item.sequence }}</td>
-          <td class="fw-semibold">{{ item.activity }}</td>
+          <td class="fw-semibold">{{ item.description }}</td>
           <td>
-            {% if item.hold_point %}<span class="badge bg-danger">H</span>{% endif %}
-            {% if item.witness_point %}<span class="badge bg-warning text-dark">W</span>{% endif %}
-            {% if item.review_point %}<span class="badge bg-secondary">R</span>{% endif %}
+            <span class="badge bg-secondary">{{ item.get_inspection_type_display }}</span>
           </td>
           <td>{{ item.acceptance_criteria|truncatechars:40 }}</td>
-          <td>{{ item.inspection_frequency }}</td>
+          <td>{{ item.get_status_display }}</td>
+          <td>
+            {% if item.hold_point_released_date %}<span class="badge bg-success">Hold Released</span>{% endif %}
+            {% if item.witness_signed_date %}<span class="badge bg-info">Witness Signed</span>{% endif %}
+          </td>
           <td>
             {{ item.inspection_records.count }}
-            <a href="{% url 'quality:inspection-create' item.pk %}" class="btn btn-sm btn-outline-primary ms-2"><i class="bi bi-plus-lg"></i></a>
+            <a href="{% url 'quality:inspection-create' project.pk item.pk %}" class="btn btn-sm btn-outline-primary ms-2"><i class="bi bi-plus-lg"></i></a>
           </td>
         </tr>
         {% empty %}
         <tr><td colspan="6" class="text-muted text-center py-3">No ITP items defined.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Inspection Checklists</div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light"><tr><th>Date</th><th>Checklist</th><th>Location</th><th class="text-end">Pass Rate</th><th></th></tr></thead>
+      <tbody>
+        {% for checklist in checklists %}
+        <tr>
+          <td>{{ checklist.inspection_date }}</td>
+          <td>{{ checklist.title }}</td>
+          <td>{{ checklist.location|default:"-" }}</td>
+          <td class="text-end">{{ checklist.pass_rate }}%</td>
+          <td class="text-end"><a href="{% url 'quality:checklist-item-create' project.pk checklist.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg"></i></a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-muted text-center py-3">No checklists recorded.</td></tr>
         {% endfor %}
       </tbody>
     </table>

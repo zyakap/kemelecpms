@@ -49,23 +49,11 @@
           {{ profile_user.get_full_name|default:profile_user.username }}
         </h4>
         <div class="mb-2">
-          {% with role=profile_user.profile.role %}
-            {% if profile_user.is_superuser %}
-              <span class="badge bg-danger">Super Admin</span>
-            {% elif role == 'pm' %}
-              <span class="badge bg-primary">Project Manager</span>
-            {% elif role == 'engineer' %}
-              <span class="badge" style="background:var(--kc-primary);">Site Engineer</span>
-            {% elif role == 'finance' %}
-              <span class="badge bg-success">Finance Officer</span>
-            {% elif role == 'safety' %}
-              <span class="badge bg-warning text-dark">Safety Officer</span>
-            {% elif role == 'quality' %}
-              <span class="badge bg-info text-dark">Quality Officer</span>
-            {% else %}
-              <span class="badge bg-secondary">{{ role|title|default:"Viewer" }}</span>
-            {% endif %}
-          {% endwith %}
+          {% if profile_user.is_superuser %}
+            <span class="badge bg-danger">Super Admin</span>
+          {% else %}
+            <span class="badge bg-secondary">{{ profile_user.get_role_display }}</span>
+          {% endif %}
 
           {% if profile_user.is_active %}
             <span class="badge badge-rag-green ms-1">Active</span>

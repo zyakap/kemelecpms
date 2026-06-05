@@ -17,6 +17,11 @@ urlpatterns = [
         name="drawing-create",
     ),
     path(
+        "projects/<int:project_pk>/drawings/latest-ifc/",
+        views.LatestIFCDrawingListView.as_view(),
+        name="latest-ifc-list",
+    ),
+    path(
         "projects/<int:project_pk>/drawings/<int:pk>/",
         views.DrawingDetailView.as_view(),
         name="drawing-detail",
@@ -95,6 +100,41 @@ urlpatterns = [
         "projects/<int:project_pk>/docs/add/",
         views.ProjectDocumentCreateView.as_view(),
         name="projectdoc-create",
+    ),
+    path(
+        "projects/<int:project_pk>/distribution/",
+        views.DistributionContactListView.as_view(),
+        name="distribution-contact-list",
+    ),
+    path(
+        "projects/<int:project_pk>/distribution/add/",
+        views.DistributionContactCreateView.as_view(),
+        name="distribution-contact-create",
+    ),
+    path(
+        "projects/<int:project_pk>/distribution/<int:pk>/edit/",
+        views.DistributionContactUpdateView.as_view(),
+        name="distribution-contact-update",
+    ),
+    path(
+        "projects/<int:project_pk>/transmittals/",
+        views.DocumentTransmittalListView.as_view(),
+        name="transmittal-list",
+    ),
+    path(
+        "projects/<int:project_pk>/transmittals/add/",
+        views.DocumentTransmittalCreateView.as_view(),
+        name="transmittal-create",
+    ),
+    path(
+        "projects/<int:project_pk>/transmittals/<int:pk>/",
+        views.DocumentTransmittalDetailView.as_view(),
+        name="transmittal-detail",
+    ),
+    path(
+        "projects/<int:project_pk>/transmittals/<int:pk>/edit/",
+        views.DocumentTransmittalUpdateView.as_view(),
+        name="transmittal-update",
     ),
     # Company-wide templates
     path(

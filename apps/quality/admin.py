@@ -1,7 +1,16 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Defect, ITP, ITPItem, InspectionRecord, MaterialTestResult, NCR
+from .models import (
+    Defect,
+    ITP,
+    ITPItem,
+    InspectionChecklist,
+    InspectionChecklistItem,
+    InspectionRecord,
+    MaterialTestResult,
+    NCR,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -73,6 +82,19 @@ class InspectionRecordAdmin(admin.ModelAdmin):
             colour,
             obj.get_result_display(),
         )
+
+
+class InspectionChecklistItemInline(admin.TabularInline):
+    model = InspectionChecklistItem
+    extra = 0
+
+
+@admin.register(InspectionChecklist)
+class InspectionChecklistAdmin(admin.ModelAdmin):
+    list_display = ("title", "itp", "inspection_date", "inspected_by", "pass_rate", "signed_off_by")
+    list_filter = ("itp__project", "inspection_date")
+    search_fields = ("title", "location", "itp__title")
+    inlines = [InspectionChecklistItemInline]
 
 
 # ---------------------------------------------------------------------------

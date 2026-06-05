@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{{ transmittal.transmittal_number }} — {{ project.name }}{% endblock %}
+{% block active_nav %}documents{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">{{ transmittal.transmittal_number }}</h1>
+    <div class="text-muted small">{{ transmittal.subject }}</div>
+  </div>
+  <a href="{% url 'documents:transmittal-update' project.pk transmittal.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>
+</div>
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm"><div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Issue Details</div><div class="card-body small">
+      <dl class="row mb-0">
+        <dt class="col-5 text-muted">Date</dt><dd class="col-7">{{ transmittal.sent_date|date:"d M Y" }}</dd>
+        <dt class="col-5 text-muted">Status</dt><dd class="col-7">{{ transmittal.get_status_display }}</dd>
+        <dt class="col-5 text-muted">Issued By</dt><dd class="col-7">{{ transmittal.sent_by|default:"-" }}</dd>
+        <dt class="col-5 text-muted">Acknowledged</dt><dd class="col-7">{{ transmittal.acknowledged_date|date:"d M Y"|default:"-" }}</dd>
+      </dl>
+    </div></div>
+    <div class="card border-0 shadow-sm mt-3"><div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Recipients</div><div class="card-body p-0"><table class="table mb-0 small"><tbody>{% for recipient in transmittal.recipients.all %}<tr><td>{{ recipient.name }}</td><td>{{ recipient.organization }}</td><td>{{ recipient.email }}</td></tr>{% empty %}<tr><td class="text-muted text-center py-3">No recipients.</td></tr>{% endfor %}</tbody></table></div></div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm mb-3"><div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Drawings Issued</div><div class="card-body p-0"><table class="table table-hover mb-0 small"><thead class="table-light"><tr><th>No.</th><th>Title</th><th>Rev</th><th>Date</th><th>File</th></tr></thead><tbody>{% for drawing in transmittal.drawings.all %}<tr><td class="font-monospace">{{ drawing.drawing_number }}</td><td>{{ drawing.title }}</td><td>{{ drawing.current_revision }}</td><td>{{ drawing.current_revision_date|date:"d M Y"|default:"-" }}</td><td><a href="{{ drawing.file.url }}" target="_blank">Open</a></td></tr>{% empty %}<tr><td colspan="5" class="text-muted text-center py-3">No drawings issued.</td></tr>{% endfor %}</tbody></table></div></div>
+    <div class="card border-0 shadow-sm"><div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Other Documents</div><div class="card-body p-0"><table class="table table-hover mb-0 small"><thead class="table-light"><tr><th>Type</th><th>Title</th><th>File</th></tr></thead><tbody>{% for submittal in transmittal.submittals.all %}<tr><td>Submittal</td><td>{{ submittal.title }}</td><td><a href="{{ submittal.document.url }}" target="_blank">Open</a></td></tr>{% endfor %}{% for doc in transmittal.documents.all %}<tr><td>{{ doc.document_type }}</td><td>{{ doc.title }}</td><td><a href="{{ doc.file.url }}" target="_blank">Open</a></td></tr>{% empty %}{% if not transmittal.submittals.exists %}<tr><td colspan="3" class="text-muted text-center py-3">No additional documents.</td></tr>{% endif %}{% endfor %}</tbody></table></div></div>
+  </div>
+</div>
+{% endblock %}

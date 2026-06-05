@@ -11,6 +11,11 @@ from apps.ipc.models import IPC
 from apps.procurement.models import GoodsReceivedNote, MaterialRequisition, PurchaseOrder
 from apps.projects.models import Project
 from apps.safety.models import Incident, ToolboxTalk
+from apps.core.permissions import (
+    accessible_projects,
+    can_approve_dsr,
+    can_submit_dsr,
+)
 
 from .serializers import (
     DSRCreateSerializer,
@@ -42,22 +47,15 @@ class ProjectViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = Project.objects.select_related("client", "project_manager", "funder")
-        if user.role in ("MANAGING_DIRECTOR", "ADMIN", "SYSTEM_ADMIN"):
-            return qs
-        return qs.filter(
-            models_Q(project_manager=user) | models_Q(site_supervisor=user)
+        return (
+            accessible_projects(user)
+            .select_related("client", "project_manager", "funder")
         )
 
     def get_serializer_class(self):
         if self.action == "retrieve":
             return ProjectDetailSerializer
         return ProjectListSerializer
-
-
-def models_Q(*args, **kwargs):
-    from django.db.models import Q
-    return Q(*args, **kwargs)
 
 
 class DSRViewSet(viewsets.ModelViewSet):
@@ -70,8 +68,9 @@ class DSRViewSet(viewsets.ModelViewSet):
     ordering = ["-date"]
 
     def get_queryset(self):
-        user = self.request.user
-        qs = DailySiteReport.objects.select_related("project", "prepared_by")
+        qs = DailySiteReport.objects.filter(
+            project__in=accessible_projects(self.request.user)
+        ).select_related("project", "prepared_by")
         project_pk = self.request.query_params.get("project")
         if project_pk:
             qs = qs.filter(project_id=project_pk)
@@ -87,10 +86,15 @@ class DSRViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def submit(self, request, pk=None):
         dsr = self.get_object()
+        if not can_submit_dsr(request.user, dsr):
+            return Response({"detail": "You do not have permission to submit this DSR."}, status=status.HTTP_403_FORBIDDEN)
         if dsr.status != DailySiteReport.STATUS_DRAFT:
             return Response({"detail": "Only draft DSRs can be submitted."}, status=status.HTTP_400_BAD_REQUEST)
         dsr.status = DailySiteReport.STATUS_SUBMITTED
-        dsr.save(update_fields=["status"])
+        dsr.updated_by = request.user
+        dsr.save(update_fields=["status", "updated_by", "updated_at"])
+        from apps.core.models import AuditLog
+        AuditLog.log(request.user, AuditLog.ACTION_SUBMIT, dsr, request=request)
         from apps.dsr.tasks import notify_dsr_submitted
         notify_dsr_submitted.delay(dsr.pk)
         return Response({"status": "submitted"})
@@ -98,11 +102,26 @@ class DSRViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def approve(self, request, pk=None):
         dsr = self.get_object()
+        if not can_approve_dsr(request.user, dsr):
+            return Response({"detail": "You do not have permission to approve this DSR."}, status=status.HTTP_403_FORBIDDEN)
         if dsr.status != DailySiteReport.STATUS_SUBMITTED:
             return Response({"detail": "Only submitted DSRs can be approved."}, status=status.HTTP_400_BAD_REQUEST)
         dsr.status = DailySiteReport.STATUS_APPROVED
         dsr.approved_by = request.user
-        dsr.save(update_fields=["status", "approved_by"])
+        dsr.is_locked = True
+        dsr.updated_by = request.user
+        from django.utils import timezone
+        dsr.approved_at = timezone.now()
+        dsr.save(update_fields=[
+            "status",
+            "approved_by",
+            "approved_at",
+            "is_locked",
+            "updated_by",
+            "updated_at",
+        ])
+        from apps.core.models import AuditLog
+        AuditLog.log(request.user, AuditLog.ACTION_APPROVE, dsr, request=request)
         from apps.dsr.tasks import notify_dsr_approved
         notify_dsr_approved.delay(dsr.pk)
         return Response({"status": "approved"})
@@ -116,7 +135,9 @@ class IPCViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ["-created_at"]
 
     def get_queryset(self):
-        qs = IPC.objects.select_related("project")
+        qs = IPC.objects.filter(
+            project__in=accessible_projects(self.request.user)
+        ).select_related("project")
         project_pk = self.request.query_params.get("project")
         if project_pk:
             qs = qs.filter(project_id=project_pk)
@@ -136,7 +157,9 @@ class MRViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ["-created_at"]
 
     def get_queryset(self):
-        qs = MaterialRequisition.objects.all()
+        qs = MaterialRequisition.objects.filter(
+            project__in=accessible_projects(self.request.user)
+        )
         project_pk = self.request.query_params.get("project")
         if project_pk:
             qs = qs.filter(project_id=project_pk)
@@ -151,7 +174,9 @@ class POViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ["-created_at"]
 
     def get_queryset(self):
-        qs = PurchaseOrder.objects.select_related("supplier")
+        qs = PurchaseOrder.objects.filter(
+            project__in=accessible_projects(self.request.user)
+        ).select_related("supplier")
         project_pk = self.request.query_params.get("project")
         if project_pk:
             qs = qs.filter(project_id=project_pk)
@@ -163,13 +188,15 @@ class GRNViewSet(viewsets.ReadOnlyModelViewSet):
 
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = GRNListSerializer
-    ordering = ["-received_date"]
+    ordering = ["-delivery_date"]
 
     def get_queryset(self):
-        qs = GoodsReceivedNote.objects.select_related("purchase_order")
+        qs = GoodsReceivedNote.objects.filter(
+            po__project__in=accessible_projects(self.request.user)
+        ).select_related("po")
         project_pk = self.request.query_params.get("project")
         if project_pk:
-            qs = qs.filter(purchase_order__project_id=project_pk)
+            qs = qs.filter(po__project_id=project_pk)
         return qs
 
 
@@ -183,7 +210,9 @@ class IncidentViewSet(viewsets.ModelViewSet):
     ordering = ["-date"]
 
     def get_queryset(self):
-        qs = Incident.objects.select_related("project")
+        qs = Incident.objects.filter(
+            project__in=accessible_projects(self.request.user)
+        ).select_related("project")
         project_pk = self.request.query_params.get("project")
         if project_pk:
             qs = qs.filter(project_id=project_pk)
@@ -201,7 +230,9 @@ class ToolboxTalkViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ["-date"]
 
     def get_queryset(self):
-        qs = ToolboxTalk.objects.select_related("project")
+        qs = ToolboxTalk.objects.filter(
+            project__in=accessible_projects(self.request.user)
+        ).select_related("project")
         project_pk = self.request.query_params.get("project")
         if project_pk:
             qs = qs.filter(project_id=project_pk)

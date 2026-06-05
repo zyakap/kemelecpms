@@ -8,6 +8,7 @@ from .models import (
     Funder,
     Milestone,
     Project,
+    ProjectMembership,
     Variation,
 )
 
@@ -50,6 +51,13 @@ class VariationInline(admin.TabularInline):
     extra = 0
     fields = ("ref_number", "variation_type", "status", "date_instructed", "amount")
     readonly_fields = ("ref_number",)
+
+
+class ProjectMembershipInline(admin.TabularInline):
+    model = ProjectMembership
+    extra = 0
+    fields = ("user", "role", "can_edit", "can_approve", "is_active")
+    raw_id_fields = ("user",)
 
 
 # ---------------------------------------------------------------------------
@@ -120,7 +128,7 @@ class ProjectAdmin(admin.ModelAdmin):
     readonly_fields = ("project_id", "created_at", "updated_at")
     ordering = ("-created_at",)
     raw_id_fields = ("project_manager", "site_supervisor", "client", "funder")
-    inlines = [ContractInline, MilestoneInline, VariationInline]
+    inlines = [ContractInline, MilestoneInline, VariationInline, ProjectMembershipInline]
 
     fieldsets = (
         (
@@ -194,6 +202,14 @@ class ContractAdmin(admin.ModelAdmin):
     )
     ordering = ("-created_at",)
     raw_id_fields = ("project",)
+
+
+@admin.register(ProjectMembership)
+class ProjectMembershipAdmin(admin.ModelAdmin):
+    list_display = ("project", "user", "role", "can_edit", "can_approve", "is_active")
+    list_filter = ("role", "can_edit", "can_approve", "is_active")
+    search_fields = ("project__project_id", "project__name", "user__email", "user__first_name", "user__last_name")
+    raw_id_fields = ("project", "user")
 
 
 # ---------------------------------------------------------------------------

@@ -9,17 +9,30 @@ from django.views.generic import (
     UpdateView,
 )
 
+from apps.core.permissions import accessible_projects, can_manage_documents
+from apps.core.models import AuditLog
 from apps.projects.models import Project
 
 from .forms import (
     CorrespondenceForm,
+    DistributionContactForm,
+    DocumentTransmittalForm,
     DrawingForm,
     DrawingRevisionForm,
     ProjectDocumentForm,
     RFIForm,
     SubmittalForm,
 )
-from .models import Correspondence, Drawing, DrawingRevision, ProjectDocument, RFI, Submittal
+from .models import (
+    Correspondence,
+    DistributionContact,
+    DocumentTransmittal,
+    Drawing,
+    DrawingRevision,
+    ProjectDocument,
+    RFI,
+    Submittal,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -32,7 +45,10 @@ class ProjectMixin(LoginRequiredMixin):
 
     def get_project(self):
         if not hasattr(self, "_project"):
-            self._project = get_object_or_404(Project, pk=self.kwargs["project_pk"])
+            self._project = get_object_or_404(
+                accessible_projects(self.request.user),
+                pk=self.kwargs["project_pk"],
+            )
         return self._project
 
     def get_context_data(self, **kwargs):
@@ -70,6 +86,16 @@ class DrawingListView(ProjectMixin, ListView):
         return ctx
 
 
+class LatestIFCDrawingListView(DrawingListView):
+    template_name = "documents/latest_ifc_list.html"
+
+    def get_queryset(self):
+        return Drawing.objects.filter(
+            project=self.get_project(),
+            status=Drawing.STATUS_IFC,
+        ).order_by("discipline", "drawing_number")
+
+
 class DrawingCreateView(ProjectMixin, CreateView):
     model = Drawing
     form_class = DrawingForm
@@ -81,6 +107,9 @@ class DrawingCreateView(ProjectMixin, CreateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_documents(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to register drawings for this project.")
+            return redirect(reverse_lazy("documents:drawing-list", kwargs={"project_pk": self.get_project().pk}))
         form.instance.project = self.get_project()
         form.instance.created_by = self.request.user
         messages.success(self.request, "Drawing registered successfully.")
@@ -104,6 +133,9 @@ class DrawingUpdateView(ProjectMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_documents(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to update drawings for this project.")
+            return redirect(self.object.get_absolute_url())
         form.instance.updated_by = self.request.user
         messages.success(self.request, "Drawing updated.")
         return super().form_valid(form)
@@ -144,7 +176,11 @@ class DrawingRevisionCreateView(LoginRequiredMixin, CreateView):
 
     def get_drawing(self):
         if not hasattr(self, "_drawing"):
-            self._drawing = get_object_or_404(Drawing, pk=self.kwargs["drawing_pk"])
+            self._drawing = get_object_or_404(
+                Drawing,
+                pk=self.kwargs["drawing_pk"],
+                project__in=accessible_projects(self.request.user),
+            )
         return self._drawing
 
     def get_form_kwargs(self):
@@ -162,6 +198,9 @@ class DrawingRevisionCreateView(LoginRequiredMixin, CreateView):
 
     def form_valid(self, form):
         drawing = self.get_drawing()
+        if not can_manage_documents(self.request.user, drawing.project):
+            messages.error(self.request, "You do not have permission to upload revisions for this drawing.")
+            return redirect(drawing.get_absolute_url())
         form.instance.drawing = drawing
         form.instance.uploaded_by = self.request.user
         form.instance.created_by = self.request.user
@@ -238,9 +277,24 @@ class RFIUpdateView(ProjectMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_documents(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to update this RFI.")
+            return redirect(
+                reverse_lazy("documents:rfi-detail", kwargs={"project_pk": self.get_project().pk, "pk": self.object.pk})
+            )
+        old_status = self.object.status
         form.instance.updated_by = self.request.user
         messages.success(self.request, "RFI updated.")
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        if old_status != self.object.status:
+            AuditLog.log(
+                self.request.user,
+                AuditLog.ACTION_UPDATE,
+                self.object,
+                changes=f"RFI status changed from {old_status} to {self.object.status}.",
+                request=self.request,
+            )
+        return response
 
     def get_success_url(self):
         return reverse_lazy(
@@ -331,9 +385,24 @@ class SubmittalUpdateView(ProjectMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_documents(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to update this submittal.")
+            return redirect(
+                reverse_lazy("documents:submittal-list", kwargs={"project_pk": self.get_project().pk})
+            )
+        old_status = self.object.status
         form.instance.updated_by = self.request.user
         messages.success(self.request, "Submittal updated.")
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        if old_status != self.object.status:
+            AuditLog.log(
+                self.request.user,
+                AuditLog.ACTION_UPDATE,
+                self.object,
+                changes=f"Submittal status changed from {old_status} to {self.object.status}.",
+                request=self.request,
+            )
+        return response
 
     def get_success_url(self):
         return reverse_lazy(
@@ -381,6 +450,11 @@ class CorrespondenceCreateView(ProjectMixin, CreateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_documents(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to register correspondence for this project.")
+            return redirect(
+                reverse_lazy("documents:correspondence-list", kwargs={"project_pk": self.get_project().pk})
+            )
         form.instance.project = self.get_project()
         form.instance.created_by = self.request.user
         messages.success(self.request, "Correspondence registered.")
@@ -406,6 +480,11 @@ class CorrespondenceUpdateView(ProjectMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_documents(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to update correspondence for this project.")
+            return redirect(
+                reverse_lazy("documents:correspondence-list", kwargs={"project_pk": self.get_project().pk})
+            )
         form.instance.updated_by = self.request.user
         messages.success(self.request, "Correspondence updated.")
         return super().form_valid(form)
@@ -462,6 +541,11 @@ class ProjectDocumentCreateView(ProjectMixin, CreateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_documents(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to upload documents for this project.")
+            return redirect(
+                reverse_lazy("documents:projectdoc-list", kwargs={"project_pk": self.get_project().pk})
+            )
         form.instance.project = self.get_project()
         form.instance.uploaded_by = self.request.user
         form.instance.created_by = self.request.user
@@ -471,4 +555,156 @@ class ProjectDocumentCreateView(ProjectMixin, CreateView):
     def get_success_url(self):
         return reverse_lazy(
             "documents:projectdoc-list", kwargs={"project_pk": self.get_project().pk}
+        )
+
+
+class DistributionContactListView(ProjectMixin, ListView):
+    model = DistributionContact
+    template_name = "documents/distribution_contact_list.html"
+    context_object_name = "contacts"
+
+    def get_queryset(self):
+        return DistributionContact.objects.filter(project=self.get_project()).order_by(
+            "organization", "name"
+        )
+
+
+class DistributionContactCreateView(ProjectMixin, CreateView):
+    model = DistributionContact
+    form_class = DistributionContactForm
+    template_name = "documents/distribution_contact_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["project"] = self.get_project()
+        return kwargs
+
+    def form_valid(self, form):
+        if not can_manage_documents(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to create distribution contacts for this project.")
+            return redirect(self.get_success_url())
+        form.instance.project = self.get_project()
+        form.instance.created_by = self.request.user
+        messages.success(self.request, "Distribution contact created.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy("documents:distribution-contact-list", kwargs={"project_pk": self.get_project().pk})
+
+
+class DistributionContactUpdateView(ProjectMixin, UpdateView):
+    model = DistributionContact
+    form_class = DistributionContactForm
+    template_name = "documents/distribution_contact_form.html"
+
+    def get_queryset(self):
+        return DistributionContact.objects.filter(project=self.get_project())
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["project"] = self.get_project()
+        return kwargs
+
+    def form_valid(self, form):
+        if not can_manage_documents(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to update distribution contacts for this project.")
+            return redirect(self.get_success_url())
+        form.instance.updated_by = self.request.user
+        messages.success(self.request, "Distribution contact updated.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy("documents:distribution-contact-list", kwargs={"project_pk": self.get_project().pk})
+
+
+class DocumentTransmittalListView(ProjectMixin, ListView):
+    model = DocumentTransmittal
+    template_name = "documents/transmittal_list.html"
+    context_object_name = "transmittals"
+
+    def get_queryset(self):
+        qs = DocumentTransmittal.objects.filter(project=self.get_project()).select_related("sent_by").prefetch_related(
+            "recipients", "drawings", "submittals", "documents"
+        )
+        status = self.request.GET.get("status")
+        if status:
+            qs = qs.filter(status=status)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["status_choices"] = DocumentTransmittal.STATUS_CHOICES
+        ctx["selected_status"] = self.request.GET.get("status", "")
+        return ctx
+
+
+class DocumentTransmittalCreateView(ProjectMixin, CreateView):
+    model = DocumentTransmittal
+    form_class = DocumentTransmittalForm
+    template_name = "documents/transmittal_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["project"] = self.get_project()
+        return kwargs
+
+    def form_valid(self, form):
+        if not can_manage_documents(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to create transmittals for this project.")
+            return redirect(self.get_success_url())
+        form.instance.project = self.get_project()
+        form.instance.sent_by = self.request.user
+        form.instance.created_by = self.request.user
+        messages.success(self.request, "Document transmittal created.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy("documents:transmittal-list", kwargs={"project_pk": self.get_project().pk})
+
+
+class DocumentTransmittalUpdateView(ProjectMixin, UpdateView):
+    model = DocumentTransmittal
+    form_class = DocumentTransmittalForm
+    template_name = "documents/transmittal_form.html"
+
+    def get_queryset(self):
+        return DocumentTransmittal.objects.filter(project=self.get_project())
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["project"] = self.get_project()
+        return kwargs
+
+    def form_valid(self, form):
+        if not can_manage_documents(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to update transmittals for this project.")
+            return redirect(self.object.get_absolute_url())
+        old_status = self.object.status
+        if not form.instance.sent_by_id:
+            form.instance.sent_by = self.request.user
+        form.instance.updated_by = self.request.user
+        response = super().form_valid(form)
+        if old_status != self.object.status:
+            AuditLog.log(
+                self.request.user,
+                AuditLog.ACTION_UPDATE,
+                self.object,
+                changes=f"Transmittal status changed from {old_status} to {self.object.status}.",
+                request=self.request,
+            )
+        messages.success(self.request, "Document transmittal updated.")
+        return response
+
+    def get_success_url(self):
+        return self.object.get_absolute_url()
+
+
+class DocumentTransmittalDetailView(ProjectMixin, DetailView):
+    model = DocumentTransmittal
+    template_name = "documents/transmittal_detail.html"
+    context_object_name = "transmittal"
+
+    def get_queryset(self):
+        return DocumentTransmittal.objects.filter(project=self.get_project()).select_related("sent_by").prefetch_related(
+            "recipients", "drawings", "submittals", "documents"
         )

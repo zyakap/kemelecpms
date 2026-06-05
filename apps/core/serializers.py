@@ -74,7 +74,17 @@ class ProjectDetailSerializer(ProjectListSerializer):
 class DSRActivitySerializer(serializers.ModelSerializer):
     class Meta:
         model = DSRActivity
-        fields = ["id", "description", "location", "progress_pct", "crew_size", "notes"]
+        fields = [
+            "id",
+            "description",
+            "location_on_site",
+            "status",
+            "quantity_achieved",
+            "unit",
+            "percent_complete",
+            "constraints",
+            "crew",
+        ]
 
 
 class DSRPhotoSerializer(serializers.ModelSerializer):
@@ -82,7 +92,7 @@ class DSRPhotoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DSRPhoto
-        fields = ["id", "caption", "tag", "photo_url", "uploaded_at"]
+        fields = ["id", "caption", "tag", "gps_lat", "gps_lng", "taken_at", "photo_url"]
 
     def get_photo_url(self, obj):
         request = self.context.get("request")
@@ -120,7 +130,8 @@ class DSRDetailSerializer(DSRListSerializer):
     class Meta(DSRListSerializer.Meta):
         fields = DSRListSerializer.Meta.fields + [
             "day_number",
-            "summary",
+            "notes",
+            "is_locked",
             "activities",
             "photos",
         ]
@@ -134,7 +145,7 @@ class DSRCreateSerializer(serializers.ModelSerializer):
             "date",
             "weather_am",
             "weather_pm",
-            "summary",
+            "notes",
         ]
 
     def create(self, validated_data):
@@ -188,7 +199,15 @@ class IPCDetailSerializer(IPCListSerializer):
 class MRListSerializer(serializers.ModelSerializer):
     class Meta:
         model = MaterialRequisition
-        fields = ["id", "mr_number", "project", "date_required", "status", "created_at"]
+        fields = [
+            "id",
+            "mr_number",
+            "project",
+            "date",
+            "required_by_date",
+            "status",
+            "created_at",
+        ]
 
 
 class POListSerializer(serializers.ModelSerializer):
@@ -196,15 +215,33 @@ class POListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PurchaseOrder
-        fields = ["id", "po_number", "project", "supplier_name", "order_date", "status", "total_amount"]
+        fields = [
+            "id",
+            "po_number",
+            "project",
+            "supplier_name",
+            "date",
+            "expected_delivery_date",
+            "status",
+            "total_amount",
+        ]
 
 
 class GRNListSerializer(serializers.ModelSerializer):
-    po_number = serializers.CharField(source="purchase_order.po_number", read_only=True)
+    po_number = serializers.CharField(source="po.po_number", read_only=True)
 
     class Meta:
         model = GoodsReceivedNote
-        fields = ["id", "grn_number", "purchase_order", "po_number", "received_date", "received_by"]
+        fields = [
+            "id",
+            "grn_number",
+            "po",
+            "po_number",
+            "delivery_date",
+            "delivered_by",
+            "received_by",
+            "is_partial",
+        ]
 
 
 # ---------------------------------------------------------------------------

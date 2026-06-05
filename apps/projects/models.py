@@ -225,8 +225,51 @@ class Project(TimeStampedModel):
             return 0
         approved_variations = self.variations.filter(
             status=Variation.STATUS_APPROVED
-        ).aggregate(total=models.Sum("amount"))["total"] or 0
-        return base + approved_variations
+        )
+        variation_total = sum(
+            variation.signed_amount for variation in approved_variations
+        )
+        return base + variation_total
+
+
+class ProjectMembership(TimeStampedModel):
+    ROLE_PM = "project_manager"
+    ROLE_SUPERVISOR = "site_supervisor"
+    ROLE_PROCUREMENT = "procurement"
+    ROLE_FINANCE = "finance"
+    ROLE_DOC_CTRL = "document_control"
+    ROLE_QAQC = "quality"
+    ROLE_HSE = "safety"
+    ROLE_CLIENT = "client"
+    ROLE_AUDITOR = "auditor"
+    ROLE_VIEWER = "viewer"
+
+    ROLE_CHOICES = [
+        (ROLE_PM, "Project Manager"),
+        (ROLE_SUPERVISOR, "Site Supervisor"),
+        (ROLE_PROCUREMENT, "Procurement"),
+        (ROLE_FINANCE, "Finance"),
+        (ROLE_DOC_CTRL, "Document Control"),
+        (ROLE_QAQC, "Quality"),
+        (ROLE_HSE, "Safety"),
+        (ROLE_CLIENT, "Client / Funder"),
+        (ROLE_AUDITOR, "Auditor"),
+        (ROLE_VIEWER, "Viewer"),
+    ]
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="memberships")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="project_memberships")
+    role = models.CharField(max_length=30, choices=ROLE_CHOICES, default=ROLE_VIEWER)
+    can_edit = models.BooleanField(default=False)
+    can_approve = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["project", "role", "user__first_name", "user__last_name"]
+        unique_together = [("project", "user")]
+
+    def __str__(self):
+        return f"{self.user} - {self.project} ({self.get_role_display()})"
 
 
 # ---------------------------------------------------------------------------

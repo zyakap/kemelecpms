@@ -21,6 +21,21 @@ urlpatterns = [
         views.ProgrammeUpdateView.as_view(),
         name="programme-update",
     ),
+    path(
+        "projects/<int:project_pk>/programme/revisions/add/",
+        views.ProgrammeRevisionCreateView.as_view(),
+        name="programme-revision-create",
+    ),
+    path(
+        "projects/<int:project_pk>/programme/revisions/<int:pk>/edit/",
+        views.ProgrammeRevisionUpdateView.as_view(),
+        name="programme-revision-update",
+    ),
+    path(
+        "projects/<int:project_pk>/programme/critical-path/recalculate/",
+        views.CriticalPathRecalculateView.as_view(),
+        name="critical-path-recalculate",
+    ),
     # WBS
     path(
         "projects/<int:project_pk>/wbs/",

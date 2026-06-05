@@ -18,6 +18,7 @@ urlpatterns = [
     path("dsr/", include("apps.dsr.urls")),
     path("safety/", include("apps.safety.urls")),
     path("quality/", include("apps.quality.urls")),
+    path("maintenance/", include("apps.maintenance.urls")),
     path("ipc/", include("apps.ipc.urls")),
     path("documents/", include("apps.documents.urls")),
     path("notifications/", include("apps.notifications.urls")),

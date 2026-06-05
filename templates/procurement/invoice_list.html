@@ -10,21 +10,33 @@
   <div class="card-body p-0">
     <table class="table table-hover mb-0 small">
       <thead class="table-light">
-        <tr><th>Invoice No.</th><th>Supplier</th><th>PO No.</th><th>Invoice Date</th><th>Due Date</th><th class="text-end">Amount (K)</th><th>Status</th></tr>
+        <tr><th>Invoice No.</th><th>Supplier</th><th>PO No.</th><th>Invoice Date</th><th>Payment Date</th><th class="text-end">Amount (K)</th><th>Status</th><th>Match</th></tr>
       </thead>
       <tbody>
         {% for inv in invoices %}
         <tr>
           <td class="font-monospace fw-semibold">{{ inv.invoice_number }}</td>
           <td>{{ inv.supplier.name|truncatechars:25 }}</td>
-          <td>{{ inv.purchase_order.po_number|default:"—" }}</td>
+          <td>{{ inv.po.po_number|default:"—" }}</td>
           <td>{{ inv.invoice_date|date:"d M Y" }}</td>
-          <td>{{ inv.due_date|date:"d M Y"|default:"—" }}</td>
+          <td>{{ inv.payment_date|date:"d M Y"|default:"—" }}</td>
           <td class="text-end">{{ inv.amount|floatformat:2 }}</td>
           <td><span class="badge bg-secondary">{{ inv.get_status_display }}</span></td>
+          <td>
+            {% if inv.is_matched %}
+              <span class="badge bg-success">Matched</span>
+            {% elif inv.match_exception_approved %}
+              <span class="badge bg-warning text-dark">Exception</span>
+            {% else %}
+              <form method="post" action="{% url 'procurement:invoice_exception_approve' inv.pk %}" class="d-flex gap-1">{% csrf_token %}
+                <input type="hidden" name="reason" value="{{ inv.match_exception_reason }}">
+                <button class="btn btn-sm btn-outline-warning" type="submit">Approve Exception</button>
+              </form>
+            {% endif %}
+          </td>
         </tr>
         {% empty %}
-        <tr><td colspan="7" class="text-muted text-center py-4">No invoices recorded.</td></tr>
+        <tr><td colspan="8" class="text-muted text-center py-4">No invoices recorded.</td></tr>
         {% endfor %}
       </tbody>
     </table>

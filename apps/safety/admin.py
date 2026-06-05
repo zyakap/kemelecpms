@@ -8,7 +8,11 @@ from .models import (
     HazardRisk,
     Incident,
     PPEIssue,
+    PermitToWork,
     SafetyInduction,
+    SafetyCorrectiveAction,
+    SafetyObservation,
+    SafetyTrainingRecord,
     SWMS,
     ToolboxAttendee,
     ToolboxTalk,
@@ -205,3 +209,31 @@ class PPEIssueAdmin(admin.ModelAdmin):
     )
     readonly_fields = ("created_at", "updated_at")
     date_hierarchy = "date_issued"
+
+
+@admin.register(PermitToWork)
+class PermitToWorkAdmin(admin.ModelAdmin):
+    list_display = ("permit_number", "project", "permit_type", "work_area", "status", "valid_from", "valid_to")
+    list_filter = ("project", "permit_type", "status")
+    search_fields = ("permit_number", "work_area", "description")
+
+
+@admin.register(SafetyTrainingRecord)
+class SafetyTrainingRecordAdmin(admin.ModelAdmin):
+    list_display = ("worker", "project", "course_name", "completed_date", "expiry_date", "is_expired")
+    list_filter = ("project", "course_name", "expiry_date")
+    search_fields = ("worker__first_name", "worker__last_name", "course_name", "certificate_number")
+
+
+@admin.register(SafetyObservation)
+class SafetyObservationAdmin(admin.ModelAdmin):
+    list_display = ("date", "project", "observation_type", "location", "status", "observed_by")
+    list_filter = ("project", "observation_type", "status")
+    search_fields = ("location", "description")
+
+
+@admin.register(SafetyCorrectiveAction)
+class SafetyCorrectiveActionAdmin(admin.ModelAdmin):
+    list_display = ("project", "description", "assigned_to", "due_date", "status", "is_overdue")
+    list_filter = ("project", "status", "due_date")
+    search_fields = ("description", "close_out_notes")

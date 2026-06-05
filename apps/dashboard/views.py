@@ -3,10 +3,14 @@ import json
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count, Q, Sum
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from django.views import View
 from django.views.generic import RedirectView, TemplateView
+
+from apps.core.permissions import accessible_projects
+
+from .services import build_action_workspace
 
 
 # ---------------------------------------------------------------------------
@@ -19,8 +23,32 @@ class HomeRedirectView(RedirectView):
 
     def get_redirect_url(self, *args, **kwargs):
         if self.request.user.is_authenticated:
-            return "/dashboard/portfolio/"
+            return "/dashboard/role/"
         return "/accounts/login/"
+
+
+class ProjectSwitchView(LoginRequiredMixin, View):
+    """Redirect the global project switcher to the selected project dashboard."""
+
+    def get(self, request):
+        project_id = request.GET.get("project")
+        if not project_id:
+            return redirect("dashboard:portfolio")
+        project = accessible_projects(request.user).filter(pk=project_id).first()
+        if not project:
+            return redirect("dashboard:portfolio")
+        return redirect("dashboard:project", pk=project.pk)
+
+
+class RoleWorkspaceView(LoginRequiredMixin, TemplateView):
+    """Role-specific home screen with action queues and shortcuts."""
+
+    template_name = "dashboard/role_workspace.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx.update(build_action_workspace(self.request.user))
+        return ctx
 
 
 # ---------------------------------------------------------------------------
@@ -50,13 +78,7 @@ class PortfolioDashboardView(LoginRequiredMixin, TemplateView):
         user = self.request.user
         today = timezone.now().date()
 
-        # Determine project scope based on user role
-        if user.is_superuser or getattr(user, "is_admin", False) or getattr(user, "is_md", False):
-            projects = Project.objects.all()
-        else:
-            projects = Project.objects.filter(
-                Q(project_manager=user) | Q(site_supervisor=user)
-            )
+        projects = accessible_projects(user)
 
         projects = projects.select_related("client", "project_manager").order_by("status", "name")
 
@@ -185,6 +207,7 @@ class PortfolioDashboardView(LoginRequiredMixin, TemplateView):
                 "open_incidents": open_incidents,
             }
         )
+        ctx.update(build_action_workspace(user))
         return ctx
 
 
@@ -213,7 +236,7 @@ class ProjectDashboardView(LoginRequiredMixin, TemplateView):
         from apps.quality.models import Defect, NCR
         from apps.safety.models import Incident
 
-        project = get_object_or_404(Project, pk=self.kwargs["pk"])
+        project = get_object_or_404(accessible_projects(self.request.user), pk=self.kwargs["pk"])
         today = timezone.now().date()
 
         # ---- Budget summary ----

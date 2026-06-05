@@ -7,6 +7,7 @@ from .models import (
     Funder,
     Milestone,
     Project,
+    ProjectMembership,
     Variation,
 )
 
@@ -146,6 +147,19 @@ class ProjectForm(forms.ModelForm):
                 self.fields[field_name].required = False
 
 
+class ProjectMembershipForm(forms.ModelForm):
+    class Meta:
+        model = ProjectMembership
+        exclude = ("project", "created_by", "updated_by", "created_at", "updated_at")
+        widgets = {
+            "user": _select(),
+            "role": _select(),
+            "can_edit": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "can_approve": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+
 # ---------------------------------------------------------------------------
 # Contract Form
 # ---------------------------------------------------------------------------
@@ -205,6 +219,63 @@ class VariationForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["supporting_document"].required = False
+
+    def clean(self):
+        cleaned = super().clean()
+        status = cleaned.get("status")
+        amount = cleaned.get("amount")
+        document = cleaned.get("supporting_document") or getattr(
+            self.instance, "supporting_document", None
+        )
+
+        if amount is not None and amount <= 0:
+            self.add_error("amount", "Variation amount must be greater than zero.")
+
+        evidence_required_statuses = {
+            Variation.STATUS_SUBMITTED,
+            Variation.STATUS_ASSESSED,
+            Variation.STATUS_APPROVED,
+        }
+        if status in evidence_required_statuses and not document:
+            self.add_error(
+                "supporting_document",
+                "Supporting document is required before a variation can be submitted, assessed, or approved.",
+            )
+
+        if not self.instance.pk:
+            if status not in (Variation.STATUS_INSTRUCTED, Variation.STATUS_SUBMITTED):
+                self.add_error(
+                    "status",
+                    "New variations can only be created as instructed or submitted.",
+                )
+            return cleaned
+
+        current_status = self.instance.status
+        if status == current_status:
+            return cleaned
+
+        allowed_transitions = {
+            Variation.STATUS_INSTRUCTED: {
+                Variation.STATUS_SUBMITTED,
+                Variation.STATUS_REJECTED,
+            },
+            Variation.STATUS_SUBMITTED: {
+                Variation.STATUS_ASSESSED,
+                Variation.STATUS_REJECTED,
+            },
+            Variation.STATUS_ASSESSED: {
+                Variation.STATUS_APPROVED,
+                Variation.STATUS_REJECTED,
+            },
+            Variation.STATUS_APPROVED: set(),
+            Variation.STATUS_REJECTED: set(),
+        }
+        if status not in allowed_transitions.get(current_status, set()):
+            self.add_error(
+                "status",
+                f"Variation cannot move from {current_status} to {status}.",
+            )
+        return cleaned
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Authority Permits - {{ project.project_id }}{% endblock %}
+{% block active_nav %}compliance{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div><h1><i class="bi bi-building-check me-2 text-kc-accent"></i>Authority Permits & Certificates</h1><div class="text-muted small">{{ project.project_id }} - {{ project.name }}</div></div>
+  <a href="{% url 'compliance:authority-permit-create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Permit</a>
+</div>
+<section class="content-card"><div class="table-responsive"><table class="table table-custom table-mobile-stack mb-0"><thead><tr><th>Authority</th><th>Permit</th><th>Reference</th><th>Status</th><th>Inspection</th><th>Expiry</th><th></th></tr></thead><tbody>{% for permit in records %}<tr><td data-label="Authority">{{ permit.get_authority_display }}</td><td data-label="Permit" class="fw-semibold">{{ permit.permit_type }}</td><td data-label="Reference">{{ permit.reference_number|default:"-" }}</td><td data-label="Status"><span class="badge bg-secondary status-chip">{{ permit.get_status_display }}</span></td><td data-label="Inspection">{{ permit.inspection_date|date:"d M Y"|default:"-" }}</td><td data-label="Expiry">{{ permit.expiry_date|date:"d M Y"|default:"-" }}</td><td data-label="Actions" class="text-end"><a href="{% url 'compliance:authority-permit-update' project.pk permit.pk %}" class="btn btn-sm btn-outline-secondary icon-btn" aria-label="Edit permit"><i class="bi bi-pencil"></i></a></td></tr>{% empty %}<tr><td colspan="7" class="text-center text-muted py-4">No authority permits recorded.</td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}

@@ -43,6 +43,7 @@ LOCAL_APPS = [
     "apps.dsr",
     "apps.safety",
     "apps.quality",
+    "apps.maintenance",
     "apps.ipc",
     "apps.documents",
     "apps.notifications",
@@ -165,6 +166,8 @@ REST_FRAMEWORK = {
 SMS_GATEWAY_URL = env("SMS_GATEWAY_URL", default="")
 SMS_API_KEY = env("SMS_API_KEY", default="")
 SMS_FROM_NUMBER = env("SMS_FROM_NUMBER", default="KEMELE")
+WHATSAPP_GATEWAY_URL = env("WHATSAPP_GATEWAY_URL", default="")
+WHATSAPP_API_KEY = env("WHATSAPP_API_KEY", default="")
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800

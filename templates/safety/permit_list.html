@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Permits to Work{% endblock %}
+{% block active_nav %}safety{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Permits to Work</h1>
+  <a href="{% url 'safety:permit_add' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Permit</a>
+</div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-auto"><select name="project" class="form-select form-select-sm"><option value="">All Projects</option>{% for proj in projects %}<option value="{{ proj.pk }}" {% if proj.pk|stringformat:"s" == request.GET.project %}selected{% endif %}>{{ proj.name }}</option>{% endfor %}</select></div>
+  <div class="col-auto"><select name="type" class="form-select form-select-sm"><option value="">All Types</option>{% for val,label in permit_types %}<option value="{{ val }}" {% if val == request.GET.type %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="col-auto"><select name="status" class="form-select form-select-sm"><option value="">All Statuses</option>{% for val,label in status_choices %}<option value="{{ val }}" {% if val == request.GET.status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="col-auto"><button class="btn btn-outline-secondary btn-sm">Filter</button></div>
+</form>
+<div class="card border-0 shadow-sm"><div class="card-body p-0"><table class="table table-hover mb-0 small">
+  <thead class="table-light"><tr><th>No.</th><th>Project</th><th>Type</th><th>Area</th><th>Valid</th><th>Status</th><th>Approved</th><th></th></tr></thead>
+  <tbody>{% for permit in permits %}<tr>
+    <td class="font-monospace fw-semibold">{{ permit.permit_number }}</td>
+    <td>{{ permit.project.name|truncatechars:18 }}</td>
+    <td>{{ permit.get_permit_type_display }}</td>
+    <td>{{ permit.work_area|truncatechars:24 }}</td>
+    <td>{{ permit.valid_from|date:"d M H:i" }} - {{ permit.valid_to|date:"d M H:i" }}</td>
+    <td><span class="badge {% if permit.status == 'APPROVED' %}bg-success{% elif permit.status == 'CLOSED' %}bg-secondary{% elif permit.status == 'CANCELLED' %}bg-dark{% else %}bg-warning text-dark{% endif %}">{{ permit.get_status_display }}</span></td>
+    <td>{{ permit.approved_by|default:"-" }}</td>
+    <td class="text-end"><a href="{% url 'safety:permit_edit' permit.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
+  </tr>{% empty %}<tr><td colspan="8" class="text-muted text-center py-4">No permits recorded.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% include "partials/pagination.html" %}
+{% endblock %}

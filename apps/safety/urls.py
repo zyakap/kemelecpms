@@ -69,4 +69,20 @@ urlpatterns = [
     # ------------------------------------------------------------------
     path("ppe/", views.PPEIssueListView.as_view(), name="ppe_list"),
     path("ppe/add/", views.PPEIssueCreateView.as_view(), name="ppe_add"),
+    path("permits/", views.PermitToWorkListView.as_view(), name="permit_list"),
+    path("permits/add/", views.PermitToWorkCreateView.as_view(), name="permit_add"),
+    path("permits/<int:pk>/edit/", views.PermitToWorkUpdateView.as_view(), name="permit_edit"),
+    path("training/", views.SafetyTrainingRecordListView.as_view(), name="training_list"),
+    path("training/add/", views.SafetyTrainingRecordCreateView.as_view(), name="training_add"),
+    path("training/<int:pk>/edit/", views.SafetyTrainingRecordUpdateView.as_view(), name="training_edit"),
+    path("observations/", views.SafetyObservationListView.as_view(), name="observation_list"),
+    path("observations/add/", views.SafetyObservationCreateView.as_view(), name="observation_add"),
+    path("observations/<int:pk>/edit/", views.SafetyObservationUpdateView.as_view(), name="observation_edit"),
+    path("corrective-actions/", views.SafetyCorrectiveActionListView.as_view(), name="corrective_action_list"),
+    path("corrective-actions/add/", views.SafetyCorrectiveActionCreateView.as_view(), name="corrective_action_add"),
+    path(
+        "corrective-actions/<int:pk>/edit/",
+        views.SafetyCorrectiveActionUpdateView.as_view(),
+        name="corrective_action_edit",
+    ),
 ]

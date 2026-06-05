@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -123,6 +124,94 @@ class Programme(TimeStampedModel):
             return (self.baseline_end - self.baseline_start).days
         return 0
 
+    def recalculate_critical_path(self):
+        """Mark the longest predecessor chain ending at the latest activity finish as critical."""
+        activities = list(self.activities.select_related("predecessor"))
+        Activity.objects.filter(programme=self).update(is_critical=False)
+        if not activities:
+            return []
+
+        by_id = {activity.pk: activity for activity in activities}
+        latest_finish = max(activity.end_date for activity in activities)
+        candidates = [activity for activity in activities if activity.end_date == latest_finish]
+        current = max(candidates, key=lambda activity: activity.duration)
+        critical_ids = []
+        seen = set()
+
+        while current and current.pk not in seen:
+            critical_ids.append(current.pk)
+            seen.add(current.pk)
+            current = by_id.get(current.predecessor_id)
+
+        Activity.objects.filter(pk__in=critical_ids).update(is_critical=True)
+        return critical_ids
+
+
+class ProgrammeRevision(TimeStampedModel):
+    STATUS_SUBMITTED = "SUBMITTED"
+    STATUS_APPROVED = "APPROVED"
+    STATUS_REJECTED = "REJECTED"
+
+    STATUS_CHOICES = [
+        (STATUS_SUBMITTED, "Submitted"),
+        (STATUS_APPROVED, "Approved"),
+        (STATUS_REJECTED, "Rejected"),
+    ]
+
+    programme = models.ForeignKey(
+        Programme,
+        on_delete=models.CASCADE,
+        related_name="revisions",
+    )
+    revision_number = models.CharField(max_length=30, editable=False, db_index=True)
+    submitted_date = models.DateField()
+    reason = models.TextField()
+    revised_start = models.DateField()
+    revised_end = models.DateField()
+    eot_days = models.PositiveIntegerField(default=0, verbose_name="EOT Days")
+    delay_events = models.ManyToManyField(
+        "projects.DelayEvent",
+        blank=True,
+        related_name="programme_revisions",
+        help_text="Delay events supporting the programme revision or EOT claim.",
+    )
+    causation_summary = models.TextField(
+        blank=True,
+        help_text="Explain delay causation, entitlement, mitigation, and concurrency assessment.",
+    )
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default=STATUS_SUBMITTED)
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="approved_programme_revisions",
+    )
+    approved_date = models.DateField(null=True, blank=True)
+    document = models.FileField(upload_to="programme_revisions/", null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = "Programme Revision"
+        verbose_name_plural = "Programme Revisions"
+        ordering = ["programme", "-submitted_date", "-revision_number"]
+        unique_together = [("programme", "revision_number")]
+
+    def __str__(self):
+        return f"{self.revision_number} - {self.programme.project}"
+
+    def save(self, *args, **kwargs):
+        if not self.revision_number:
+            count = ProgrammeRevision.objects.filter(programme=self.programme).count() + 1
+            self.revision_number = f"PRG-REV-{count:03d}"
+        super().save(*args, **kwargs)
+        if self.status == self.STATUS_APPROVED:
+            Programme.objects.filter(pk=self.programme_id).update(
+                current_start=self.revised_start,
+                current_end=self.revised_end,
+                version=models.F("version") + 1,
+            )
+
 
 class Activity(TimeStampedModel):
     """
@@ -208,6 +297,26 @@ class Activity(TimeStampedModel):
             if delta >= 0:
                 self.duration = delta
         super().save(*args, **kwargs)
+
+    def clean(self):
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValidationError("Activity end date must be on or after start date.")
+        if self.predecessor_id and self.pk and self.predecessor_id == self.pk:
+            raise ValidationError("Activity cannot depend on itself.")
+        seen = set()
+        predecessor = self.predecessor
+        while predecessor is not None:
+            if predecessor.pk in seen or (self.pk and predecessor.pk == self.pk):
+                raise ValidationError("Activity dependency chain cannot contain a cycle.")
+            seen.add(predecessor.pk)
+            predecessor = predecessor.predecessor
+        if self.predecessor:
+            if self.dependency_type == self.DEP_FS and self.start_date < self.predecessor.end_date:
+                raise ValidationError("Finish-to-start activity cannot start before predecessor finishes.")
+            if self.dependency_type == self.DEP_SS and self.start_date < self.predecessor.start_date:
+                raise ValidationError("Start-to-start activity cannot start before predecessor starts.")
+            if self.dependency_type == self.DEP_FF and self.end_date < self.predecessor.end_date:
+                raise ValidationError("Finish-to-finish activity cannot finish before predecessor finishes.")
 
     @property
     def spi(self) -> Decimal:

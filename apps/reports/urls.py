@@ -54,4 +54,9 @@ urlpatterns = [
         views.ReportsIndexView.as_view(),
         name="index",
     ),
+    path(
+        "strategic-operations/",
+        views.StrategicOperationsView.as_view(),
+        name="strategic-operations",
+    ),
 ]

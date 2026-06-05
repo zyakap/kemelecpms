@@ -16,7 +16,7 @@ from django.views.generic import (
     UpdateView,
 )
 
-from apps.projects.models import Project
+from apps.core.permissions import accessible_projects, can_manage_project
 
 from .forms import (
     ActivityForm,
@@ -24,9 +24,18 @@ from .forms import (
     LookAheadTaskForm,
     ProgressEntryForm,
     ProgrammeForm,
+    ProgrammeRevisionForm,
     WBSActivityForm,
 )
-from .models import Activity, LookAhead, LookAheadTask, Programme, ProgressEntry, WBSActivity
+from .models import (
+    Activity,
+    LookAhead,
+    LookAheadTask,
+    Programme,
+    ProgrammeRevision,
+    ProgressEntry,
+    WBSActivity,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -39,7 +48,10 @@ class ProjectMixin(LoginRequiredMixin):
 
     def get_project(self):
         if not hasattr(self, "_project"):
-            self._project = get_object_or_404(Project, pk=self.kwargs["project_pk"])
+            self._project = get_object_or_404(
+                accessible_projects(self.request.user),
+                pk=self.kwargs["project_pk"],
+            )
         return self._project
 
     def get_context_data(self, **kwargs):
@@ -102,6 +114,9 @@ class WBSActivityCreateView(ProjectMixin, CreateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_project(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to create WBS activities for this project.")
+            return redirect(self.get_success_url())
         form.instance.project = self.get_project()
         form.instance.created_by = self.request.user
         messages.success(self.request, "WBS activity created successfully.")
@@ -125,6 +140,9 @@ class WBSActivityUpdateView(ProjectMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_project(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to update WBS activities for this project.")
+            return redirect(self.get_success_url())
         form.instance.updated_by = self.request.user
         messages.success(self.request, "WBS activity updated successfully.")
         return super().form_valid(form)
@@ -204,6 +222,12 @@ class ProgrammeView(ProjectMixin, TemplateView):
             ctx["programme"] = Programme.objects.get(project=project)
         except Programme.DoesNotExist:
             ctx["programme"] = None
+        if ctx["programme"]:
+            ctx["programme_revisions"] = ctx["programme"].revisions.select_related(
+                "approved_by"
+            ).order_by("-submitted_date")
+        else:
+            ctx["programme_revisions"] = []
         ctx["gantt_data_json"] = json.dumps(self._gantt_data(project))
         return ctx
 
@@ -214,6 +238,9 @@ class ProgrammeCreateView(ProjectMixin, CreateView):
     template_name = "schedule/programme_form.html"
 
     def form_valid(self, form):
+        if not can_manage_project(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to create programmes for this project.")
+            return redirect(reverse_lazy("schedule:programme", kwargs={"project_pk": self.get_project().pk}))
         form.instance.project = self.get_project()
         form.instance.created_by = self.request.user
         messages.success(self.request, "Programme created successfully.")
@@ -232,12 +259,86 @@ class ProgrammeUpdateView(ProjectMixin, UpdateView):
         return get_object_or_404(Programme, project=self.get_project())
 
     def form_valid(self, form):
+        if not can_manage_project(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to update programmes for this project.")
+            return redirect(self.get_success_url())
         form.instance.updated_by = self.request.user
         messages.success(self.request, "Programme updated successfully.")
         return super().form_valid(form)
 
     def get_success_url(self):
         return reverse_lazy("schedule:programme", kwargs={"project_pk": self.get_project().pk})
+
+
+class ProgrammeRevisionCreateView(ProgrammeMixin, CreateView):
+    model = ProgrammeRevision
+    form_class = ProgrammeRevisionForm
+    template_name = "schedule/programme_revision_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["programme"] = self.get_programme()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        programme = self.get_programme()
+        if not can_manage_project(self.request.user, programme.project):
+            messages.error(self.request, "You do not have permission to submit programme revisions for this project.")
+            return redirect(self.get_success_url())
+        form.instance.programme = programme
+        form.instance.created_by = self.request.user
+        response = super().form_valid(form)
+        if self.object.status == ProgrammeRevision.STATUS_APPROVED:
+            programme.recalculate_critical_path()
+        messages.success(self.request, "Programme revision recorded.")
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy("schedule:programme", kwargs={"project_pk": self.get_project().pk})
+
+
+class ProgrammeRevisionUpdateView(ProgrammeMixin, UpdateView):
+    model = ProgrammeRevision
+    form_class = ProgrammeRevisionForm
+    template_name = "schedule/programme_revision_form.html"
+
+    def get_queryset(self):
+        return ProgrammeRevision.objects.filter(programme=self.get_programme())
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["programme"] = self.get_programme()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        programme = self.get_programme()
+        if not can_manage_project(self.request.user, programme.project):
+            messages.error(self.request, "You do not have permission to update programme revisions for this project.")
+            return redirect(self.get_success_url())
+        form.instance.updated_by = self.request.user
+        response = super().form_valid(form)
+        if self.object.status == ProgrammeRevision.STATUS_APPROVED:
+            programme.recalculate_critical_path()
+        messages.success(self.request, "Programme revision updated.")
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy("schedule:programme", kwargs={"project_pk": self.get_project().pk})
+
+
+class CriticalPathRecalculateView(ProgrammeMixin, View):
+    http_method_names = ["post"]
+
+    def post(self, request, *args, **kwargs):
+        programme = self.get_programme()
+        if not can_manage_project(request.user, programme.project):
+            messages.error(request, "You do not have permission to recalculate the critical path for this project.")
+            return redirect("schedule:programme", project_pk=programme.project_id)
+        count = len(programme.recalculate_critical_path())
+        messages.success(request, f"Critical path recalculated across {count} activities.")
+        return redirect("schedule:programme", project_pk=programme.project_id)
 
 
 # ---------------------------------------------------------------------------
@@ -278,10 +379,15 @@ class ActivityCreateView(ProgrammeMixin, CreateView):
 
     def form_valid(self, form):
         programme = self.get_programme()
+        if not can_manage_project(self.request.user, programme.project):
+            messages.error(self.request, "You do not have permission to create activities for this project.")
+            return redirect(self.get_success_url())
         form.instance.programme = programme
         form.instance.created_by = self.request.user
+        response = super().form_valid(form)
+        programme.recalculate_critical_path()
         messages.success(self.request, "Activity created successfully.")
-        return super().form_valid(form)
+        return response
 
     def get_success_url(self):
         return reverse_lazy("schedule:activity-list", kwargs={"project_pk": self.get_project().pk})
@@ -307,9 +413,14 @@ class ActivityUpdateView(ProgrammeMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_project(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to update activities for this project.")
+            return redirect(self.get_success_url())
         form.instance.updated_by = self.request.user
+        response = super().form_valid(form)
+        self.get_programme().recalculate_critical_path()
         messages.success(self.request, "Activity updated successfully.")
-        return super().form_valid(form)
+        return response
 
     def get_success_url(self):
         return reverse_lazy("schedule:activity-list", kwargs={"project_pk": self.get_project().pk})
@@ -327,7 +438,11 @@ class ProgressEntryCreateView(LoginRequiredMixin, CreateView):
 
     def get_activity(self):
         if not hasattr(self, "_activity"):
-            self._activity = get_object_or_404(Activity, pk=self.kwargs["activity_pk"])
+            self._activity = get_object_or_404(
+                Activity,
+                pk=self.kwargs["activity_pk"],
+                programme__project__in=accessible_projects(self.request.user),
+            )
         return self._activity
 
     def get_context_data(self, **kwargs):
@@ -338,6 +453,9 @@ class ProgressEntryCreateView(LoginRequiredMixin, CreateView):
 
     def form_valid(self, form):
         activity = self.get_activity()
+        if not can_manage_project(self.request.user, activity.programme.project):
+            messages.error(self.request, "You do not have permission to record progress for this project.")
+            return redirect(self.get_success_url())
         form.instance.activity = activity
         form.instance.recorded_by = self.request.user
         form.instance.created_by = self.request.user
@@ -377,6 +495,9 @@ class LookAheadCreateView(ProjectMixin, CreateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_project(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to create look-ahead plans for this project.")
+            return redirect(self.get_success_url())
         form.instance.project = self.get_project()
         form.instance.created_by = self.request.user
         form.instance.created_by_id = self.request.user.pk  # explicit for non-TS field
@@ -407,6 +528,9 @@ class LookAheadDetailView(ProjectMixin, DetailView):
         look_ahead = self.get_object()
         form = LookAheadTaskForm(request.POST, look_ahead=look_ahead)
         if form.is_valid():
+            if not can_manage_project(request.user, look_ahead.project):
+                messages.error(request, "You do not have permission to add look-ahead tasks for this project.")
+                return redirect("schedule:lookahead-detail", project_pk=self.get_project().pk, pk=look_ahead.pk)
             task = form.save(commit=False)
             task.look_ahead = look_ahead
             task.created_by = request.user

@@ -14,9 +14,9 @@
     </select>
   </div>
   <div class="col-auto">
-    <select name="category" class="form-select form-select-sm">
-      <option value="">All Categories</option>
-      {% for val, label in category_choices %}<option value="{{ val }}" {% if val == selected_category %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    <select name="control" class="form-select form-select-sm">
+      <option value="">All Controls</option>
+      {% for val, label in control_types %}<option value="{{ val }}" {% if val == request.GET.control %}selected{% endif %}>{{ label }}</option>{% endfor %}
     </select>
   </div>
   <div class="col-auto"><button type="submit" class="btn btn-outline-secondary btn-sm">Filter</button></div>
@@ -25,19 +25,19 @@
   <div class="card-body p-0">
     <table class="table table-hover mb-0 small">
       <thead class="table-light">
-        <tr><th>Project</th><th>Hazard</th><th>Category</th><th>Likelihood</th><th>Consequence</th><th>Risk Level</th><th>Risk Category</th><th>Controls</th><th></th></tr>
+        <tr><th>Project</th><th>Activity</th><th>Hazard</th><th>Likelihood</th><th>Consequence</th><th>Risk Level</th><th>Risk Category</th><th>Controls</th><th></th></tr>
       </thead>
       <tbody>
         {% for hazard in hazards %}
         <tr>
           <td>{{ hazard.project.name|truncatechars:15 }}</td>
+          <td>{{ hazard.activity|truncatechars:24 }}</td>
           <td class="fw-semibold">{{ hazard.hazard_description|truncatechars:30 }}</td>
-          <td>{{ hazard.get_category_display }}</td>
           <td>{{ hazard.likelihood }}</td>
           <td>{{ hazard.consequence }}</td>
           <td class="fw-bold">{{ hazard.risk_level }}</td>
           <td><span class="badge {% if hazard.risk_category == 'HIGH' %}bg-danger{% elif hazard.risk_category == 'MEDIUM' %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ hazard.risk_category }}</span></td>
-          <td>{{ hazard.control_measures|truncatechars:30 }}</td>
+          <td>{{ hazard.control_measure|truncatechars:30 }}</td>
           <td><a href="{% url 'safety:hazard_edit' hazard.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
         </tr>
         {% empty %}

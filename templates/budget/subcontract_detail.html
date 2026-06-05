@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}{{ subcontract.company_name }} — {{ project.name }}{% endblock %}
+{% block active_nav %}budget{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h3 fw-bold mb-1" style="color:var(--kc-primary)">{{ subcontract.company_name }}</h1>
+    <div class="text-muted small">{{ subcontract.trade }} · {{ subcontract.get_status_display }}</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'budget:subcontract-claim-create' project.pk subcontract.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Claim</a>
+    <a href="{% url 'budget:subcontract-backcharge-create' project.pk subcontract.pk %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-plus-lg me-1"></i>Back-Charge</a>
+    <a href="{% url 'budget:subcontract-performance-create' project.pk subcontract.pk %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Performance</a>
+    <a href="{% url 'budget:subcontract-update' project.pk subcontract.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3"><div class="card border-0 shadow-sm text-center p-3"><div class="small text-muted">Contract Value</div><div class="h5 fw-bold mt-1">K {{ subcontract.contract_value|floatformat:2 }}</div></div></div>
+  <div class="col-md-3"><div class="card border-0 shadow-sm text-center p-3"><div class="small text-muted">Approved Claims</div><div class="h5 fw-bold mt-1">K {{ subcontract.amount_approved|floatformat:2 }}</div></div></div>
+  <div class="col-md-3"><div class="card border-0 shadow-sm text-center p-3"><div class="small text-muted">Paid</div><div class="h5 fw-bold mt-1">K {{ subcontract.amount_paid|floatformat:2 }}</div></div></div>
+  <div class="col-md-3"><div class="card border-0 shadow-sm text-center p-3"><div class="small text-muted">Approved Back-Charges</div><div class="h5 fw-bold mt-1">K {{ subcontract.approved_backcharges|floatformat:2 }}</div></div></div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Scope</div>
+  <div class="card-body">{{ subcontract.scope|linebreaks }}</div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Claims</div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light"><tr><th>No.</th><th>Period</th><th>Status</th><th class="text-end">Claimed</th><th class="text-end">Approved</th><th class="text-end">Retention</th><th class="text-end">Back-Charge</th><th class="text-end">Paid</th><th></th></tr></thead>
+      <tbody>
+        {% for claim in claims %}
+        <tr>
+          <td class="font-monospace">{{ claim.claim_number }}</td>
+          <td>{{ claim.period_from }} to {{ claim.period_to }}</td>
+          <td><span class="badge bg-secondary">{{ claim.get_status_display }}</span></td>
+          <td class="text-end">{{ claim.claimed_amount|floatformat:0 }}</td>
+          <td class="text-end">{{ claim.approved_amount|floatformat:0 }}</td>
+          <td class="text-end">{{ claim.retention_deducted|floatformat:0 }}</td>
+          <td class="text-end">{{ claim.backcharge_deducted|floatformat:0 }}</td>
+          <td class="text-end">{{ claim.amount_paid|floatformat:0 }}</td>
+          <td class="text-end"><a href="{% url 'budget:subcontract-claim-update' project.pk subcontract.pk claim.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" class="text-muted text-center py-4">No claims recorded.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Back-Charges</div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0 small">
+          <thead class="table-light"><tr><th>Date</th><th>Description</th><th>Status</th><th class="text-end">Amount</th><th></th></tr></thead>
+          <tbody>
+            {% for item in backcharges %}
+            <tr>
+              <td>{{ item.date }}</td>
+              <td>{{ item.description|truncatechars:50 }}</td>
+              <td><span class="badge bg-secondary">{{ item.get_status_display }}</span></td>
+              <td class="text-end">{{ item.amount|floatformat:0 }}</td>
+              <td class="text-end"><a href="{% url 'budget:subcontract-backcharge-update' project.pk subcontract.pk item.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-muted text-center py-4">No back-charges recorded.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Performance</div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0 small">
+          <thead class="table-light"><tr><th>Date</th><th>Reviewer</th><th class="text-end">Overall</th><th>Notes</th></tr></thead>
+          <tbody>
+            {% for review in performance_reviews %}
+            <tr>
+              <td>{{ review.review_date }}</td>
+              <td>{{ review.reviewer.get_full_name|default:review.reviewer.username }}</td>
+              <td class="text-end fw-semibold">{{ review.overall_score }}</td>
+              <td>{{ review.notes|truncatechars:50 }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-muted text-center py-4">No performance reviews recorded.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

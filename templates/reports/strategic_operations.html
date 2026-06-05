@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Strategic Operations{% endblock %}
+{% block active_nav %}reports{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div>
+    <h1><i class="bi bi-command me-2 text-kc-accent"></i>Strategic Operations</h1>
+    <div class="text-muted small">Portals, offline sync, scheduled exports, integrations, backups, and production readiness.</div>
+  </div>
+  <a href="{% url 'reports:index' %}" class="btn btn-outline-secondary btn-sm">Reports</a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3"><div class="kpi-card p-3"><div class="kpi-label">Active Portals</div><div class="kpi-value">{{ portal_access_count }}</div></div></div>
+  <div class="col-6 col-xl-3"><div class="kpi-card p-3"><div class="kpi-label">Sync Conflicts</div><div class="kpi-value">{{ open_sync_conflicts }}</div></div></div>
+  <div class="col-6 col-xl-3"><div class="kpi-card p-3"><div class="kpi-label">Readiness</div><div class="kpi-value">{{ readiness_pct }}%</div></div></div>
+  <div class="col-6 col-xl-3"><div class="kpi-card p-3"><div class="kpi-label">Scheduled Exports</div><div class="kpi-value">{{ scheduled_exports|length }}</div></div></div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <section class="content-card">
+      <div class="cc-header"><h5><i class="bi bi-clock-history me-2"></i>Scheduled Report Packs</h5></div>
+      <div class="list-group list-group-flush">{% for item in scheduled_exports %}<div class="list-group-item"><div class="fw-semibold">{{ item.name }}</div><div class="small text-muted">{{ item.get_report_type_display }} · {{ item.get_frequency_display }} · Next {{ item.next_run|date:"d M Y"|default:"not set" }}</div></div>{% empty %}<div class="text-center text-muted py-4">No scheduled exports configured.</div>{% endfor %}</div>
+    </section>
+    <section class="content-card">
+      <div class="cc-header"><h5><i class="bi bi-file-spreadsheet me-2"></i>BOQ Import Revisions</h5></div>
+      <div class="list-group list-group-flush">{% for item in boq_imports %}<div class="list-group-item"><div class="fw-semibold">{{ item.project.project_id }} rev {{ item.revision }}</div><div class="small text-muted">{{ item.get_status_display }} · {{ item.rows_valid }}/{{ item.rows_total }} valid rows</div></div>{% empty %}<div class="text-center text-muted py-4">No BOQ import batches recorded.</div>{% endfor %}</div>
+    </section>
+  </div>
+  <div class="col-lg-6">
+    <section class="content-card">
+      <div class="cc-header"><h5><i class="bi bi-plug me-2"></i>Integration Export Logs</h5></div>
+      <div class="list-group list-group-flush">{% for item in integration_exports %}<div class="list-group-item"><div class="fw-semibold">{{ item.get_export_type_display }} - {{ item.get_status_display }}</div><div class="small text-muted">{{ item.project.project_id|default:"Portfolio" }} · {{ item.external_reference|default:"No external ref" }}</div></div>{% empty %}<div class="text-center text-muted py-4">No integration export logs.</div>{% endfor %}</div>
+    </section>
+    <section class="content-card">
+      <div class="cc-header"><h5><i class="bi bi-database-check me-2"></i>Backups</h5></div>
+      <div class="list-group list-group-flush">{% for item in latest_backups %}<div class="list-group-item"><div class="fw-semibold">{{ item.started_at|date:"d M Y H:i" }} - {{ item.get_status_display }}</div><div class="small text-muted">{{ item.storage_location|default:"Location not recorded" }}{% if item.size_mb %} · {{ item.size_mb }} MB{% endif %}</div></div>{% empty %}<div class="text-center text-muted py-4">No backup runs recorded.</div>{% endfor %}</div>
+    </section>
+  </div>
+</div>
+
+<section class="content-card">
+  <div class="cc-header"><h5><i class="bi bi-shield-lock me-2"></i>Production Readiness</h5><span class="badge bg-primary">{{ readiness_complete }}/{{ readiness_total }}</span></div>
+  <div class="table-responsive"><table class="table table-custom table-mobile-stack mb-0"><thead><tr><th>Area</th><th>Item</th><th>Owner</th><th>Due</th><th>Status</th></tr></thead><tbody>{% for item in readiness_items %}<tr><td data-label="Area">{{ item.get_area_display }}</td><td data-label="Item" class="fw-semibold">{{ item.title }}</td><td data-label="Owner">{{ item.owner.get_full_name|default:"-" }}</td><td data-label="Due">{{ item.due_date|date:"d M Y"|default:"-" }}</td><td data-label="Status">{% if item.is_complete %}<span class="badge bg-success">Done</span>{% else %}<span class="badge bg-warning text-dark">Open</span>{% endif %}</td></tr>{% empty %}<tr><td colspan="5" class="text-center text-muted py-4">No readiness checklist items recorded.</td></tr>{% endfor %}</tbody></table></div>
+</section>
+{% endblock %}

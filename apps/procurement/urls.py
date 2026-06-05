@@ -86,6 +86,11 @@ urlpatterns = [
     # ------------------------------------------------------------------
     path("invoices/", views.InvoiceListView.as_view(), name="invoice_list"),
     path("invoices/add/", views.InvoiceCreateView.as_view(), name="invoice_add"),
+    path(
+        "invoices/<int:pk>/exception-approve/",
+        views.InvoiceExceptionApproveView.as_view(),
+        name="invoice_exception_approve",
+    ),
     # ------------------------------------------------------------------
     # Stock Ledger
     # ------------------------------------------------------------------

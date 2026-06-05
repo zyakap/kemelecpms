@@ -57,6 +57,10 @@ class ITP(TimeStampedModel):
         return self.items.filter(status=ITPItem.STATUS_PASSED).count()
 
     @property
+    def hold_points_count(self):
+        return self.items.filter(inspection_type=ITPItem.INSPECTION_HOLD).count()
+
+    @property
     def completion_percentage(self):
         total = self.total_items
         if total == 0:
@@ -125,6 +129,22 @@ class ITPItem(TimeStampedModel):
         choices=STATUS_CHOICES,
         default=STATUS_PENDING,
     )
+    hold_point_released_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="released_quality_hold_points",
+    )
+    hold_point_released_date = models.DateField(null=True, blank=True)
+    witness_signed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="signed_quality_witness_points",
+    )
+    witness_signed_date = models.DateField(null=True, blank=True)
 
     class Meta:
         verbose_name = "ITP Item"
@@ -201,6 +221,64 @@ class InspectionRecord(TimeStampedModel):
             ITPItem.objects.filter(pk=self.itp_item_id).update(status=ITPItem.STATUS_CONDITIONAL)
 
 
+class InspectionChecklist(TimeStampedModel):
+    itp = models.ForeignKey(
+        ITP,
+        on_delete=models.CASCADE,
+        related_name="checklists",
+    )
+    title = models.CharField(max_length=255)
+    location = models.CharField(max_length=255, blank=True)
+    inspection_date = models.DateField()
+    inspected_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="quality_checklists_inspected",
+    )
+    signed_off_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="quality_checklists_signed_off",
+    )
+    signed_off_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-inspection_date", "title"]
+
+    def __str__(self):
+        return f"{self.itp.title} - {self.title}"
+
+    @property
+    def pass_rate(self):
+        total = self.items.count()
+        if total == 0:
+            return 0
+        passed = self.items.filter(passed=True).count()
+        return round(passed / total * 100, 1)
+
+
+class InspectionChecklistItem(TimeStampedModel):
+    checklist = models.ForeignKey(
+        InspectionChecklist,
+        on_delete=models.CASCADE,
+        related_name="items",
+    )
+    description = models.CharField(max_length=500)
+    acceptance_criteria = models.CharField(max_length=500, blank=True)
+    passed = models.BooleanField(default=False)
+    comments = models.TextField(blank=True)
+    evidence = models.FileField(upload_to="quality_checklists/", null=True, blank=True)
+
+    class Meta:
+        ordering = ["pk"]
+
+    def __str__(self):
+        return self.description
+
+
 # ---------------------------------------------------------------------------
 # NCR – Non-Conformance Report
 # ---------------------------------------------------------------------------
@@ -257,6 +335,9 @@ class NCR(TimeStampedModel):
     )
     due_date = models.DateField(null=True, blank=True)
     response = models.TextField(blank=True)
+    root_cause = models.TextField(blank=True)
+    corrective_action = models.TextField(blank=True)
+    preventive_action = models.TextField(blank=True)
     status = models.CharField(
         max_length=15,
         choices=STATUS_CHOICES,
@@ -264,6 +345,7 @@ class NCR(TimeStampedModel):
     )
     close_out_date = models.DateField(null=True, blank=True)
     close_out_notes = models.TextField(blank=True)
+    closure_evidence = models.FileField(upload_to="ncr_closure/", null=True, blank=True)
     itp_item = models.ForeignKey(
         ITPItem,
         null=True,

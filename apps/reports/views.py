@@ -14,11 +14,21 @@ from django.views import View
 from django.views.generic import TemplateView
 
 from apps.budget.models import BoQItem, CostCode, CostEntry
+from apps.core.permissions import accessible_projects
 from apps.procurement.models import Material, StockLedger
 from apps.projects.models import Milestone, Project
 from apps.resources.models import AttendanceRecord, Worker
 from apps.safety.models import Incident, ToolboxTalk
 
+from .models import (
+    BackupRun,
+    BoQImportBatch,
+    IntegrationExportLog,
+    PortalAccess,
+    ProductionReadinessItem,
+    ScheduledExport,
+    SyncConflict,
+)
 from .excel import (
     KC_AMBER,
     KC_GREEN,
@@ -33,7 +43,10 @@ from .excel import (
 
 
 def _get_project(view):
-    return get_object_or_404(Project, pk=view.kwargs["project_pk"])
+    return get_object_or_404(
+        accessible_projects(view.request.user),
+        pk=view.kwargs["project_pk"],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -45,7 +58,7 @@ class BoQExportView(LoginRequiredMixin, View):
     """Download full Bill of Quantities as Excel."""
 
     def get(self, request, project_pk):
-        project = get_object_or_404(Project, pk=project_pk)
+        project = get_object_or_404(accessible_projects(request.user), pk=project_pk)
         items = BoQItem.objects.filter(project=project).select_related(
             "cost_code"
         ).order_by("item_number")
@@ -107,7 +120,7 @@ class BudgetReportExportView(LoginRequiredMixin, View):
     """Download Budget vs Actual report as Excel."""
 
     def get(self, request, project_pk):
-        project = get_object_or_404(Project, pk=project_pk)
+        project = get_object_or_404(accessible_projects(request.user), pk=project_pk)
         cost_codes = CostCode.objects.filter(project=project).order_by("code")
 
         wb = make_workbook(
@@ -119,18 +132,27 @@ class BudgetReportExportView(LoginRequiredMixin, View):
             ("Cost Code", 22),
             ("Description", 40),
             ("Budget (K)", 14),
+            ("Control Budget (K)", 18),
             ("Committed (K)", 14),
             ("Actual (K)", 14),
             ("Total Spent (K)", 14),
             ("Remaining (K)", 14),
             ("% Used", 10),
             ("Status", 10),
+            ("ETC (K)", 14),
+            ("EFC (K)", 14),
+            ("Forecast Var (K)", 16),
+            ("% EFC", 10),
+            ("Forecast Status", 16),
         ]
         next_row = add_sheet_header(ws, cols, title=f"Budget vs Actual — {project.name}")
 
         total_budget = Decimal("0")
+        total_control_budget = Decimal("0")
         total_committed = Decimal("0")
         total_actual = Decimal("0")
+        total_etc = Decimal("0")
+        total_efc = Decimal("0")
 
         for cc in cost_codes:
             committed = CostEntry.objects.filter(
@@ -140,8 +162,8 @@ class BudgetReportExportView(LoginRequiredMixin, View):
                 project=project, cost_code=cc, entry_type="ACTUAL"
             ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
             spent = committed + actual
-            remaining = cc.budget_amount - spent
-            pct = float(spent / cc.budget_amount * 100) if cc.budget_amount else 0
+            remaining = cc.variance
+            pct = float(cc.variance_percentage)
             if pct > 100:
                 status = "OVER BUDGET"
                 bg = KC_RED
@@ -153,21 +175,30 @@ class BudgetReportExportView(LoginRequiredMixin, View):
                 bg = None
 
             total_budget += cc.budget_amount
+            total_control_budget += cc.control_budget
             total_committed += committed
             total_actual += actual
+            total_etc += cc.etc
+            total_efc += cc.efc
 
             next_row = write_row(
                 ws, next_row,
                 [
                     cc.code,
-                    cc.description,
+                    cc.name,
                     float(cc.budget_amount),
+                    float(cc.control_budget),
                     float(committed),
                     float(actual),
                     float(spent),
                     float(remaining),
                     round(pct, 1),
                     status,
+                    float(cc.etc),
+                    float(cc.efc),
+                    float(cc.forecast_variance),
+                    float(cc.forecast_variance_percentage),
+                    cc.forecast_rag_status,
                 ],
                 bg_color=bg, number_format='#,##0.00',
             )
@@ -175,9 +206,11 @@ class BudgetReportExportView(LoginRequiredMixin, View):
         total_spent = total_committed + total_actual
         write_row(
             ws, next_row,
-            ["", "TOTAL", float(total_budget), float(total_committed),
+            ["", "TOTAL", float(total_budget), float(total_control_budget), float(total_committed),
              float(total_actual), float(total_spent),
-             float(total_budget - total_spent), "", ""],
+             float(total_control_budget - total_spent), "", "",
+             float(total_etc), float(total_efc),
+             float(total_control_budget - total_efc), "", ""],
             bold=True, bg_color=KC_LIGHT, number_format='#,##0.00',
         )
 
@@ -193,7 +226,7 @@ class AttendanceReportExportView(LoginRequiredMixin, View):
     """Download attendance records as Excel."""
 
     def get(self, request, project_pk):
-        project = get_object_or_404(Project, pk=project_pk)
+        project = get_object_or_404(accessible_projects(request.user), pk=project_pk)
 
         date_from_str = request.GET.get("from")
         date_to_str = request.GET.get("to")
@@ -274,7 +307,7 @@ class StockLedgerExportView(LoginRequiredMixin, View):
     """Download stock ledger as Excel."""
 
     def get(self, request, project_pk):
-        project = get_object_or_404(Project, pk=project_pk)
+        project = get_object_or_404(accessible_projects(request.user), pk=project_pk)
         entries = StockLedger.objects.filter(
             project=project
         ).select_related("material").order_by("material__name", "date")
@@ -329,7 +362,7 @@ class SafetyReportExportView(LoginRequiredMixin, View):
     """Download safety statistics as Excel."""
 
     def get(self, request, project_pk):
-        project = get_object_or_404(Project, pk=project_pk)
+        project = get_object_or_404(accessible_projects(request.user), pk=project_pk)
         incidents = Incident.objects.filter(project=project).order_by("date")
         toolbox_talks = ToolboxTalk.objects.filter(project=project).order_by("-date")
 
@@ -406,7 +439,10 @@ class MonthlyProgressReportView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        project = get_object_or_404(Project, pk=self.kwargs["project_pk"])
+        project = get_object_or_404(
+            accessible_projects(self.request.user),
+            pk=self.kwargs["project_pk"],
+        )
         today = timezone.now().date()
 
         # Report period: default to current month, overridable via query params
@@ -641,6 +677,30 @@ class ReportsIndexView(LoginRequiredMixin, TemplateView):
     template_name = "reports/index.html"
 
 
+class StrategicOperationsView(LoginRequiredMixin, TemplateView):
+    template_name = "reports/strategic_operations.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        readiness_total = ProductionReadinessItem.objects.count()
+        readiness_complete = ProductionReadinessItem.objects.filter(is_complete=True).count()
+        ctx.update(
+            {
+                "portal_access_count": PortalAccess.objects.filter(is_active=True).count(),
+                "open_sync_conflicts": SyncConflict.objects.filter(status=SyncConflict.STATUS_OPEN).count(),
+                "boq_imports": BoQImportBatch.objects.select_related("project").order_by("-created_at")[:8],
+                "scheduled_exports": ScheduledExport.objects.filter(is_active=True).select_related("project").order_by("next_run")[:8],
+                "integration_exports": IntegrationExportLog.objects.select_related("project").order_by("-created_at")[:8],
+                "latest_backups": BackupRun.objects.order_by("-started_at")[:5],
+                "readiness_items": ProductionReadinessItem.objects.select_related("owner").order_by("area", "title")[:20],
+                "readiness_total": readiness_total,
+                "readiness_complete": readiness_complete,
+                "readiness_pct": round(readiness_complete / readiness_total * 100) if readiness_total else 0,
+            }
+        )
+        return ctx
+
+
 # ---------------------------------------------------------------------------
 # Accounting Export (MYOB-compatible CSV)
 # ---------------------------------------------------------------------------
@@ -657,7 +717,7 @@ class AccountingExportView(LoginRequiredMixin, View):
         import csv
         from django.http import HttpResponse
 
-        project = get_object_or_404(Project, pk=project_pk)
+        project = get_object_or_404(accessible_projects(request.user), pk=project_pk)
         entries = CostEntry.objects.filter(project=project).select_related(
             "cost_code"
         ).order_by("date")

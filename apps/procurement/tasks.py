@@ -63,11 +63,11 @@ def notify_grn_recorded(grn_id):
     from apps.notifications.tasks import create_notification
 
     try:
-        grn = GoodsReceivedNote.objects.select_related("purchase_order__created_by").get(pk=grn_id)
+        grn = GoodsReceivedNote.objects.select_related("po__created_by").get(pk=grn_id)
     except GoodsReceivedNote.DoesNotExist:
         return
 
-    po = grn.purchase_order
+    po = grn.po
     if po.created_by:
         create_notification.delay(
             user_id=po.created_by_id,
