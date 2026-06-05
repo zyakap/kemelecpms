@@ -2,6 +2,8 @@ from .base import *
 
 DEBUG = True
 
+ALLOWED_HOSTS = ["*"]
+
 try:
     import debug_toolbar  # noqa: F401
     INSTALLED_APPS += ["debug_toolbar"]
@@ -10,12 +12,6 @@ try:
 except ImportError:
     pass
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
