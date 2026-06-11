@@ -1,10 +1,12 @@
 from django.urls import path
+from django.views.generic import RedirectView
 
 from . import views
 
 app_name = "schedule"
 
 urlpatterns = [
+    path("", RedirectView.as_view(pattern_name="projects:project_list", permanent=False), name="index"),
     # Programme (master schedule)
     path(
         "projects/<int:project_pk>/programme/",
@@ -20,6 +22,21 @@ urlpatterns = [
         "projects/<int:project_pk>/programme/edit/",
         views.ProgrammeUpdateView.as_view(),
         name="programme-update",
+    ),
+    path(
+        "projects/<int:project_pk>/programme/revisions/add/",
+        views.ProgrammeRevisionCreateView.as_view(),
+        name="programme-revision-create",
+    ),
+    path(
+        "projects/<int:project_pk>/programme/revisions/<int:pk>/edit/",
+        views.ProgrammeRevisionUpdateView.as_view(),
+        name="programme-revision-update",
+    ),
+    path(
+        "projects/<int:project_pk>/programme/critical-path/recalculate/",
+        views.CriticalPathRecalculateView.as_view(),
+        name="critical-path-recalculate",
     ),
     # WBS
     path(

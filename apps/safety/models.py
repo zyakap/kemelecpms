@@ -178,6 +178,14 @@ class Incident(TimeStampedModel):
         on_delete=models.PROTECT,
         related_name="incidents",
     )
+    work_package = models.ForeignKey(
+        "projects.WorkPackage",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="incidents",
+        help_text="Work package where this incident occurred.",
+    )
     incident_number = models.CharField(
         max_length=20, unique=True, editable=False, db_index=True
     )
@@ -430,3 +438,162 @@ class PPEIssue(TimeStampedModel):
 
     def get_absolute_url(self):
         return reverse("safety:ppe_list")
+
+
+class PermitToWork(TimeStampedModel):
+    TYPE_HOT_WORK = "HOT_WORK"
+    TYPE_WORK_AT_HEIGHT = "WORK_AT_HEIGHT"
+    TYPE_CONFINED_SPACE = "CONFINED_SPACE"
+    TYPE_EXCAVATION = "EXCAVATION"
+    TYPE_ELECTRICAL = "ELECTRICAL"
+    TYPE_LIFTING = "LIFTING"
+    TYPE_OTHER = "OTHER"
+
+    PERMIT_TYPE_CHOICES = [
+        (TYPE_HOT_WORK, "Hot Work"),
+        (TYPE_WORK_AT_HEIGHT, "Work at Height"),
+        (TYPE_CONFINED_SPACE, "Confined Space"),
+        (TYPE_EXCAVATION, "Excavation"),
+        (TYPE_ELECTRICAL, "Electrical Isolation"),
+        (TYPE_LIFTING, "Lifting Operations"),
+        (TYPE_OTHER, "Other"),
+    ]
+
+    STATUS_DRAFT = "DRAFT"
+    STATUS_APPROVED = "APPROVED"
+    STATUS_CLOSED = "CLOSED"
+    STATUS_CANCELLED = "CANCELLED"
+    STATUS_CHOICES = [
+        (STATUS_DRAFT, "Draft"),
+        (STATUS_APPROVED, "Approved"),
+        (STATUS_CLOSED, "Closed"),
+        (STATUS_CANCELLED, "Cancelled"),
+    ]
+
+    project = models.ForeignKey("projects.Project", on_delete=models.PROTECT, related_name="permits_to_work")
+    permit_number = models.CharField(max_length=30, editable=False, db_index=True)
+    permit_type = models.CharField(max_length=25, choices=PERMIT_TYPE_CHOICES)
+    work_area = models.CharField(max_length=255)
+    description = models.TextField()
+    valid_from = models.DateTimeField()
+    valid_to = models.DateTimeField()
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="permits_requested")
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="permits_approved")
+    approved_at = models.DateTimeField(null=True, blank=True)
+    closed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="permits_closed")
+    closed_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default=STATUS_DRAFT)
+    controls = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-valid_from", "-permit_number"]
+        unique_together = [("project", "permit_number")]
+
+    def __str__(self):
+        return f"{self.permit_number} - {self.get_permit_type_display()}"
+
+    def save(self, *args, **kwargs):
+        if not self.permit_number:
+            count = PermitToWork.objects.filter(project=self.project).count() + 1
+            self.permit_number = f"PTW-{count:04d}"
+        super().save(*args, **kwargs)
+
+    def get_absolute_url(self):
+        return reverse("safety:permit_list")
+
+
+class SafetyTrainingRecord(TimeStampedModel):
+    project = models.ForeignKey("projects.Project", on_delete=models.PROTECT, related_name="safety_training_records")
+    worker = models.ForeignKey("resources.Worker", on_delete=models.PROTECT, related_name="safety_training_records")
+    course_name = models.CharField(max_length=200)
+    provider = models.CharField(max_length=200, blank=True)
+    certificate_number = models.CharField(max_length=100, blank=True)
+    completed_date = models.DateField()
+    expiry_date = models.DateField(null=True, blank=True)
+    evidence = models.FileField(upload_to="safety_training/", null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["worker", "course_name", "-completed_date"]
+
+    def __str__(self):
+        return f"{self.worker} - {self.course_name}"
+
+    @property
+    def is_expired(self):
+        from django.utils import timezone
+        return bool(self.expiry_date and self.expiry_date < timezone.now().date())
+
+    def get_absolute_url(self):
+        return reverse("safety:training_list")
+
+
+class SafetyObservation(TimeStampedModel):
+    TYPE_SAFE = "SAFE"
+    TYPE_UNSAFE = "UNSAFE"
+    TYPE_CHOICES = [
+        (TYPE_SAFE, "Safe Act / Condition"),
+        (TYPE_UNSAFE, "Unsafe Act / Condition"),
+    ]
+
+    STATUS_OPEN = "OPEN"
+    STATUS_CLOSED = "CLOSED"
+    STATUS_CHOICES = [
+        (STATUS_OPEN, "Open"),
+        (STATUS_CLOSED, "Closed"),
+    ]
+
+    project = models.ForeignKey("projects.Project", on_delete=models.PROTECT, related_name="safety_observations")
+    date = models.DateField()
+    observation_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    location = models.CharField(max_length=255)
+    description = models.TextField()
+    observed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="safety_observations")
+    immediate_action = models.TextField(blank=True)
+    photo = models.FileField(upload_to="safety_observations/", null=True, blank=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_OPEN)
+
+    class Meta:
+        ordering = ["-date", "-created_at"]
+
+    def __str__(self):
+        return f"{self.get_observation_type_display()} - {self.location}"
+
+    def get_absolute_url(self):
+        return reverse("safety:observation_list")
+
+
+class SafetyCorrectiveAction(TimeStampedModel):
+    STATUS_OPEN = "OPEN"
+    STATUS_IN_PROGRESS = "IN_PROGRESS"
+    STATUS_CLOSED = "CLOSED"
+    STATUS_CHOICES = [
+        (STATUS_OPEN, "Open"),
+        (STATUS_IN_PROGRESS, "In Progress"),
+        (STATUS_CLOSED, "Closed"),
+    ]
+
+    project = models.ForeignKey("projects.Project", on_delete=models.PROTECT, related_name="safety_corrective_action_records")
+    incident = models.ForeignKey(Incident, null=True, blank=True, on_delete=models.SET_NULL, related_name="corrective_actions")
+    observation = models.ForeignKey(SafetyObservation, null=True, blank=True, on_delete=models.SET_NULL, related_name="corrective_actions")
+    description = models.TextField()
+    assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="assigned_safety_corrective_actions")
+    due_date = models.DateField()
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default=STATUS_OPEN)
+    close_out_notes = models.TextField(blank=True)
+    close_out_evidence = models.FileField(upload_to="safety_corrective_actions/", null=True, blank=True)
+    closed_date = models.DateField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["status", "due_date"]
+
+    def __str__(self):
+        return f"Safety CA - {self.description[:60]}"
+
+    @property
+    def is_overdue(self):
+        from django.utils import timezone
+        return self.status != self.STATUS_CLOSED and self.due_date < timezone.now().date()
+
+    def get_absolute_url(self):
+        return reverse("safety:corrective_action_list")

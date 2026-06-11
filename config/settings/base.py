@@ -43,6 +43,7 @@ LOCAL_APPS = [
     "apps.dsr",
     "apps.safety",
     "apps.quality",
+    "apps.maintenance",
     "apps.ipc",
     "apps.documents",
     "apps.notifications",
@@ -50,6 +51,7 @@ LOCAL_APPS = [
     "apps.tender",
     "apps.reports",
     "apps.dashboard",
+    "apps.subcontractor",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -106,8 +108,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [BASE_DIR / "static"]
-STATIC_ROOT = env("STATIC_ROOT", default=str(BASE_DIR / "staticfiles"))
+STATICFILES_DIRS = [BASE_DIR / "assets"]
+STATIC_ROOT = env("STATIC_ROOT", default=str(BASE_DIR / "static"))
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = "/media/"
@@ -165,6 +167,8 @@ REST_FRAMEWORK = {
 SMS_GATEWAY_URL = env("SMS_GATEWAY_URL", default="")
 SMS_API_KEY = env("SMS_API_KEY", default="")
 SMS_FROM_NUMBER = env("SMS_FROM_NUMBER", default="KEMELE")
+WHATSAPP_GATEWAY_URL = env("WHATSAPP_GATEWAY_URL", default="")
+WHATSAPP_API_KEY = env("WHATSAPP_API_KEY", default="")
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800

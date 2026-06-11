@@ -18,31 +18,29 @@
       <div class="flex-grow-1">
         <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
           <span class="badge bg-secondary" style="font-size:0.72rem; letter-spacing:0.05em;">
-            {{ project.project_code }}
+            {{ project.project_id }}
           </span>
-          {% if project.status == 'active' %}
+          {% if project.status == 'ACTIVE' %}
             <span class="badge badge-rag-green">Active</span>
-          {% elif project.status == 'awarded' %}
+          {% elif project.status == 'AWARDED' %}
             <span class="badge bg-info text-dark">Awarded</span>
-          {% elif project.status == 'tender' %}
+          {% elif project.status == 'TENDERING' %}
             <span class="badge bg-warning text-dark">Tender</span>
-          {% elif project.status == 'on_hold' %}
-            <span class="badge badge-rag-amber">On Hold</span>
-          {% elif project.status == 'completed' %}
+          {% elif project.is_complete %}
             <span class="badge bg-primary">Completed</span>
           {% else %}
-            <span class="badge bg-secondary">{{ project.status|title }}</span>
+            <span class="badge bg-secondary">{{ project.get_status_display }}</span>
           {% endif %}
-          <span class="badge bg-light text-dark border">{{ project.project_type|title|default:"—" }}</span>
+          <span class="badge bg-light text-dark border">{{ project.get_project_type_display|default:"—" }}</span>
         </div>
         <h1 class="mb-1" style="font-size:1.6rem; font-weight:800; color:var(--kc-primary);">
           {{ project.name }}
         </h1>
         <p class="text-muted mb-0" style="font-size:0.85rem;">
-          <i class="bi bi-geo-alt me-1"></i>{{ project.location|default:"Location not specified" }}
+          <i class="bi bi-geo-alt me-1"></i>{{ project.site_address|default:project.province|default:"Location not specified" }}
           &nbsp;&middot;&nbsp;
           <i class="bi bi-calendar3 me-1"></i>
-          {{ project.start_date|date:"d M Y"|default:"—" }} &ndash; {{ project.end_date|date:"d M Y"|default:"—" }}
+          {{ project.start_date|date:"d M Y"|default:"—" }} &ndash; {{ project.target_completion_date|date:"d M Y"|default:"—" }}
         </p>
       </div>
       <div class="d-flex gap-2 flex-wrap">
@@ -52,7 +50,12 @@
         <a href="/budget/?project={{ project.pk }}" class="btn btn-sm btn-outline-primary">
           <i class="bi bi-cash-stack me-1"></i>Budget
         </a>
-        {% if user.is_staff or user.profile.role in 'admin,pm' %}
+        {% if not request.user.is_subcontractor %}
+        <a href="{% url 'projects:work_package_list' project_pk=project.pk %}" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-diagram-3 me-1"></i>Work Packages
+        </a>
+        {% endif %}
+        {% if can_manage_project %}
         <a href="/projects/{{ project.pk }}/edit/" class="btn btn-sm btn-outline-secondary">
           <i class="bi bi-pencil me-1"></i>Edit
         </a>
@@ -70,7 +73,7 @@
         <i class="bi bi-currency-dollar"></i>
       </div>
       <div style="font-size:1.3rem; font-weight:700; color:var(--kc-primary);">
-        PGK {{ project.contract.contract_value|floatformat:0|default:"—" }}
+        PGK {{ current_contract_value|floatformat:0|default:"—" }}
       </div>
       <div class="text-muted" style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">
         Contract Value
@@ -117,6 +120,29 @@
     </div>
   </div>
 </div>
+
+{% if setup_complete_count < setup_steps|length %}
+<div class="content-card mb-3">
+  <div class="cc-header">
+    <h5><i class="bi bi-ui-checks-grid me-2"></i>Project Setup</h5>
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge bg-light text-dark border">{{ setup_complete_count }}/{{ setup_steps|length }} complete</span>
+      <a href="{% url 'projects:project_setup' project.pk %}" class="btn btn-sm btn-outline-primary">Full setup</a>
+    </div>
+  </div>
+  <div class="cc-body">
+    <div class="row g-2">
+      {% for step in setup_steps %}
+      <div class="col-12 col-md">
+        <a href="{{ step.url }}" class="btn w-100 text-start {% if step.complete %}btn-outline-success{% else %}btn-outline-primary{% endif %}">
+          <i class="bi {% if step.complete %}bi-check-circle-fill{% else %}bi-circle{% endif %} me-2"></i>{{ step.label }}
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <!-- ════ Tabbed Sections ════ -->
 <div class="content-card">
@@ -168,7 +194,7 @@
             <tbody>
               <tr>
                 <td class="text-muted fw-medium" style="width:140px;">Location</td>
-                <td>{{ project.location|default:"—" }}</td>
+                <td>{{ project.site_address|default:"—" }}</td>
               </tr>
               <tr>
                 <td class="text-muted fw-medium">Province</td>
@@ -176,11 +202,11 @@
               </tr>
               <tr>
                 <td class="text-muted fw-medium">GPS Lat</td>
-                <td>{{ project.latitude|default:"—" }}</td>
+                <td>{{ project.gps_lat|default:"—" }}</td>
               </tr>
               <tr>
                 <td class="text-muted fw-medium">GPS Lon</td>
-                <td>{{ project.longitude|default:"—" }}</td>
+                <td>{{ project.gps_lng|default:"—" }}</td>
               </tr>
               <tr>
                 <td class="text-muted fw-medium">Start Date</td>
@@ -188,7 +214,7 @@
               </tr>
               <tr>
                 <td class="text-muted fw-medium">Planned End</td>
-                <td>{{ project.end_date|date:"d M Y"|default:"—" }}</td>
+                <td>{{ project.target_completion_date|date:"d M Y"|default:"—" }}</td>
               </tr>
               <tr>
                 <td class="text-muted fw-medium">Client</td>
@@ -206,19 +232,33 @@
                 <td>{{ project.project_manager.get_full_name|default:"—" }}</td>
               </tr>
               <tr>
-                <td class="text-muted fw-medium">Site Engineer</td>
-                <td>{{ project.site_engineer.get_full_name|default:"—" }}</td>
-              </tr>
-              <tr>
-                <td class="text-muted fw-medium">Safety Officer</td>
-                <td>{{ project.safety_officer.get_full_name|default:"—" }}</td>
-              </tr>
-              <tr>
-                <td class="text-muted fw-medium">QA Officer</td>
-                <td>{{ project.qa_officer.get_full_name|default:"—" }}</td>
+                <td class="text-muted fw-medium">Site Supervisor</td>
+                <td>{{ project.site_supervisor.get_full_name|default:"—" }}</td>
               </tr>
             </tbody>
           </table>
+          <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
+            <h6 class="fw-bold text-kc-primary mb-0">Members</h6>
+            {% if can_manage_project %}
+            <a href="{% url 'projects:membership_create' project.pk %}" class="btn btn-sm btn-outline-primary">Add</a>
+            {% endif %}
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm" style="font-size:0.82rem;">
+              <tbody>
+                {% for member in memberships %}
+                <tr>
+                  <td>{{ member.user.get_full_name|default:member.user.email }}</td>
+                  <td>{{ member.get_role_display }}</td>
+                  <td>{% if member.can_edit %}<span class="badge bg-primary">Edit</span>{% endif %} {% if member.can_approve %}<span class="badge bg-success">Approve</span>{% endif %}</td>
+                  <td class="text-end">{% if can_manage_project %}<a href="{% url 'projects:membership_update' project.pk member.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td class="text-muted">No additional members.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
 
           {% if project.description %}
           <h6 class="fw-bold text-kc-primary mb-2 mt-3">Description</h6>
@@ -238,7 +278,7 @@
             <tbody>
               <tr>
                 <td class="text-muted fw-medium" style="width:180px;">Contract Type</td>
-                <td>{{ project.contract.contract_type|title|default:"—" }}</td>
+                <td>{{ project.contract.get_contract_type_display|default:"—" }}</td>
               </tr>
               <tr>
                 <td class="text-muted fw-medium">Contract Number</td>
@@ -246,25 +286,25 @@
               </tr>
               <tr>
                 <td class="text-muted fw-medium">Contract Value</td>
-                <td class="fw-bold">PGK {{ project.contract.contract_value|floatformat:2|default:"—" }}</td>
+                <td class="fw-bold">PGK {{ project.contract.original_value|floatformat:2|default:"—" }}</td>
               </tr>
               <tr>
                 <td class="text-muted fw-medium">Revised Value</td>
                 <td class="fw-bold" style="color:var(--kc-accent);">
-                  PGK {{ project.contract.revised_contract_value|floatformat:2|default:"—" }}
+                  PGK {{ current_contract_value|floatformat:2|default:"—" }}
                 </td>
               </tr>
               <tr>
                 <td class="text-muted fw-medium">Contract Start</td>
-                <td>{{ project.contract.commencement_date|date:"d M Y"|default:"—" }}</td>
+                <td>{{ project.contract.start_date|date:"d M Y"|default:"—" }}</td>
               </tr>
               <tr>
                 <td class="text-muted fw-medium">Contract End</td>
-                <td>{{ project.contract.completion_date|date:"d M Y"|default:"—" }}</td>
+                <td>{{ project.contract.current_completion_date|date:"d M Y"|default:"—" }}</td>
               </tr>
               <tr>
-                <td class="text-muted fw-medium">Duration</td>
-                <td>{{ project.contract.duration_weeks|default:"—" }} weeks</td>
+                <td class="text-muted fw-medium">Original End</td>
+                <td>{{ project.contract.original_completion_date|date:"d M Y"|default:"—" }}</td>
               </tr>
             </tbody>
           </table>
@@ -275,27 +315,23 @@
             <tbody>
               <tr>
                 <td class="text-muted fw-medium" style="width:180px;">Retention Rate</td>
-                <td>{{ project.contract.retention_rate|default:"—" }}%</td>
+                <td>{{ project.contract.retention_percentage|default:"—" }}%</td>
               </tr>
               <tr>
                 <td class="text-muted fw-medium">Retention Cap</td>
-                <td>PGK {{ project.contract.retention_cap|floatformat:2|default:"—" }}</td>
+                <td>{{ project.contract.retention_cap_percentage|default:"—" }}% of contract sum</td>
               </tr>
               <tr>
                 <td class="text-muted fw-medium">LD Rate</td>
-                <td>PGK {{ project.contract.ld_rate_per_day|floatformat:2|default:"—" }}/day</td>
+                <td>PGK {{ project.contract.liquidated_damages_rate|floatformat:2|default:"—" }}/day</td>
               </tr>
               <tr>
-                <td class="text-muted fw-medium">Advance Payment</td>
-                <td>PGK {{ project.contract.advance_payment|floatformat:2|default:"—" }}</td>
-              </tr>
-              <tr>
-                <td class="text-muted fw-medium">Performance Bond</td>
-                <td>{{ project.contract.performance_bond_pct|default:"—" }}%</td>
+                <td class="text-muted fw-medium">Payment Terms</td>
+                <td>{{ project.contract.payment_terms_days|default:"—" }} days</td>
               </tr>
               <tr>
                 <td class="text-muted fw-medium">Defects Liability</td>
-                <td>{{ project.contract.defects_liability_months|default:"—" }} months</td>
+                <td>{{ project.contract.dlp_months|default:"—" }} months</td>
               </tr>
             </tbody>
           </table>
@@ -320,7 +356,7 @@
         <h6 class="fw-bold mb-0 text-kc-primary">
           <i class="bi bi-flag me-1"></i> Programme Milestones
         </h6>
-        {% if user.is_staff or user.profile.role in 'admin,pm' %}
+        {% if can_manage_project %}
         <a href="/projects/{{ project.pk }}/milestones/add/" class="btn btn-sm btn-kc">
           <i class="bi bi-plus me-1"></i>Add Milestone
         </a>
@@ -343,22 +379,20 @@
             <tr>
               <td class="text-muted small">{{ forloop.counter }}</td>
               <td class="fw-medium">{{ ms.name }}</td>
-              <td class="small text-muted">{{ ms.planned_date|date:"d M Y" }}</td>
+              <td class="small text-muted">{{ ms.target_date|date:"d M Y" }}</td>
               <td class="small">{{ ms.actual_date|date:"d M Y"|default:"—" }}</td>
               <td>
                 <span class="badge
-                  {% if ms.rag == 'G' %}badge-rag-green
-                  {% elif ms.rag == 'A' %}badge-rag-amber
-                  {% elif ms.rag == 'R' %}badge-rag-red
+                  {% if ms.is_achieved %}badge-rag-green
+                  {% elif ms.is_overdue %}badge-rag-red
                   {% else %}bg-secondary{% endif %}">
-                  {% if ms.rag == 'G' %}On Track
-                  {% elif ms.rag == 'A' %}At Risk
-                  {% elif ms.rag == 'R' %}Delayed
-                  {% else %}TBC{% endif %}
+                  {% if ms.is_achieved %}Achieved
+                  {% elif ms.is_overdue %}Overdue
+                  {% else %}Pending{% endif %}
                 </span>
               </td>
               <td>
-                {% if ms.achieved %}
+                {% if ms.is_achieved %}
                   <span class="badge badge-rag-green"><i class="bi bi-check-circle me-1"></i>Achieved</span>
                 {% else %}
                   <span class="badge bg-light text-dark border">Pending</span>
@@ -386,12 +420,12 @@
           </h6>
           {% if project.contract %}
           <small class="text-muted">
-            Original: PGK {{ project.contract.contract_value|floatformat:0 }} &nbsp;|&nbsp;
-            Revised: <strong>PGK {{ project.contract.revised_contract_value|floatformat:0|default:"—" }}</strong>
+            Original: PGK {{ project.contract.original_value|floatformat:0 }} &nbsp;|&nbsp;
+            Current: <strong>PGK {{ current_contract_value|floatformat:0|default:"—" }}</strong>
           </small>
           {% endif %}
         </div>
-        {% if user.is_staff or user.profile.role in 'admin,pm' %}
+        {% if can_manage_project %}
         <a href="/projects/{{ project.pk }}/variations/add/" class="btn btn-sm btn-kc">
           <i class="bi bi-plus me-1"></i>Add Variation
         </a>
@@ -410,30 +444,29 @@
             </tr>
           </thead>
           <tbody>
-            {% with running=project.contract.contract_value %}
             {% for var in project.variations.all %}
             <tr>
-              <td class="text-muted small">VO-{{ var.variation_number|stringformat:"03d" }}</td>
+              <td class="text-muted small">{{ var.ref_number }}</td>
               <td class="fw-medium small">{{ var.description|truncatechars:60 }}</td>
-              <td class="small text-muted">{{ var.submitted_date|date:"d M Y"|default:"—" }}</td>
-              <td class="fw-medium {% if var.amount >= 0 %}text-success{% else %}text-danger{% endif %}">
-                {% if var.amount >= 0 %}+{% endif %}{{ var.amount|floatformat:2 }}
+              <td class="small text-muted">{{ var.date_instructed|date:"d M Y"|default:"—" }}</td>
+              <td class="fw-medium {% if var.variation_type == 'OMIT' %}text-danger{% else %}text-success{% endif %}">
+                {% if var.variation_type != 'OMIT' %}+{% else %}-{% endif %}{{ var.amount|floatformat:2 }}
               </td>
               <td>
-                {% if var.status == 'approved' %}
+                {% if var.status == 'APPROVED' %}
                   <span class="badge badge-rag-green">Approved</span>
-                {% elif var.status == 'submitted' %}
+                {% elif var.status == 'SUBMITTED' %}
                   <span class="badge bg-warning text-dark">Submitted</span>
-                {% elif var.status == 'under_review' %}
+                {% elif var.status == 'ASSESSED' %}
                   <span class="badge bg-info text-dark">Under Review</span>
-                {% elif var.status == 'rejected' %}
+                {% elif var.status == 'REJECTED' %}
                   <span class="badge badge-rag-red">Rejected</span>
                 {% else %}
-                  <span class="badge bg-secondary">{{ var.status|title }}</span>
+                  <span class="badge bg-secondary">{{ var.get_status_display }}</span>
                 {% endif %}
               </td>
               <td class="fw-bold small" style="color:var(--kc-primary);">
-                PGK {{ var.running_total|floatformat:0|default:"—" }}
+                {% if var.status == 'APPROVED' %}Included{% else %}Pending{% endif %}
               </td>
             </tr>
             {% empty %}
@@ -443,7 +476,6 @@
               </td>
             </tr>
             {% endfor %}
-            {% endwith %}
           </tbody>
         </table>
       </div>
@@ -455,37 +487,35 @@
         <h6 class="fw-bold mb-0 text-kc-primary">
           <i class="bi bi-hourglass-split me-1"></i> Delay Events
         </h6>
-        {% if user.is_staff or user.profile.role in 'admin,pm' %}
+        {% if can_manage_project %}
         <a href="/projects/{{ project.pk }}/delays/add/" class="btn btn-sm btn-kc">
           <i class="bi bi-plus me-1"></i>Record Delay
         </a>
         {% endif %}
       </div>
 
-      {% if project.delays.exists %}
+      {% if delay_events %}
       <div class="row g-3">
-        {% for delay in project.delays.all %}
+        {% for delay in delay_events %}
         <div class="col-12">
           <div class="border rounded-3 p-3
-               {% if delay.delay_type == 'employer' %}border-danger bg-danger bg-opacity-10
-               {% elif delay.delay_type == 'neutral' %}border-warning bg-warning bg-opacity-10
+               {% if delay.responsible_party == 'CLIENT' %}border-danger bg-danger bg-opacity-10
+               {% elif delay.responsible_party == 'FORCE_MAJEURE' %}border-warning bg-warning bg-opacity-10
                {% else %}border-secondary{% endif %}">
             <div class="d-flex align-items-start justify-content-between">
               <div>
                 <div class="fw-semibold small text-dark">{{ delay.description|truncatechars:80 }}</div>
                 <div class="text-muted mt-1" style="font-size:0.75rem;">
-                  <i class="bi bi-calendar3 me-1"></i>{{ delay.start_date|date:"d M Y" }}
-                  &ndash; {{ delay.end_date|date:"d M Y"|default:"Ongoing" }}
+                  <i class="bi bi-calendar3 me-1"></i>{{ delay.date|date:"d M Y" }}
                   &nbsp;&middot;&nbsp;
-                  <strong>{{ delay.days_claimed }} days</strong> claimed
-                  {% if delay.days_granted %}&nbsp;&middot;&nbsp; <strong>{{ delay.days_granted }} days</strong> granted{% endif %}
+                  <strong>{{ delay.impact_days }} days</strong> impact
                 </div>
               </div>
               <span class="badge ms-2
-                {% if delay.delay_type == 'employer' %}bg-danger
-                {% elif delay.delay_type == 'neutral' %}bg-warning text-dark
+                {% if delay.responsible_party == 'CLIENT' %}bg-danger
+                {% elif delay.responsible_party == 'FORCE_MAJEURE' %}bg-warning text-dark
                 {% else %}bg-secondary{% endif %}">
-                {{ delay.delay_type|title|default:"Other" }}
+                {{ delay.get_delay_type_display|default:"Other" }}
               </span>
             </div>
           </div>

@@ -1,5 +1,23 @@
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
+
+
+class UserManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError("Email is required")
+        email = self.normalize_email(email)
+        extra_fields.setdefault("username", email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("role", "system_admin")
+        return self.create_user(email, password, **extra_fields)
 
 
 class User(AbstractUser):
@@ -11,6 +29,7 @@ class User(AbstractUser):
     ROLE_DOC_CTRL = "document_controller"
     ROLE_AUDITOR = "auditor"
     ROLE_ADMIN = "system_admin"
+    ROLE_SUBCONTRACTOR = "subcontractor"
 
     ROLE_CHOICES = [
         (ROLE_MD, "Managing Director"),
@@ -21,6 +40,7 @@ class User(AbstractUser):
         (ROLE_DOC_CTRL, "Document Controller"),
         (ROLE_AUDITOR, "Auditor / Funder Rep"),
         (ROLE_ADMIN, "System Administrator"),
+        (ROLE_SUBCONTRACTOR, "Subcontractor"),
     ]
 
     username = models.CharField(max_length=150, blank=True)
@@ -28,6 +48,8 @@ class User(AbstractUser):
     role = models.CharField(max_length=30, choices=ROLE_CHOICES, default=ROLE_ADMIN)
     phone = models.CharField(max_length=20, blank=True)
     department = models.CharField(max_length=100, blank=True)
+
+    objects = UserManager()
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["first_name", "last_name"]
@@ -59,6 +81,10 @@ class User(AbstractUser):
     def is_admin(self):
         return self.role == self.ROLE_ADMIN or self.is_superuser
 
+    @property
+    def is_subcontractor(self):
+        return self.role == self.ROLE_SUBCONTRACTOR
+
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
@@ -70,6 +96,12 @@ class UserProfile(models.Model):
         decimal_places=2,
         default=0,
         help_text="Maximum PGK value this user can approve a PO for",
+    )
+    financial_approval_threshold = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        help_text="Maximum PGK value this user can certify or record for financial actions",
     )
     signature = models.ImageField(upload_to="signatures/", null=True, blank=True)
 

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}Checklist Item — {{ checklist.title }}{% endblock %}
+{% block active_nav %}quality{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Checklist Item — {{ checklist.title }}</div>
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data">{% csrf_token %}{{ form|crispy }}
+          <div class="d-flex gap-2 mt-3"><button class="btn btn-primary" type="submit">Save</button><a href="{% url 'quality:itp-detail' project.pk itp.pk %}" class="btn btn-outline-secondary">Cancel</a></div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,7 +1,16 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Correspondence, Drawing, DrawingRevision, ProjectDocument, RFI, Submittal
+from .models import (
+    Correspondence,
+    DistributionContact,
+    DocumentTransmittal,
+    Drawing,
+    DrawingRevision,
+    ProjectDocument,
+    RFI,
+    Submittal,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -174,4 +183,19 @@ class ProjectDocumentAdmin(admin.ModelAdmin):
     list_filter = ("document_type",)
     search_fields = ("title", "document_type", "description")
     date_hierarchy = "created_at"
+
+
+@admin.register(DistributionContact)
+class DistributionContactAdmin(admin.ModelAdmin):
+    list_display = ("name", "organization", "email", "project", "role", "is_active")
+    list_filter = ("project", "is_active", "organization")
+    search_fields = ("name", "organization", "email", "role")
+
+
+@admin.register(DocumentTransmittal)
+class DocumentTransmittalAdmin(admin.ModelAdmin):
+    list_display = ("transmittal_number", "project", "subject", "sent_date", "status")
+    list_filter = ("project", "status", "sent_date")
+    search_fields = ("transmittal_number", "subject", "notes")
+    filter_horizontal = ("recipients", "drawings", "submittals", "documents")
     raw_id_fields = ("project",)

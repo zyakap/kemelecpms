@@ -1,6 +1,9 @@
+import csv
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Q, Sum
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.views import View
@@ -8,8 +11,12 @@ from django.views.generic import (
     CreateView,
     DetailView,
     ListView,
+    TemplateView,
     UpdateView,
 )
+
+from apps.core.models import AuditLog
+from apps.core.permissions import accessible_projects, can_manage_project
 
 from .forms import (
     ClientForm,
@@ -17,8 +24,11 @@ from .forms import (
     DelayEventForm,
     FunderForm,
     MilestoneForm,
+    ProjectMembershipForm,
     ProjectForm,
     VariationForm,
+    WorkPackageForm,
+    WorkPackageProgressForm,
 )
 from .models import (
     Client,
@@ -27,7 +37,10 @@ from .models import (
     Funder,
     Milestone,
     Project,
+    ProjectMembership,
     Variation,
+    WorkPackage,
+    WorkPackageProgress,
 )
 
 
@@ -171,8 +184,7 @@ class ProjectListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         qs = (
-            super()
-            .get_queryset()
+            accessible_projects(self.request.user)
             .select_related("client", "project_manager", "site_supervisor")
         )
         q = self.request.GET.get("q", "").strip()
@@ -192,6 +204,64 @@ class ProjectListView(LoginRequiredMixin, ListView):
             qs = qs.filter(project_type=project_type)
         return qs.distinct()
 
+    def get(self, request, *args, **kwargs):
+        if request.GET.get("export") == "csv":
+            return self.export_csv()
+        return super().get(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        if not (request.user.is_superuser or request.user.is_md or request.user.is_admin):
+            messages.error(request, "You do not have permission to bulk update projects.")
+            return redirect("projects:project_list")
+        project_ids = request.POST.getlist("selected_projects")
+        status = request.POST.get("bulk_status", "").strip()
+        valid_statuses = {value for value, _ in Project.STATUS_CHOICES}
+        if not project_ids or status not in valid_statuses:
+            messages.warning(request, "Select projects and a valid status before applying a bulk action.")
+            return redirect(f"{reverse('projects:project_list')}?{request.GET.urlencode()}")
+        updated = accessible_projects(request.user).filter(pk__in=project_ids).update(status=status)
+        messages.success(request, f"{updated} project(s) updated.")
+        return redirect("projects:project_list")
+
+    def export_csv(self):
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="projects_export.csv"'
+        writer = csv.writer(response)
+        writer.writerow(
+            [
+                "Project ID",
+                "Name",
+                "Client",
+                "Type",
+                "Status",
+                "Province",
+                "District",
+                "Project Manager",
+                "Site Supervisor",
+                "Start Date",
+                "Target Completion",
+                "Contract Value PGK",
+            ]
+        )
+        for project in self.get_queryset():
+            writer.writerow(
+                [
+                    project.project_id,
+                    project.name,
+                    project.client.name if project.client_id else "",
+                    project.get_project_type_display(),
+                    project.get_status_display(),
+                    project.province,
+                    project.district,
+                    project.project_manager.get_full_name() if project.project_manager_id else "",
+                    project.site_supervisor.get_full_name() if project.site_supervisor_id else "",
+                    project.start_date or "",
+                    project.target_completion_date or "",
+                    project.contract_value,
+                ]
+            )
+        return response
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["q"] = self.request.GET.get("q", "")
@@ -210,6 +280,8 @@ class ProjectCreateView(LoginRequiredMixin, SetAuditUserMixin, CreateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["form_title"] = "New Project"
+        ctx["client_type_choices"] = Client.CLIENT_TYPE_CHOICES
+        ctx["funder_type_choices"] = Funder.FUNDER_TYPE_CHOICES
         return ctx
 
     def form_valid(self, form):
@@ -231,8 +303,7 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
 
     def get_queryset(self):
         return (
-            super()
-            .get_queryset()
+            accessible_projects(self.request.user)
             .select_related(
                 "client",
                 "funder",
@@ -263,19 +334,189 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         ctx["variations"] = project.variations.all().order_by("ref_number")
         approved_variations = project.variations.filter(
             status=Variation.STATUS_APPROVED
-        ).aggregate(total=Sum("amount"))["total"] or 0
-        ctx["approved_variation_total"] = approved_variations
+        )
+        approved_variation_total = sum(
+            variation.signed_amount for variation in approved_variations
+        )
+        ctx["approved_variation_total"] = approved_variation_total
+        ctx["variations_total"] = approved_variation_total
 
         # Delay events
         ctx["delay_events"] = project.delay_events.all().order_by("-date")
         ctx["total_delay_days"] = (
             project.delay_events.aggregate(total=Sum("impact_days"))["total"] or 0
         )
+        ctx["open_issues"] = project.delay_events.count()
 
         # Computed contract value
         ctx["current_contract_value"] = project.contract_value
+        ctx["can_manage_project"] = can_manage_project(self.request.user, project)
+        ctx["memberships"] = project.memberships.select_related("user").order_by("role", "user__first_name")
+        has_contract = ctx["contract"] is not None
+        has_boq = project.boq_items.exists()
+        has_wbs = project.wbs_activities.exists()
+        has_programme = hasattr(project, "programme")
+        has_baseline_programme = bool(has_programme and project.programme.is_baseline)
+        has_dsr = project.daily_site_reports.exists()
+        ctx["setup_steps"] = [
+            {
+                "label": "Contract",
+                "complete": has_contract,
+                "url": reverse("projects:contract_update" if has_contract else "projects:contract_create", kwargs={"project_pk": project.pk}),
+            },
+            {
+                "label": "BOQ",
+                "complete": has_boq,
+                "url": reverse("budget:boq-list", kwargs={"project_pk": project.pk}),
+            },
+            {
+                "label": "WBS",
+                "complete": has_wbs,
+                "url": reverse("schedule:wbs", kwargs={"project_pk": project.pk}),
+            },
+            {
+                "label": "Baseline Programme",
+                "complete": has_baseline_programme,
+                "url": reverse("schedule:programme", kwargs={"project_pk": project.pk}),
+            },
+            {
+                "label": "First DSR",
+                "complete": has_dsr,
+                "url": reverse("dsr:dsr_add"),
+            },
+        ]
+        ctx["setup_complete_count"] = sum(1 for step in ctx["setup_steps"] if step["complete"])
 
         return ctx
+
+
+class ProjectSetupView(LoginRequiredMixin, TemplateView):
+    template_name = "projects/project_setup.html"
+
+    def get_project(self):
+        return get_object_or_404(accessible_projects(self.request.user), pk=self.kwargs["pk"])
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        project = self.get_project()
+        has_contract = hasattr(project, "contract")
+        boq_count = project.boq_items.count()
+        wbs_count = project.wbs_activities.count()
+        has_programme = hasattr(project, "programme")
+        dsr_count = project.daily_site_reports.count()
+        steps = [
+            {
+                "label": "Contract",
+                "description": "Contract value, dates, retention, liquidated damages, and defects liability period.",
+                "complete": has_contract,
+                "url": reverse(
+                    "projects:contract_update" if has_contract else "projects:contract_create",
+                    kwargs={"project_pk": project.pk},
+                ),
+                "action": "Review" if has_contract else "Add contract",
+            },
+            {
+                "label": "BOQ",
+                "description": "Measured items and cost coding for claims and budget control.",
+                "complete": boq_count > 0,
+                "url": reverse("budget:boq-list", kwargs={"project_pk": project.pk}),
+                "action": f"{boq_count} item(s)" if boq_count else "Build BOQ",
+            },
+            {
+                "label": "WBS",
+                "description": "Work breakdown for schedule, DSR, quality, and IPC evidence.",
+                "complete": wbs_count > 0,
+                "url": reverse("schedule:wbs", kwargs={"project_pk": project.pk}),
+                "action": f"{wbs_count} node(s)" if wbs_count else "Create WBS",
+            },
+            {
+                "label": "Baseline Programme",
+                "description": "Approved baseline and current programme dates.",
+                "complete": bool(has_programme and project.programme.is_baseline),
+                "url": reverse("schedule:programme", kwargs={"project_pk": project.pk}),
+                "action": "Open programme" if has_programme else "Create programme",
+            },
+            {
+                "label": "Daily Site Reporting",
+                "description": "First DSR confirms site mobilisation and field reporting is live.",
+                "complete": dsr_count > 0,
+                "url": reverse("dsr:dsr_add"),
+                "action": f"{dsr_count} DSR(s)" if dsr_count else "Create first DSR",
+            },
+        ]
+        complete_count = sum(1 for step in steps if step["complete"])
+        ctx.update(
+            {
+                "project": project,
+                "steps": steps,
+                "complete_count": complete_count,
+                "completion_percent": round(complete_count / len(steps) * 100),
+                "breadcrumbs": [
+                    {"label": "Projects", "url": reverse("projects:project_list")},
+                    {"label": project.project_id, "url": project.get_absolute_url()},
+                    {"label": "Setup"},
+                ],
+            }
+        )
+        return ctx
+
+
+class ProjectMembershipCreateView(LoginRequiredMixin, CreateView):
+    model = ProjectMembership
+    form_class = ProjectMembershipForm
+    template_name = "projects/membership_form.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        self.project = get_object_or_404(accessible_projects(request.user), pk=self.kwargs["project_pk"])
+        if not can_manage_project(request.user, self.project):
+            messages.error(request, "You do not have permission to manage project members.")
+            return redirect(self.project.get_absolute_url())
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["project"] = self.project
+        ctx["form_title"] = f"Add Member - {self.project.project_id}"
+        return ctx
+
+    def form_valid(self, form):
+        form.instance.project = self.project
+        form.instance.created_by = self.request.user
+        messages.success(self.request, "Project member added.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return self.project.get_absolute_url()
+
+
+class ProjectMembershipUpdateView(LoginRequiredMixin, UpdateView):
+    model = ProjectMembership
+    form_class = ProjectMembershipForm
+    template_name = "projects/membership_form.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        self.project = get_object_or_404(accessible_projects(request.user), pk=self.kwargs["project_pk"])
+        if not can_manage_project(request.user, self.project):
+            messages.error(request, "You do not have permission to manage project members.")
+            return redirect(self.project.get_absolute_url())
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return ProjectMembership.objects.filter(project=self.project)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["project"] = self.project
+        ctx["form_title"] = "Edit Project Member"
+        return ctx
+
+    def form_valid(self, form):
+        form.instance.updated_by = self.request.user
+        messages.success(self.request, "Project member updated.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return self.project.get_absolute_url()
 
 
 class ProjectUpdateView(LoginRequiredMixin, SetAuditUserMixin, UpdateView):
@@ -286,6 +527,8 @@ class ProjectUpdateView(LoginRequiredMixin, SetAuditUserMixin, UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["form_title"] = f"Edit Project: {self.object.project_id}"
+        ctx["client_type_choices"] = Client.CLIENT_TYPE_CHOICES
+        ctx["funder_type_choices"] = Funder.FUNDER_TYPE_CHOICES
         return ctx
 
     def form_valid(self, form):
@@ -372,7 +615,10 @@ class VariationListView(LoginRequiredMixin, ListView):
     paginate_by = 25
 
     def dispatch(self, request, *args, **kwargs):
-        self.project = get_object_or_404(Project, pk=self.kwargs["project_pk"])
+        self.project = get_object_or_404(
+            accessible_projects(request.user),
+            pk=self.kwargs["project_pk"],
+        )
         return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -387,11 +633,9 @@ class VariationListView(LoginRequiredMixin, ListView):
         ctx["project"] = self.project
         ctx["status_choices"] = Variation.STATUS_CHOICES
         ctx["selected_status"] = self.request.GET.get("status", "")
-        ctx["variation_total"] = (
-            self.get_queryset()
-            .filter(status=Variation.STATUS_APPROVED)
-            .aggregate(total=Sum("amount"))["total"]
-            or 0
+        ctx["variation_total"] = sum(
+            variation.signed_amount
+            for variation in self.get_queryset().filter(status=Variation.STATUS_APPROVED)
         )
         return ctx
 
@@ -402,7 +646,10 @@ class VariationCreateView(LoginRequiredMixin, CreateView):
     template_name = "projects/variation_form.html"
 
     def dispatch(self, request, *args, **kwargs):
-        self.project = get_object_or_404(Project, pk=self.kwargs["project_pk"])
+        self.project = get_object_or_404(
+            accessible_projects(request.user),
+            pk=self.kwargs["project_pk"],
+        )
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
@@ -412,6 +659,9 @@ class VariationCreateView(LoginRequiredMixin, CreateView):
         return ctx
 
     def form_valid(self, form):
+        if not can_manage_project(self.request.user, self.project):
+            messages.error(self.request, "You do not have permission to create variations for this project.")
+            return redirect(self.get_success_url())
         obj = form.save(commit=False)
         obj.project = self.project
         obj.created_by = self.request.user
@@ -435,7 +685,10 @@ class VariationUpdateView(LoginRequiredMixin, UpdateView):
     template_name = "projects/variation_form.html"
 
     def dispatch(self, request, *args, **kwargs):
-        self.project = get_object_or_404(Project, pk=self.kwargs["project_pk"])
+        self.project = get_object_or_404(
+            accessible_projects(request.user),
+            pk=self.kwargs["project_pk"],
+        )
         return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -448,9 +701,21 @@ class VariationUpdateView(LoginRequiredMixin, UpdateView):
         return ctx
 
     def form_valid(self, form):
+        if not can_manage_project(self.request.user, self.project):
+            messages.error(self.request, "You do not have permission to update variations for this project.")
+            return redirect(self.get_success_url())
+        old_status = self.object.status
         obj = form.save(commit=False)
         obj.updated_by = self.request.user
         obj.save()
+        if old_status != obj.status:
+            AuditLog.log(
+                self.request.user,
+                AuditLog.ACTION_UPDATE,
+                obj,
+                changes=f"Variation status changed from {old_status} to {obj.status}.",
+                request=self.request,
+            )
         messages.success(self.request, f"Variation {obj.ref_number} updated successfully.")
         return redirect(self.get_success_url())
 
@@ -602,3 +867,181 @@ class ProjectCloseoutView(LoginRequiredMixin, View):
             return redirect(f"/tender/library/new/?project={project.pk}")
 
         return redirect(project.get_absolute_url())
+
+
+# ---------------------------------------------------------------------------
+# AJAX Quick-Create helpers (used by the project form modals)
+# ---------------------------------------------------------------------------
+
+class QuickCreateClientView(StaffOrAdminMixin, View):
+    def post(self, request):
+        from .forms import ClientForm
+        form = ClientForm(request.POST)
+        if form.is_valid():
+            obj = form.save()
+            return JsonResponse({"id": obj.pk, "text": obj.name})
+        return JsonResponse({"errors": form.errors}, status=400)
+
+
+class QuickCreateFunderView(StaffOrAdminMixin, View):
+    def post(self, request):
+        from .forms import FunderForm
+        form = FunderForm(request.POST)
+        if form.is_valid():
+            obj = form.save()
+            return JsonResponse({"id": obj.pk, "text": obj.name})
+        return JsonResponse({"errors": form.errors}, status=400)
+
+
+class QuickCreateStaffView(StaffOrAdminMixin, View):
+    """Create a User account with a staff role (PM or Supervisor)."""
+    def post(self, request):
+        from apps.accounts.forms import UserCreationForm
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            return JsonResponse({"id": user.pk, "text": user.get_full_name() or user.email, "role": user.role})
+        return JsonResponse({"errors": form.errors}, status=400)
+
+
+# ---------------------------------------------------------------------------
+# Work Package Views
+# ---------------------------------------------------------------------------
+
+class WorkPackageMixin(LoginRequiredMixin):
+    """Provides project + permission guard for work package views."""
+
+    def get_project(self):
+        if not hasattr(self, "_project"):
+            self._project = get_object_or_404(Project, pk=self.kwargs["project_pk"])
+        return self._project
+
+    def dispatch(self, request, *args, **kwargs):
+        project = self.get_project()
+        if not can_manage_project(request.user, project):
+            messages.error(request, "You do not have permission to manage work packages.")
+            return redirect(reverse("projects:project_detail", kwargs={"pk": project.pk}))
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["project"] = self.get_project()
+        return ctx
+
+
+class WorkPackageListView(LoginRequiredMixin, ListView):
+    model = WorkPackage
+    template_name = "projects/work_package_list.html"
+    context_object_name = "work_packages"
+
+    def get_project(self):
+        if not hasattr(self, "_project"):
+            self._project = get_object_or_404(Project, pk=self.kwargs["project_pk"])
+        return self._project
+
+    def get_queryset(self):
+        return WorkPackage.objects.filter(project=self.get_project()).select_related("subcontract")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        project = self.get_project()
+        ctx["project"] = project
+        # Aggregate progress
+        from decimal import Decimal
+        packages = list(ctx["work_packages"])
+        total_value = sum(p.contract_value for p in packages) or Decimal("1")
+        weighted_progress = sum(
+            (p.contract_value / total_value) * (p.current_progress_pct / 100) * 100
+            for p in packages
+        )
+        ctx["project_weighted_progress"] = round(weighted_progress, 1)
+        ctx["total_contract_value"] = total_value
+        return ctx
+
+
+class WorkPackageCreateView(WorkPackageMixin, CreateView):
+    model = WorkPackage
+    form_class = WorkPackageForm
+    template_name = "projects/work_package_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["project"] = self.get_project()
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.project = self.get_project()
+        form.instance.created_by = self.request.user
+        messages.success(self.request, f'Work package "{form.instance.name}" created.')
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse("projects:work_package_list", kwargs={"project_pk": self.get_project().pk})
+
+
+class WorkPackageUpdateView(WorkPackageMixin, UpdateView):
+    model = WorkPackage
+    form_class = WorkPackageForm
+    template_name = "projects/work_package_form.html"
+
+    def get_queryset(self):
+        return WorkPackage.objects.filter(project=self.get_project())
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["project"] = self.get_project()
+        return kwargs
+
+    def form_valid(self, form):
+        messages.success(self.request, "Work package updated.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse("projects:work_package_list", kwargs={"project_pk": self.get_project().pk})
+
+
+class WorkPackageProgressCreateView(LoginRequiredMixin, CreateView):
+    """Record a progress update for a specific work package."""
+    model = WorkPackageProgress
+    form_class = WorkPackageProgressForm
+    template_name = "projects/work_package_progress_form.html"
+
+    def get_work_package(self):
+        if not hasattr(self, "_wp"):
+            self._wp = get_object_or_404(WorkPackage, pk=self.kwargs["pk"], project__pk=self.kwargs["project_pk"])
+        return self._wp
+
+    def dispatch(self, request, *args, **kwargs):
+        wp = self.get_work_package()
+        user = request.user
+        # Allow subcontractor whose subcontract is linked to this WP, or staff
+        if user.is_subcontractor:
+            try:
+                if wp.subcontract.user != user:
+                    messages.error(request, "You can only report progress on your own work package.")
+                    return redirect(reverse("subcontractor:portal"))
+            except Exception:
+                messages.error(request, "No work package assigned to your account.")
+                return redirect(reverse("subcontractor:portal"))
+        elif not can_manage_project(user, wp.project):
+            messages.error(request, "You do not have permission to record progress.")
+            return redirect(reverse("projects:project_detail", kwargs={"pk": wp.project.pk}))
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        form.instance.work_package = self.get_work_package()
+        form.instance.recorded_by = self.request.user
+        messages.success(self.request, "Progress updated.")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["work_package"] = self.get_work_package()
+        ctx["project"] = self.get_work_package().project
+        return ctx
+
+    def get_success_url(self):
+        user = self.request.user
+        if user.is_subcontractor:
+            return reverse("subcontractor:portal")
+        return reverse("projects:work_package_list", kwargs={"project_pk": self.get_work_package().project.pk})

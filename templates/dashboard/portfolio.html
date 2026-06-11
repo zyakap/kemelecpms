@@ -43,7 +43,7 @@
       <i class="bi bi-calendar3 me-1 text-muted"></i>
       {% now "d M Y" %}
     </span>
-    <a href="/projects/new/" class="btn btn-kc btn-sm">
+    <a href="{% url 'projects:project_create' %}" class="btn btn-kc btn-sm">
       <i class="bi bi-plus-lg me-1"></i>New Project
     </a>
   </div>
@@ -118,6 +118,30 @@
 
 </div>
 
+<div class="content-card mb-4">
+  <div class="cc-header">
+    <h5><i class="bi bi-inboxes me-2"></i>Portfolio Action Queues</h5>
+    <a href="{% url 'dashboard:role-workspace' %}" class="btn btn-outline-secondary btn-sm">Open Workspace</a>
+  </div>
+  <div class="cc-body">
+    <div class="row g-3">
+      {% for queue in queues %}
+      <div class="col-6 col-lg-4 col-xxl-2">
+        <a href="{% url 'dashboard:role-workspace' %}" class="text-decoration-none">
+          <div class="border rounded-2 p-3 h-100 bg-white">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <i class="bi {{ queue.icon }} text-kc-primary"></i>
+              <span class="badge {% if queue.count %}bg-primary{% else %}bg-light text-dark border{% endif %}">{{ queue.count }}</span>
+            </div>
+            <div class="small fw-semibold text-dark">{{ queue.label }}</div>
+          </div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
 <!-- Projects Table -->
 <div class="content-card mb-4">
   <div class="cc-header">
@@ -131,7 +155,7 @@
   </div>
   <div class="cc-body p-0">
     <div class="table-responsive">
-      <table class="table table-cpms mb-0" id="projectsTable">
+      <table class="table table-cpms table-mobile-stack mb-0" id="projectsTable">
         <thead>
           <tr>
             <th>Project</th>
@@ -146,12 +170,12 @@
         <tbody>
           {% for row in project_rows %}
           <tr>
-            <td>
+            <td data-label="Project">
               <div class="fw-semibold text-kc-primary" style="font-size:0.875rem;">{{ row.project.name }}</div>
               <div class="text-muted" style="font-size:0.75rem;">{{ row.project.project_id }}</div>
             </td>
-            <td>{{ row.project.client.name|default:"—" }}</td>
-            <td>
+            <td data-label="Client">{{ row.project.client.name|default:"—" }}</td>
+            <td data-label="Project Manager">
               {% if row.project.project_manager %}
                 <div class="d-flex align-items-center gap-2">
                   <div class="user-avatar" style="width:26px;height:26px;font-size:0.65rem;">
@@ -161,7 +185,7 @@
                 </div>
               {% else %}—{% endif %}
             </td>
-            <td>
+            <td data-label="Status">
               {% if row.project.status == "ACTIVE" %}
                 <span class="badge bg-primary status-badge">Active</span>
               {% elif row.project.status == "COMPLETED" %}
@@ -174,10 +198,10 @@
                 <span class="badge bg-secondary status-badge">{{ row.project.get_status_display|default:row.project.status }}</span>
               {% endif %}
             </td>
-            <td class="text-end fw-semibold">
+            <td class="text-end fw-semibold" data-label="Contract Value">
               K {{ row.contract_value|floatformat:0|default:"—" }}
             </td>
-            <td class="text-center">
+            <td class="text-center" data-label="Budget RAG">
               {% if row.budget_rag == "GREEN" %}
                 <span class="badge badge-rag-green rounded-pill px-3">Green</span>
               {% elif row.budget_rag == "AMBER" %}
@@ -188,15 +212,15 @@
                 <span class="badge bg-secondary rounded-pill px-3">N/A</span>
               {% endif %}
             </td>
-            <td class="text-center">
+            <td class="text-center" data-label="Actions">
               <a href="/dashboard/project/{{ row.project.pk }}/"
-                 class="btn btn-kc btn-sm"
-                 data-bs-toggle="tooltip" title="Project Dashboard">
+                 class="btn btn-kc btn-sm icon-btn"
+                 data-bs-toggle="tooltip" title="Project Dashboard" aria-label="Open {{ row.project.name }} dashboard">
                 <i class="bi bi-speedometer2"></i>
               </a>
               <a href="/projects/{{ row.project.pk }}/"
-                 class="btn btn-outline-secondary btn-sm"
-                 data-bs-toggle="tooltip" title="Project Detail">
+                 class="btn btn-outline-secondary btn-sm icon-btn"
+                 data-bs-toggle="tooltip" title="Project Detail" aria-label="Open {{ row.project.name }} details">
                 <i class="bi bi-eye"></i>
               </a>
             </td>
@@ -205,7 +229,7 @@
           <tr>
             <td colspan="7" class="text-center text-muted py-5">
               <i class="bi bi-folder2-open fs-2 d-block mb-2 opacity-25"></i>
-              No projects found. <a href="/projects/new/">Create the first project</a>.
+              No projects found. <a href="{% url 'projects:project_create' %}">Create the first project</a>.
             </td>
           </tr>
           {% endfor %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Maintenance — {{ project.name }}{% endblock %}
+{% block active_nav %}maintenance{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Maintenance — {{ project.name }}</h1>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'maintenance:asset-create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Asset</a>
+    <a href="{% url 'maintenance:workorder-create' project.pk %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-tools me-1"></i>Work Order</a>
+    <a href="{% url 'maintenance:breakdown-create' project.pk %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-exclamation-triangle me-1"></i>Breakdown</a>
+    <a href="{% url 'maintenance:service-create' project.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-journal-check me-1"></i>Service</a>
+  </div>
+</div>
+<div class="row g-3 mb-4">
+  <div class="col-md-3"><div class="card border-0 shadow-sm text-center p-3"><div class="small text-muted">Assets</div><div class="h5 fw-bold">{{ asset_count }}</div></div></div>
+  <div class="col-md-3"><div class="card border-0 shadow-sm text-center p-3"><div class="small text-muted">Down</div><div class="h5 fw-bold text-danger">{{ down_assets }}</div></div></div>
+  <div class="col-md-3"><div class="card border-0 shadow-sm text-center p-3"><div class="small text-muted">PM Due</div><div class="h5 fw-bold text-warning">{{ due_pm }}</div></div></div>
+  <div class="col-md-3"><div class="card border-0 shadow-sm text-center p-3"><div class="small text-muted">Open WOs</div><div class="h5 fw-bold text-primary">{{ open_work_orders }}</div></div></div>
+</div>
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold d-flex justify-content-between" style="color:var(--kc-primary)">Recent Work Orders <a href="{% url 'maintenance:workorder-list' project.pk %}" class="btn btn-sm btn-outline-secondary">View All</a></div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0 small">
+          <thead class="table-light"><tr><th>WO</th><th>Asset</th><th>Title</th><th>Status</th><th>Due</th></tr></thead>
+          <tbody>
+            {% for wo in recent_work_orders %}
+            <tr><td><a href="{{ wo.get_absolute_url }}">{{ wo.wo_number }}</a></td><td>{{ wo.asset.asset_code }}</td><td>{{ wo.title|truncatechars:40 }}</td><td><span class="badge bg-secondary">{{ wo.get_status_display }}</span></td><td>{{ wo.due_date|default:"-" }}</td></tr>
+            {% empty %}<tr><td colspan="5" class="text-muted text-center py-4">No work orders.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Service Due</div>
+      <div class="list-group list-group-flush">
+        {% for asset in service_due_assets %}<a class="list-group-item list-group-item-action" href="{{ asset.get_absolute_url }}">{{ asset.asset_code }} · {{ asset.next_service_due }}</a>{% empty %}<div class="list-group-item text-muted">No due services.</div>{% endfor %}
+      </div>
+    </div>
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold d-flex justify-content-between" style="color:var(--kc-primary)">Low Spares <a href="{% url 'maintenance:spare-list' project.pk %}" class="btn btn-sm btn-outline-secondary">Spares</a></div>
+      <div class="list-group list-group-flush">
+        {% for part in low_spares %}<div class="list-group-item">{{ part.part_number }} · {{ part.quantity_on_hand }}</div>{% empty %}<div class="list-group-item text-muted">No low spare alerts.</div>{% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

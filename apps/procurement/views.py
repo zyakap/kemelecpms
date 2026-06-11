@@ -15,7 +15,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.db.models import Q
-from django.http import HttpResponseForbidden, JsonResponse
+from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -27,7 +27,18 @@ from django.views.generic import (
     ListView,
     UpdateView,
 )
+from decimal import Decimal, InvalidOperation
 
+from apps.core.permissions import (
+    accessible_projects,
+    can_approve_financial_action,
+    can_approve_mr,
+    can_approve_po,
+    can_create_grn,
+    can_manage_procurement,
+    can_submit_mr,
+    can_submit_po,
+)
 from apps.projects.models import Project
 
 from .forms import (
@@ -194,7 +205,9 @@ class MRListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = MaterialRequisition.objects.select_related(
+        qs = MaterialRequisition.objects.filter(
+            project__in=accessible_projects(self.request.user)
+        ).select_related(
             "project", "requested_by"
         ).order_by("-date", "-mr_number")
         project_pk = self.request.GET.get("project")
@@ -207,7 +220,7 @@ class MRListView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["projects"] = Project.objects.all()
+        ctx["projects"] = accessible_projects(self.request.user)
         ctx["status_choices"] = MaterialRequisition.STATUS_CHOICES
         return ctx
 
@@ -225,12 +238,22 @@ class MRCreateView(LoginRequiredMixin, CreateView):
             ctx["item_formset"] = MRItemFormSet()
         return ctx
 
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.fields["project"].queryset = accessible_projects(self.request.user)
+        form.fields["requested_by"].queryset = form.fields["requested_by"].queryset.filter(
+            is_active=True
+        )
+        form.fields["requested_by"].initial = self.request.user
+        return form
+
     def form_valid(self, form):
         ctx = self.get_context_data()
         item_formset = ctx["item_formset"]
         if item_formset.is_valid():
             with transaction.atomic():
                 form.instance.created_by = self.request.user
+                form.instance.requested_by = self.request.user
                 self.object = form.save()
                 item_formset.instance = self.object
                 item_formset.save()
@@ -245,14 +268,22 @@ class MRDetailView(LoginRequiredMixin, DetailView):
     context_object_name = "mr"
 
     def get_queryset(self):
-        return MaterialRequisition.objects.select_related(
+        return MaterialRequisition.objects.filter(
+            project__in=accessible_projects(self.request.user)
+        ).select_related(
             "project", "requested_by", "approved_by"
         ).prefetch_related("items__material")
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["can_approve"] = self.object.status == MaterialRequisition.STATUS_SUBMITTED
-        ctx["can_submit"] = self.object.status == MaterialRequisition.STATUS_DRAFT
+        ctx["can_approve"] = (
+            self.object.status == MaterialRequisition.STATUS_SUBMITTED
+            and can_approve_mr(self.request.user, self.object)
+        )
+        ctx["can_submit"] = (
+            self.object.status == MaterialRequisition.STATUS_DRAFT
+            and can_submit_mr(self.request.user, self.object)
+        )
         return ctx
 
 
@@ -260,7 +291,14 @@ class MRApproveView(LoginRequiredMixin, View):
     """POST-only: approve a submitted MR."""
 
     def post(self, request, pk):
-        mr = get_object_or_404(MaterialRequisition, pk=pk)
+        mr = get_object_or_404(
+            MaterialRequisition,
+            pk=pk,
+            project__in=accessible_projects(request.user),
+        )
+        if not can_approve_mr(request.user, mr):
+            messages.error(request, "You do not have permission to approve this requisition.")
+            return redirect(mr.get_absolute_url())
         if mr.status != MaterialRequisition.STATUS_SUBMITTED:
             messages.error(request, "Only submitted requisitions can be approved.")
             return redirect(mr.get_absolute_url())
@@ -269,6 +307,8 @@ class MRApproveView(LoginRequiredMixin, View):
         mr.approved_at = timezone.now()
         mr.updated_by = request.user
         mr.save(update_fields=["status", "approved_by", "approved_at", "updated_by", "updated_at"])
+        from apps.core.models import AuditLog
+        AuditLog.log(request.user, AuditLog.ACTION_APPROVE, mr, request=request)
         messages.success(request, f"{mr.mr_number} approved.")
         return redirect(mr.get_absolute_url())
 
@@ -277,7 +317,14 @@ class MRSubmitView(LoginRequiredMixin, View):
     """POST-only: submit a draft MR for approval."""
 
     def post(self, request, pk):
-        mr = get_object_or_404(MaterialRequisition, pk=pk)
+        mr = get_object_or_404(
+            MaterialRequisition,
+            pk=pk,
+            project__in=accessible_projects(request.user),
+        )
+        if not can_submit_mr(request.user, mr):
+            messages.error(request, "You do not have permission to submit this requisition.")
+            return redirect(mr.get_absolute_url())
         if mr.status != MaterialRequisition.STATUS_DRAFT:
             messages.error(request, "Only draft requisitions can be submitted.")
             return redirect(mr.get_absolute_url())
@@ -287,6 +334,8 @@ class MRSubmitView(LoginRequiredMixin, View):
         mr.status = MaterialRequisition.STATUS_SUBMITTED
         mr.updated_by = request.user
         mr.save(update_fields=["status", "updated_by", "updated_at"])
+        from apps.core.models import AuditLog
+        AuditLog.log(request.user, AuditLog.ACTION_SUBMIT, mr, request=request)
         messages.success(request, f"{mr.mr_number} submitted for approval.")
         return redirect(mr.get_absolute_url())
 
@@ -298,7 +347,11 @@ class MRRejectView(LoginRequiredMixin, FormView):
     template_name = "procurement/mr_reject.html"
 
     def get_mr(self):
-        return get_object_or_404(MaterialRequisition, pk=self.kwargs["pk"])
+        return get_object_or_404(
+            MaterialRequisition,
+            pk=self.kwargs["pk"],
+            project__in=accessible_projects(self.request.user),
+        )
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -307,6 +360,9 @@ class MRRejectView(LoginRequiredMixin, FormView):
 
     def form_valid(self, form):
         mr = self.get_mr()
+        if not can_approve_mr(self.request.user, mr):
+            messages.error(self.request, "You do not have permission to reject this requisition.")
+            return redirect(mr.get_absolute_url())
         if mr.status != MaterialRequisition.STATUS_SUBMITTED:
             messages.error(self.request, "Only submitted requisitions can be rejected.")
             return redirect(mr.get_absolute_url())
@@ -314,6 +370,8 @@ class MRRejectView(LoginRequiredMixin, FormView):
         mr.rejection_reason = form.cleaned_data["rejection_reason"]
         mr.updated_by = self.request.user
         mr.save(update_fields=["status", "rejection_reason", "updated_by", "updated_at"])
+        from apps.core.models import AuditLog
+        AuditLog.log(self.request.user, AuditLog.ACTION_REJECT, mr, request=self.request)
         messages.warning(self.request, f"{mr.mr_number} has been rejected.")
         return redirect(mr.get_absolute_url())
 
@@ -330,7 +388,9 @@ class POListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = PurchaseOrder.objects.select_related(
+        qs = PurchaseOrder.objects.filter(
+            project__in=accessible_projects(self.request.user)
+        ).select_related(
             "project", "supplier"
         ).order_by("-date", "-po_number")
         project_pk = self.request.GET.get("project")
@@ -346,7 +406,7 @@ class POListView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["projects"] = Project.objects.all()
+        ctx["projects"] = accessible_projects(self.request.user)
         ctx["suppliers"] = Supplier.objects.filter(is_blacklisted=False)
         ctx["status_choices"] = PurchaseOrder.STATUS_CHOICES
         return ctx
@@ -364,6 +424,11 @@ class POCreateView(LoginRequiredMixin, CreateView):
         else:
             ctx["item_formset"] = POItemFormSet()
         return ctx
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.fields["project"].queryset = accessible_projects(self.request.user)
+        return form
 
     def form_valid(self, form):
         ctx = self.get_context_data()
@@ -386,18 +451,29 @@ class PODetailView(LoginRequiredMixin, DetailView):
     context_object_name = "po"
 
     def get_queryset(self):
-        return PurchaseOrder.objects.select_related(
+        return PurchaseOrder.objects.filter(
+            project__in=accessible_projects(self.request.user)
+        ).select_related(
             "project", "supplier", "mr", "approved_by"
         ).prefetch_related("items__material", "grns__items", "invoices")
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["can_approve"] = self.object.status == PurchaseOrder.STATUS_PENDING_APPROVAL
+        ctx["can_approve"] = (
+            self.object.status == PurchaseOrder.STATUS_PENDING_APPROVAL
+            and can_approve_po(self.request.user, self.object)
+        )
         ctx["can_create_grn"] = self.object.status in (
             PurchaseOrder.STATUS_APPROVED,
             PurchaseOrder.STATUS_SENT,
             PurchaseOrder.STATUS_PARTIALLY_DELIVERED,
-        )
+        ) and can_create_grn(self.request.user, self.object)
+        ctx["grns"] = self.object.grns.prefetch_related("items__po_item__material").order_by("-delivery_date")
+        ctx["invoices"] = self.object.invoices.order_by("-invoice_date")
+        ctx["total_delivered_value"] = self.object.total_delivered_value
+        ctx["total_invoiced_amount"] = self.object.total_invoiced_amount
+        ctx["unmatched_delivery_value"] = self.object.unmatched_delivery_value
+        ctx["has_delivery_discrepancies"] = self.object.has_delivery_discrepancies
         return ctx
 
 
@@ -407,7 +483,11 @@ class POUpdateView(LoginRequiredMixin, UpdateView):
     template_name = "procurement/po_form.html"
 
     def get_object(self, queryset=None):
-        obj = super().get_object(queryset)
+        obj = get_object_or_404(
+            PurchaseOrder,
+            pk=self.kwargs["pk"],
+            project__in=accessible_projects(self.request.user),
+        )
         if obj.status not in (
             PurchaseOrder.STATUS_DRAFT,
             PurchaseOrder.STATUS_PENDING_APPROVAL,
@@ -430,6 +510,11 @@ class POUpdateView(LoginRequiredMixin, UpdateView):
             ctx["item_formset"] = POItemFormSet(instance=self.object)
         return ctx
 
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.fields["project"].queryset = accessible_projects(self.request.user)
+        return form
+
     def form_valid(self, form):
         ctx = self.get_context_data()
         item_formset = ctx["item_formset"]
@@ -449,7 +534,14 @@ class POApproveView(LoginRequiredMixin, View):
     """POST-only: approve a PO that is pending approval."""
 
     def post(self, request, pk):
-        po = get_object_or_404(PurchaseOrder, pk=pk)
+        po = get_object_or_404(
+            PurchaseOrder,
+            pk=pk,
+            project__in=accessible_projects(request.user),
+        )
+        if not can_approve_po(request.user, po):
+            messages.error(request, "You do not have permission or approval threshold for this PO.")
+            return redirect(po.get_absolute_url())
         if po.status != PurchaseOrder.STATUS_PENDING_APPROVAL:
             messages.error(request, "Only pending-approval POs can be approved.")
             return redirect(po.get_absolute_url())
@@ -458,6 +550,8 @@ class POApproveView(LoginRequiredMixin, View):
         po.approved_at = timezone.now()
         po.updated_by = request.user
         po.save(update_fields=["status", "approved_by", "approved_at", "updated_by", "updated_at"])
+        from apps.core.models import AuditLog
+        AuditLog.log(request.user, AuditLog.ACTION_APPROVE, po, request=request)
         messages.success(request, f"{po.po_number} approved.")
         return redirect(po.get_absolute_url())
 
@@ -466,7 +560,14 @@ class POSubmitView(LoginRequiredMixin, View):
     """POST-only: move a draft PO to pending approval."""
 
     def post(self, request, pk):
-        po = get_object_or_404(PurchaseOrder, pk=pk)
+        po = get_object_or_404(
+            PurchaseOrder,
+            pk=pk,
+            project__in=accessible_projects(request.user),
+        )
+        if not can_submit_po(request.user, po):
+            messages.error(request, "You do not have permission to submit this PO.")
+            return redirect(po.get_absolute_url())
         if po.status != PurchaseOrder.STATUS_DRAFT:
             messages.error(request, "Only draft POs can be submitted for approval.")
             return redirect(po.get_absolute_url())
@@ -476,6 +577,8 @@ class POSubmitView(LoginRequiredMixin, View):
         po.status = PurchaseOrder.STATUS_PENDING_APPROVAL
         po.updated_by = request.user
         po.save(update_fields=["status", "updated_by", "updated_at"])
+        from apps.core.models import AuditLog
+        AuditLog.log(request.user, AuditLog.ACTION_SUBMIT, po, request=request)
         messages.success(request, f"{po.po_number} submitted for approval.")
         return redirect(po.get_absolute_url())
 
@@ -497,6 +600,7 @@ class GRNCreateView(LoginRequiredMixin, CreateView):
         self.po = get_object_or_404(
             PurchaseOrder,
             pk=self.kwargs["po_pk"],
+            project__in=accessible_projects(request.user),
         )
 
     def get_context_data(self, **kwargs):
@@ -504,6 +608,12 @@ class GRNCreateView(LoginRequiredMixin, CreateView):
         ctx["po"] = self.po
         ctx["po_items"] = self.po.items.select_related("material")
         return ctx
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.fields["received_by"].initial = self.request.user
+        form.fields["received_by"].disabled = True
+        return form
 
     def form_valid(self, form):
         if self.po.status not in (
@@ -516,9 +626,13 @@ class GRNCreateView(LoginRequiredMixin, CreateView):
                 "GRNs can only be created for approved or sent POs.",
             )
             return redirect(self.po.get_absolute_url())
+        if not can_create_grn(self.request.user, self.po):
+            messages.error(self.request, "You do not have permission to create a GRN for this PO.")
+            return redirect(self.po.get_absolute_url())
 
         with transaction.atomic():
             form.instance.po = self.po
+            form.instance.received_by = self.request.user
             form.instance.created_by = self.request.user
             self.object = form.save()
 
@@ -529,18 +643,30 @@ class GRNCreateView(LoginRequiredMixin, CreateView):
                 disc_notes_key = f"disc_notes_{po_item.pk}"
                 qty_str = self.request.POST.get(qty_key, "0").strip()
                 try:
-                    qty = float(qty_str)
-                except ValueError:
-                    qty = 0
+                    qty = Decimal(qty_str)
+                except (InvalidOperation, TypeError):
+                    qty = Decimal("0")
                 if qty > 0:
                     has_disc = self.request.POST.get(disc_key) == "on"
-                    GRNItem.objects.create(
+                    grn_item = GRNItem.objects.create(
                         grn=self.object,
                         po_item=po_item,
                         quantity_delivered=qty,
                         has_discrepancy=has_disc,
                         discrepancy_notes=self.request.POST.get(disc_notes_key, ""),
                     )
+                    if po_item.material_id:
+                        StockLedger.objects.create(
+                            project=self.po.project,
+                            material=po_item.material,
+                            date=self.object.delivery_date,
+                            transaction_type=StockLedger.TYPE_RECEIPT,
+                            quantity=grn_item.quantity_delivered,
+                            reference=self.object.grn_number,
+                            recorded_by=self.request.user,
+                            notes=f"Auto receipt from {self.object.grn_number} / {self.po.po_number}",
+                            created_by=self.request.user,
+                        )
 
             # Update PO status
             total_ordered = sum(
@@ -570,7 +696,9 @@ class GRNDetailView(LoginRequiredMixin, DetailView):
     context_object_name = "grn"
 
     def get_queryset(self):
-        return GoodsReceivedNote.objects.select_related(
+        return GoodsReceivedNote.objects.filter(
+            po__project__in=accessible_projects(self.request.user)
+        ).select_related(
             "po__project", "po__supplier", "received_by"
         ).prefetch_related("items__po_item__material")
 
@@ -587,7 +715,9 @@ class InvoiceListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = SupplierInvoice.objects.select_related(
+        qs = SupplierInvoice.objects.filter(
+            po__project__in=accessible_projects(self.request.user)
+        ).select_related(
             "supplier", "po__project"
         ).order_by("-invoice_date")
         status = self.request.GET.get("status")
@@ -611,10 +741,81 @@ class InvoiceCreateView(LoginRequiredMixin, CreateView):
     template_name = "procurement/invoice_form.html"
     success_url = reverse_lazy("procurement:invoice_list")
 
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.fields["po"].queryset = PurchaseOrder.objects.filter(
+            project__in=accessible_projects(self.request.user)
+        ).select_related("project", "supplier")
+        return form
+
     def form_valid(self, form):
+        form.instance.supplier = form.instance.po.supplier
+        is_matched, _ = form.instance.evaluate_match()
+        form.instance.is_matched = is_matched
+        if is_matched and form.instance.status == SupplierInvoice.STATUS_RECEIVED:
+            form.instance.status = SupplierInvoice.STATUS_MATCHED
+        if form.instance.payment_date and form.instance.payment_reference:
+            form.instance.status = SupplierInvoice.STATUS_PAID
         form.instance.created_by = self.request.user
+        response = super().form_valid(form)
+        from apps.core.models import AuditLog
+        AuditLog.log(
+            self.request.user,
+            AuditLog.ACTION_CREATE,
+            self.object,
+            changes="Supplier invoice recorded and matched." if is_matched else "Supplier invoice recorded with matching exceptions.",
+            request=self.request,
+        )
         messages.success(self.request, "Invoice recorded.")
-        return super().form_valid(form)
+        return response
+
+
+class InvoiceExceptionApproveView(LoginRequiredMixin, View):
+    http_method_names = ["post"]
+
+    def post(self, request, pk):
+        invoice = get_object_or_404(
+            SupplierInvoice,
+            pk=pk,
+            po__project__in=accessible_projects(request.user),
+        )
+        if not can_manage_procurement(request.user) and not can_approve_financial_action(
+            request.user, invoice.po.project, invoice.amount
+        ):
+            messages.error(request, "You do not have permission to approve invoice match exceptions.")
+            return redirect("procurement:invoice_list")
+        is_matched, reason = invoice.evaluate_match()
+        if is_matched:
+            messages.info(request, "This invoice now matches delivery evidence and does not need an exception.")
+            invoice.is_matched = True
+            invoice.save(update_fields=["is_matched", "updated_at"])
+            return redirect("procurement:invoice_list")
+        note = (request.POST.get("reason") or invoice.match_exception_reason or reason).strip()
+        invoice.match_exception_approved = True
+        invoice.match_exception_reason = note
+        invoice.match_exception_approved_by = request.user
+        invoice.match_exception_approved_at = timezone.now()
+        invoice.updated_by = request.user
+        invoice.save(
+            update_fields=[
+                "match_exception_approved",
+                "match_exception_reason",
+                "match_exception_approved_by",
+                "match_exception_approved_at",
+                "updated_by",
+                "updated_at",
+            ]
+        )
+        from apps.core.models import AuditLog
+        AuditLog.log(
+            request.user,
+            AuditLog.ACTION_APPROVE,
+            invoice,
+            changes=f"Invoice match exception approved: {note}",
+            request=request,
+        )
+        messages.success(request, f"Match exception approved for invoice {invoice.invoice_number}.")
+        return redirect("procurement:invoice_list")
 
 
 # ---------------------------------------------------------------------------
@@ -634,7 +835,9 @@ class StockLedgerView(LoginRequiredMixin, ListView):
     paginate_by = 30
 
     def get_queryset(self):
-        qs = StockLedger.objects.select_related(
+        qs = StockLedger.objects.filter(
+            project__in=accessible_projects(self.request.user)
+        ).select_related(
             "project", "material", "recorded_by"
         ).order_by("-date", "-pk")
         project_pk = self.request.GET.get("project")
@@ -650,7 +853,7 @@ class StockLedgerView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["projects"] = Project.objects.all()
+        ctx["projects"] = accessible_projects(self.request.user)
         ctx["materials"] = Material.objects.order_by("item_code")
         ctx["tx_types"] = StockLedger.TRANSACTION_TYPE_CHOICES
 
@@ -659,7 +862,7 @@ class StockLedgerView(LoginRequiredMixin, ListView):
         material_pk = self.request.GET.get("material")
         if project_pk and material_pk:
             try:
-                project = Project.objects.get(pk=project_pk)
+                project = accessible_projects(self.request.user).get(pk=project_pk)
                 material = Material.objects.get(pk=material_pk)
                 ctx["stock_quantity"] = material.stock_on_site(project)
                 ctx["selected_project"] = project
@@ -676,7 +879,15 @@ class StockLedgerCreateView(LoginRequiredMixin, CreateView):
     template_name = "procurement/stock_ledger_form.html"
     success_url = reverse_lazy("procurement:stock_ledger")
 
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.fields["project"].queryset = accessible_projects(self.request.user)
+        form.fields["recorded_by"].initial = self.request.user
+        form.fields["recorded_by"].disabled = True
+        return form
+
     def form_valid(self, form):
+        form.instance.recorded_by = self.request.user
         form.instance.created_by = self.request.user
         messages.success(self.request, "Stock ledger entry recorded.")
         return super().form_valid(form)

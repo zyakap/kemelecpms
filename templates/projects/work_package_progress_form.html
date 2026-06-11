@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Report Progress — {{ work_package.name }}{% endblock %}
+{% block topbar_title %}Report Progress{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <div>
+    <h1 class="h4 fw-bold mb-0" style="color:var(--kc-primary)">
+      <i class="bi bi-graph-up me-2"></i>Report Progress
+    </h1>
+    <div class="text-muted small">{{ work_package.name }} — {{ project.name }}</div>
+  </div>
+  <a href="{% url 'projects:work_package_list' project_pk=project.pk %}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Back
+  </a>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <!-- Current status card -->
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body text-center py-3">
+        <div class="text-muted small mb-1">Current Progress</div>
+        <div class="display-5 fw-bold" style="color:var(--kc-primary)">{{ work_package.current_progress_pct }}%</div>
+        <div class="progress mt-2" style="height:10px;">
+          <div class="progress-bar bg-success" style="width:{{ work_package.current_progress_pct }}%"></div>
+        </div>
+        {% if work_package.scope_quantity %}
+        <div class="text-muted small mt-1">
+          {{ work_package.scope_quantity }} {{ work_package.scope_unit }} total
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">
+        New Progress Entry
+      </div>
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          {% endif %}
+          {% for field in form %}
+          <div class="mb-3">
+            <label for="{{ field.id_for_label }}"
+                   class="form-label fw-semibold small{% if field.field.required %} required{% endif %}">
+              {{ field.label }}
+            </label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% if field.errors %}<div class="invalid-feedback d-block">{{ field.errors|join:", " }}</div>{% endif %}
+          </div>
+          {% endfor %}
+          <div class="d-flex gap-2 justify-content-end mt-3">
+            <button type="submit" class="btn btn-kc w-100">
+              <i class="bi bi-check-lg me-1"></i>Submit Progress
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- History -->
+    {% with history=work_package.progress_entries.all|slice:":8" %}
+    {% if history %}
+    <div class="card border-0 shadow-sm mt-3">
+      <div class="card-header bg-white fw-semibold small" style="color:var(--kc-primary)">Recent Progress History</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          <thead class="table-light"><tr><th>Date</th><th>%</th><th>Recorded by</th><th>Notes</th></tr></thead>
+          <tbody>
+            {% for e in history %}
+            <tr>
+              <td class="small">{{ e.date|date:"d M Y" }}</td>
+              <td class="fw-bold">{{ e.percent_complete }}%</td>
+              <td class="small text-muted">{{ e.recorded_by.get_full_name }}</td>
+              <td class="small text-muted">{{ e.narrative|truncatechars:60 }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+    {% endwith %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>.form-label.required::after { content: ' *'; color: #dc3545; }</style>
+{% endblock %}

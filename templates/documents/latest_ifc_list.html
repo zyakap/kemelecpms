@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Latest IFC Drawings — {{ project.name }}{% endblock %}
+{% block active_nav %}documents{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Latest IFC Drawings — {{ project.name }}</h1>
+  <a href="{% url 'documents:drawing-list' project.pk %}" class="btn btn-outline-secondary btn-sm">All Drawings</a>
+</div>
+<div class="card border-0 shadow-sm"><div class="card-body p-0"><table class="table table-hover mb-0 small"><thead class="table-light"><tr><th>Drawing</th><th>Title</th><th>Discipline</th><th>Revision</th><th>Date</th></tr></thead><tbody>{% for drawing in drawings %}<tr><td class="font-monospace"><a href="{{ drawing.get_absolute_url }}">{{ drawing.drawing_number }}</a></td><td>{{ drawing.title }}</td><td>{{ drawing.get_discipline_display }}</td><td>{{ drawing.current_revision }}</td><td>{{ drawing.current_revision_date|default:"-" }}</td></tr>{% empty %}<tr><td colspan="5" class="text-muted text-center py-4">No IFC drawings available.</td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}

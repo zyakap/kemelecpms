@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Project Setup - {{ project.project_id }}{% endblock %}
+{% block topbar_title %}Project Setup{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-3">
+  <div>
+    <h1><i class="bi bi-clipboard-check me-2 text-kc-accent"></i>Project Setup</h1>
+    <div class="text-muted small">{{ project.project_id }} - {{ project.name }}</div>
+  </div>
+  <a href="{{ project.get_absolute_url }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Project Detail</a>
+</div>
+
+<section class="content-card">
+  <div class="cc-header">
+    <h5>Mobilisation Readiness</h5>
+    <span class="badge bg-primary rounded-pill">{{ complete_count }}/{{ steps|length }} complete</span>
+  </div>
+  <div class="cc-body">
+    <div class="progress mb-3" style="height:0.65rem;">
+      <div class="progress-bar" role="progressbar" style="width: {{ completion_percent }}%;" aria-valuenow="{{ completion_percent }}" aria-valuemin="0" aria-valuemax="100"></div>
+    </div>
+    <div class="row g-3">
+      {% for step in steps %}
+      <div class="col-12 col-lg-6">
+        <div class="border rounded-2 p-3 h-100 bg-white">
+          <div class="d-flex justify-content-between gap-3 mb-2">
+            <div class="fw-bold text-kc-primary">{{ step.label }}</div>
+            {% if step.complete %}
+            <span class="badge bg-success status-chip"><i class="bi bi-check2 me-1"></i>Ready</span>
+            {% else %}
+            <span class="badge bg-warning text-dark status-chip"><i class="bi bi-hourglass-split me-1"></i>Needed</span>
+            {% endif %}
+          </div>
+          <p class="small text-muted mb-3">{{ step.description }}</p>
+          <a href="{{ step.url }}" class="btn btn-sm {% if step.complete %}btn-outline-primary{% else %}btn-primary{% endif %}">
+            {{ step.action }}
+          </a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

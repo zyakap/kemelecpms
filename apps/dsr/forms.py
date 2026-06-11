@@ -5,6 +5,8 @@ DSR forms for kemelecpms.
 from django import forms
 from django.forms import inlineformset_factory
 
+from apps.schedule.models import Activity
+
 from .models import (
     DailySiteReport,
     DSRActivity,
@@ -40,6 +42,11 @@ class DSRForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 4}),
         }
 
+    def __init__(self, *args, projects=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if projects is not None:
+            self.fields["project"].queryset = projects
+
     def clean(self):
         cleaned = super().clean()
         project = cleaned.get("project")
@@ -66,6 +73,8 @@ class DSRActivityForm(forms.ModelForm):
         model = DSRActivity
         fields = [
             "wbs_activity",
+            "schedule_activity",
+            "ipc_line_item",
             "description",
             "location_on_site",
             "status",
@@ -205,7 +214,7 @@ DSREquipmentFormSet = inlineformset_factory(
 class DSRMaterialUsageForm(forms.ModelForm):
     class Meta:
         model = DSRMaterialUsage
-        fields = ["material", "quantity_used", "notes"]
+        fields = ["material", "quantity_used", "stock_ledger_entry", "notes"]
         widgets = {
             "notes": forms.Textarea(attrs={"rows": 2}),
         }
@@ -235,10 +244,44 @@ DSRMaterialUsageFormSet = inlineformset_factory(
 class DSRPhotoForm(forms.ModelForm):
     class Meta:
         model = DSRPhoto
-        fields = ["photo", "caption", "tag", "gps_lat", "gps_lng"]
+        fields = [
+            "photo",
+            "caption",
+            "tag",
+            "wbs_activity",
+            "schedule_activity",
+            "rfi",
+            "ncr",
+            "defect",
+            "incident",
+            "gps_lat",
+            "gps_lng",
+        ]
         widgets = {
             "caption": forms.TextInput(attrs={"placeholder": "Brief description of photo"}),
         }
+
+    def __init__(self, *args, project=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if project:
+            self.fields["wbs_activity"].queryset = project.wbs_activities.all()
+            self.fields["schedule_activity"].queryset = Activity.objects.filter(
+                programme__project=project
+            )
+            self.fields["rfi"].queryset = project.rfis.all()
+            self.fields["ncr"].queryset = project.ncrs.all()
+            self.fields["defect"].queryset = project.defects.all()
+            self.fields["incident"].queryset = project.incidents.all()
+
+
+DSRPhotoFormSet = inlineformset_factory(
+    DailySiteReport,
+    DSRPhoto,
+    form=DSRPhotoForm,
+    extra=2,
+    min_num=0,
+    can_delete=True,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -255,6 +298,10 @@ class DSRIssueForm(forms.ModelForm):
             "raised_by",
             "date",
             "action_required",
+            "rfi",
+            "ncr",
+            "incident",
+            "delay_event",
             "resolved",
         ]
         widgets = {

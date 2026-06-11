@@ -23,6 +23,12 @@
   </div>
   <div class="col-md-3">
     <div class="card border-0 shadow-sm text-center p-3">
+      <div class="small text-muted">Control Budget</div>
+      <div class="h5 fw-bold mt-1" style="color:var(--kc-primary)">K {{ total_control_budget|floatformat:2 }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
       <div class="small text-muted">Committed</div>
       <div class="h5 fw-bold mt-1 text-warning">K {{ total_committed|floatformat:2 }}</div>
     </div>
@@ -33,10 +39,66 @@
       <div class="h5 fw-bold mt-1 text-danger">K {{ total_actual|floatformat:2 }}</div>
     </div>
   </div>
+</div>
+
+<div class="row g-3 mb-4">
   <div class="col-md-3">
     <div class="card border-0 shadow-sm text-center p-3">
       <div class="small text-muted">Variance</div>
       <div class="h5 fw-bold mt-1 {% if total_variance >= 0 %}text-success{% else %}text-danger{% endif %}">K {{ total_variance|floatformat:2 }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="small text-muted">Contract Value</div>
+      <div class="h5 fw-bold mt-1" style="color:var(--kc-primary)">K {{ contract_value|floatformat:2 }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="small text-muted">EFC</div>
+      <div class="h5 fw-bold mt-1 text-danger">K {{ total_efc|floatformat:2 }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="small text-muted">Forecast Margin</div>
+      <div class="h5 fw-bold mt-1 {% if forecast_margin >= 0 %}text-success{% else %}text-danger{% endif %}">
+        K {{ forecast_margin|floatformat:2 }}
+      </div>
+      <div class="small text-muted">{{ forecast_margin_pct|floatformat:2 }}%</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="small text-muted">Forecast Variance</div>
+      <div class="h5 fw-bold mt-1 {% if total_forecast_variance >= 0 %}text-success{% else %}text-danger{% endif %}">
+        K {{ total_forecast_variance|floatformat:2 }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="small text-muted">ETC</div>
+      <div class="h5 fw-bold mt-1">K {{ total_etc|floatformat:2 }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="small text-muted">Provisional Sum</div>
+      <div class="h5 fw-bold mt-1">K {{ total_provisional_sum|floatformat:2 }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="small text-muted">Contingency Drawdown</div>
+      <div class="h5 fw-bold mt-1">K {{ total_contingency_drawdown|floatformat:2 }}</div>
     </div>
   </div>
 </div>
@@ -49,23 +111,27 @@
   <div class="card-body p-0">
     <table class="table table-hover mb-0 small">
       <thead class="table-light">
-        <tr><th>Code</th><th>Description</th><th>Budget (K)</th><th>Committed (K)</th><th>Actual (K)</th><th>Total Spent (K)</th><th>Variance (K)</th><th>%</th><th>RAG</th></tr>
+        <tr><th>Code</th><th>Description</th><th>Budget (K)</th><th>Control (K)</th><th>Committed (K)</th><th>Actual (K)</th><th>ETC (K)</th><th>EFC (K)</th><th>Variance (K)</th><th>Forecast Var (K)</th><th>%</th><th>RAG</th><th>Forecast</th></tr>
       </thead>
       <tbody>
         {% for row in rows %}
         <tr>
           <td class="font-monospace fw-semibold">{{ row.cost_code.code }}</td>
-          <td>{{ row.cost_code.description|truncatechars:40 }}</td>
+          <td>{{ row.cost_code.name|truncatechars:40 }}</td>
           <td class="text-end">{{ row.budget|floatformat:0 }}</td>
+          <td class="text-end">{{ row.control_budget|floatformat:0 }}</td>
           <td class="text-end">{{ row.committed|floatformat:0 }}</td>
           <td class="text-end">{{ row.actual|floatformat:0 }}</td>
-          <td class="text-end">{{ row.spent|floatformat:0 }}</td>
+          <td class="text-end">{{ row.etc|floatformat:0 }}</td>
+          <td class="text-end">{{ row.efc|floatformat:0 }}</td>
           <td class="text-end {% if row.variance >= 0 %}text-success{% else %}text-danger{% endif %}">{{ row.variance|floatformat:0 }}</td>
+          <td class="text-end {% if row.forecast_variance >= 0 %}text-success{% else %}text-danger{% endif %}">{{ row.forecast_variance|floatformat:0 }}</td>
           <td class="text-end">{{ row.variance_pct|floatformat:1 }}%</td>
           <td><span class="badge rag-{{ row.rag|lower }}">{{ row.rag }}</span></td>
+          <td><span class="badge rag-{{ row.forecast_rag|lower }}">{{ row.forecast_rag }}</span></td>
         </tr>
         {% empty %}
-        <tr><td colspan="9" class="text-muted text-center py-4">No cost codes set up yet.</td></tr>
+        <tr><td colspan="13" class="text-muted text-center py-4">No cost codes set up yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>

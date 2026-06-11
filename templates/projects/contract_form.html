@@ -1,14 +1,11 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Contract Details — {{ project.name }} — Kemele CPMS{% endblock %}
-
+{% block title %}Contract Details - {{ project.name }} - Kemele CPMS{% endblock %}
 {% block active_projects %}active{% endblock %}
-
 {% block topbar_title %}Contract Details{% endblock %}
 
 {% block content %}
-
 {% include "partials/breadcrumb.html" %}
 
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -18,7 +15,7 @@
       Contract Details
     </h1>
     <p class="text-muted mb-0 small">
-      Project: <strong>{{ project.name }}</strong> &nbsp;&middot;&nbsp; Code: {{ project.project_code }}
+      Project: <strong>{{ project.name }}</strong> &nbsp;&middot;&nbsp; ID: {{ project.project_id }}
     </p>
   </div>
   <a href="/projects/{{ project.pk }}/" class="btn btn-sm btn-outline-secondary">
@@ -26,7 +23,7 @@
   </a>
 </div>
 
-<form method="post" novalidate>
+<form method="post" enctype="multipart/form-data" novalidate>
   {% csrf_token %}
 
   {% if form.non_field_errors %}
@@ -36,230 +33,36 @@
   </div>
   {% endif %}
 
-  <!-- PGK currency notice -->
   <div class="alert alert-light border d-flex gap-2 mb-3 small">
     <i class="bi bi-info-circle-fill text-primary flex-shrink-0 mt-1"></i>
-    All monetary values are in <strong>Papua New Guinea Kina (PGK)</strong> unless otherwise stated.
+    <div>All monetary values are in <strong>Papua New Guinea Kina (PGK)</strong> unless otherwise stated.</div>
   </div>
 
-  <div class="row g-4">
-
-    <!-- Contract Identification -->
-    <div class="col-12 col-lg-6">
-      <div class="content-card h-100">
-        <div class="cc-header">
-          <h5 class="mb-0"><i class="bi bi-file-earmark me-2"></i>Contract Identification</h5>
+  <div class="content-card">
+    <div class="cc-header">
+      <h5 class="mb-0"><i class="bi bi-file-earmark me-2"></i>Contract Terms</h5>
+    </div>
+    <div class="cc-body">
+      <div class="row g-3">
+        {% for field in form %}
+        <div class="{% if field.name == 'letter_of_award' %}col-12{% else %}col-12 col-md-6{% endif %}">
+          <label for="{{ field.id_for_label }}" class="form-label fw-semibold small{% if field.field.required %} required{% endif %}">
+            {{ field.label }}
+          </label>
+          {{ field }}
+          {% if field.help_text %}
+          <div class="form-text">{{ field.help_text }}</div>
+          {% endif %}
+          {% if field.errors %}
+          <div class="invalid-feedback d-block">{{ field.errors|join:", " }}</div>
+          {% endif %}
         </div>
-        <div class="cc-body">
-          <div class="row g-3">
-
-            <div class="col-12">
-              <label class="form-label fw-semibold small required">Contract Number</label>
-              <input type="text" name="contract_number"
-                     class="form-control {% if form.contract_number.errors %}is-invalid{% endif %}"
-                     value="{{ form.contract_number.value|default:'' }}"
-                     placeholder="e.g. DOW/2024/LAE-001"
-                     required>
-              {% if form.contract_number.errors %}
-                <div class="invalid-feedback">{{ form.contract_number.errors|join:", " }}</div>
-              {% endif %}
-            </div>
-
-            <div class="col-12">
-              <label class="form-label fw-semibold small required">Contract Type</label>
-              <select name="contract_type"
-                      class="form-select {% if form.contract_type.errors %}is-invalid{% endif %}"
-                      required>
-                <option value="">Select type…</option>
-                <option value="lump_sum"   {% if form.contract_type.value == 'lump_sum' %}selected{% endif %}>Lump Sum (Fixed Price)</option>
-                <option value="measure"    {% if form.contract_type.value == 'measure' %}selected{% endif %}>Re-measure &amp; Schedule of Rates</option>
-                <option value="cost_plus"  {% if form.contract_type.value == 'cost_plus' %}selected{% endif %}>Cost Plus / Reimbursable</option>
-                <option value="gmp"        {% if form.contract_type.value == 'gmp' %}selected{% endif %}>Guaranteed Maximum Price</option>
-                <option value="design_build" {% if form.contract_type.value == 'design_build' %}selected{% endif %}>Design &amp; Build</option>
-                <option value="epc"        {% if form.contract_type.value == 'epc' %}selected{% endif %}>EPC / Turnkey</option>
-              </select>
-            </div>
-
-            <div class="col-md-6">
-              <label class="form-label fw-semibold small">Contract Award Date</label>
-              <input type="date" name="award_date"
-                     class="form-control"
-                     value="{{ form.award_date.value|date:'Y-m-d'|default:'' }}">
-            </div>
-
-            <div class="col-md-6">
-              <label class="form-label fw-semibold small">Commencement Date</label>
-              <input type="date" name="commencement_date"
-                     class="form-control"
-                     value="{{ form.commencement_date.value|date:'Y-m-d'|default:'' }}">
-            </div>
-
-            <div class="col-md-6">
-              <label class="form-label fw-semibold small">Original Completion Date</label>
-              <input type="date" name="completion_date"
-                     class="form-control"
-                     value="{{ form.completion_date.value|date:'Y-m-d'|default:'' }}">
-            </div>
-
-            <div class="col-md-6">
-              <label class="form-label fw-semibold small">Revised Completion Date</label>
-              <input type="date" name="revised_completion_date"
-                     class="form-control"
-                     value="{{ form.revised_completion_date.value|date:'Y-m-d'|default:'' }}">
-            </div>
-
-            <div class="col-12">
-              <label class="form-label fw-semibold small">Contract Duration (Weeks)</label>
-              <div class="input-group">
-                <input type="number" name="duration_weeks" min="1" max="520"
-                       class="form-control"
-                       value="{{ form.duration_weeks.value|default:'' }}"
-                       placeholder="e.g. 104">
-                <span class="input-group-text bg-light">weeks</span>
-              </div>
-            </div>
-
-          </div>
-        </div>
+        {% endfor %}
       </div>
     </div>
+  </div>
 
-    <!-- Financial Terms -->
-    <div class="col-12 col-lg-6">
-      <div class="content-card h-100">
-        <div class="cc-header">
-          <h5 class="mb-0"><i class="bi bi-cash-stack me-2"></i>Financial Terms (PGK)</h5>
-        </div>
-        <div class="cc-body">
-          <div class="row g-3">
-
-            <div class="col-12">
-              <label class="form-label fw-semibold small required">Original Contract Value (PGK)</label>
-              <div class="input-group">
-                <span class="input-group-text bg-light fw-semibold" style="color:var(--kc-primary);">PGK</span>
-                <input type="number" name="contract_value" step="0.01" min="0"
-                       class="form-control {% if form.contract_value.errors %}is-invalid{% endif %}"
-                       value="{{ form.contract_value.value|default:'' }}"
-                       placeholder="0.00"
-                       required>
-                {% if form.contract_value.errors %}
-                  <div class="invalid-feedback">{{ form.contract_value.errors|join:", " }}</div>
-                {% endif %}
-              </div>
-            </div>
-
-            <div class="col-12">
-              <label class="form-label fw-semibold small">Revised Contract Value (PGK)</label>
-              <div class="input-group">
-                <span class="input-group-text bg-light fw-semibold" style="color:var(--kc-accent);">PGK</span>
-                <input type="number" name="revised_contract_value" step="0.01" min="0"
-                       class="form-control"
-                       value="{{ form.revised_contract_value.value|default:'' }}"
-                       placeholder="Auto-calculated from variations">
-              </div>
-              <div class="form-text">Usually calculated automatically from approved variations.</div>
-            </div>
-
-            <div class="col-md-6">
-              <label class="form-label fw-semibold small">Retention Rate (%)</label>
-              <div class="input-group">
-                <input type="number" name="retention_rate" step="0.01" min="0" max="15"
-                       class="form-control"
-                       value="{{ form.retention_rate.value|default:'' }}"
-                       placeholder="e.g. 5">
-                <span class="input-group-text bg-light">%</span>
-              </div>
-            </div>
-
-            <div class="col-md-6">
-              <label class="form-label fw-semibold small">Retention Cap (PGK)</label>
-              <div class="input-group">
-                <span class="input-group-text bg-light">PGK</span>
-                <input type="number" name="retention_cap" step="0.01" min="0"
-                       class="form-control"
-                       value="{{ form.retention_cap.value|default:'' }}"
-                       placeholder="Maximum retention held">
-              </div>
-            </div>
-
-            <div class="col-md-6">
-              <label class="form-label fw-semibold small">LD Rate (PGK/day)</label>
-              <div class="input-group">
-                <span class="input-group-text bg-light">PGK</span>
-                <input type="number" name="ld_rate_per_day" step="0.01" min="0"
-                       class="form-control"
-                       value="{{ form.ld_rate_per_day.value|default:'' }}"
-                       placeholder="Liquidated damages per day">
-                <span class="input-group-text bg-light">/day</span>
-              </div>
-            </div>
-
-            <div class="col-md-6">
-              <label class="form-label fw-semibold small">Max LD Liability (PGK)</label>
-              <div class="input-group">
-                <span class="input-group-text bg-light">PGK</span>
-                <input type="number" name="ld_cap" step="0.01" min="0"
-                       class="form-control"
-                       value="{{ form.ld_cap.value|default:'' }}"
-                       placeholder="Maximum LD cap">
-              </div>
-            </div>
-
-            <div class="col-md-6">
-              <label class="form-label fw-semibold small">Advance Payment (PGK)</label>
-              <div class="input-group">
-                <span class="input-group-text bg-light">PGK</span>
-                <input type="number" name="advance_payment" step="0.01" min="0"
-                       class="form-control"
-                       value="{{ form.advance_payment.value|default:'' }}"
-                       placeholder="Mobilisation advance">
-              </div>
-            </div>
-
-            <div class="col-md-6">
-              <label class="form-label fw-semibold small">Performance Bond (%)</label>
-              <div class="input-group">
-                <input type="number" name="performance_bond_pct" step="0.01" min="0" max="30"
-                       class="form-control"
-                       value="{{ form.performance_bond_pct.value|default:'' }}"
-                       placeholder="e.g. 10">
-                <span class="input-group-text bg-light">%</span>
-              </div>
-            </div>
-
-            <div class="col-12">
-              <label class="form-label fw-semibold small">Defects Liability Period (Months)</label>
-              <div class="input-group">
-                <input type="number" name="defects_liability_months" min="1" max="60"
-                       class="form-control"
-                       value="{{ form.defects_liability_months.value|default:'' }}"
-                       placeholder="e.g. 12">
-                <span class="input-group-text bg-light">months</span>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Notes -->
-    <div class="col-12">
-      <div class="content-card">
-        <div class="cc-header">
-          <h5 class="mb-0"><i class="bi bi-sticky me-2"></i>Contract Notes</h5>
-        </div>
-        <div class="cc-body">
-          <textarea name="notes" rows="3"
-                    class="form-control"
-                    placeholder="Special conditions, FIDIC edition, dispute resolution clauses, etc.">{{ form.notes.value|default:'' }}</textarea>
-        </div>
-      </div>
-    </div>
-
-  </div><!-- /row -->
-
-  <div class="d-flex gap-2 justify-content-end mt-2">
+  <div class="d-flex gap-2 justify-content-end mt-3">
     <a href="/projects/{{ project.pk }}/" class="btn btn-outline-secondary">
       <i class="bi bi-x-lg me-1"></i>Cancel
     </a>
@@ -267,7 +70,6 @@
       <i class="bi bi-check-lg me-1"></i>Save Contract Details
     </button>
   </div>
-
 </form>
 {% endblock %}
 

@@ -1,7 +1,15 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import BoQItem, CostCode, CostEntry, Subcontract
+from .models import (
+    BoQItem,
+    CostCode,
+    CostEntry,
+    Subcontract,
+    SubcontractBackCharge,
+    SubcontractClaim,
+    SubcontractPerformanceReview,
+)
 
 
 class BoQItemInline(admin.TabularInline):
@@ -19,13 +27,27 @@ class CostCodeAdmin(admin.ModelAdmin):
         "category",
         "project",
         "budget_amount",
+        "forecast_etc",
+        "estimate_at_completion",
+        "forecast_variance",
         "total_spent",
         "variance",
         "rag_badge",
     )
     list_filter = ("project", "category", "is_contingency")
     search_fields = ("code", "name")
-    readonly_fields = ("total_committed", "total_actual", "total_spent", "variance", "variance_percentage", "rag_status")
+    readonly_fields = (
+        "total_committed",
+        "total_actual",
+        "total_spent",
+        "estimate_at_completion",
+        "forecast_variance",
+        "forecast_variance_percentage",
+        "variance",
+        "variance_percentage",
+        "rag_status",
+        "forecast_rag_status",
+    )
     inlines = [BoQItemInline]
 
     @admin.display(description="RAG")
@@ -66,6 +88,30 @@ class CostEntryAdmin(admin.ModelAdmin):
 
 @admin.register(Subcontract)
 class SubcontractAdmin(admin.ModelAdmin):
-    list_display = ("company_name", "trade", "project", "contract_value", "retention_held", "status", "start_date", "end_date")
+    list_display = ("company_name", "trade", "project", "contract_value", "amount_approved", "amount_paid", "retention_held", "status")
     list_filter = ("project", "status")
     search_fields = ("company_name", "trade")
+
+
+@admin.register(SubcontractClaim)
+class SubcontractClaimAdmin(admin.ModelAdmin):
+    list_display = ("claim_number", "subcontract", "submitted_date", "claimed_amount", "approved_amount", "amount_paid", "status")
+    list_filter = ("status", "submitted_date", "subcontract__project")
+    search_fields = ("claim_number", "subcontract__company_name", "payment_reference")
+    date_hierarchy = "submitted_date"
+
+
+@admin.register(SubcontractBackCharge)
+class SubcontractBackChargeAdmin(admin.ModelAdmin):
+    list_display = ("subcontract", "date", "amount", "status", "recovered_from_claim")
+    list_filter = ("status", "date", "subcontract__project")
+    search_fields = ("subcontract__company_name", "description")
+    date_hierarchy = "date"
+
+
+@admin.register(SubcontractPerformanceReview)
+class SubcontractPerformanceReviewAdmin(admin.ModelAdmin):
+    list_display = ("subcontract", "review_date", "reviewer", "overall_score")
+    list_filter = ("review_date", "subcontract__project")
+    search_fields = ("subcontract__company_name", "notes")
+    date_hierarchy = "review_date"

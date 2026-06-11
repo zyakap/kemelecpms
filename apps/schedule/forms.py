@@ -1,6 +1,15 @@
 from django import forms
+from django.utils import timezone
 
-from .models import Activity, LookAhead, LookAheadTask, Programme, ProgressEntry, WBSActivity
+from .models import (
+    Activity,
+    LookAhead,
+    LookAheadTask,
+    Programme,
+    ProgrammeRevision,
+    ProgressEntry,
+    WBSActivity,
+)
 
 
 class WBSActivityForm(forms.ModelForm):
@@ -82,6 +91,85 @@ class ProgrammeForm(forms.ModelForm):
         return cleaned
 
 
+class ProgrammeRevisionForm(forms.ModelForm):
+    class Meta:
+        model = ProgrammeRevision
+        fields = [
+            "submitted_date",
+            "reason",
+            "revised_start",
+            "revised_end",
+            "eot_days",
+            "delay_events",
+            "causation_summary",
+            "status",
+            "approved_by",
+            "approved_date",
+            "document",
+            "notes",
+        ]
+        widgets = {
+            "submitted_date": forms.DateInput(attrs={"type": "date"}),
+            "revised_start": forms.DateInput(attrs={"type": "date"}),
+            "revised_end": forms.DateInput(attrs={"type": "date"}),
+            "approved_date": forms.DateInput(attrs={"type": "date"}),
+            "reason": forms.Textarea(attrs={"rows": 3}),
+            "causation_summary": forms.Textarea(attrs={"rows": 3}),
+            "notes": forms.Textarea(attrs={"rows": 3}),
+        }
+
+    def __init__(self, *args, programme=None, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.programme = programme
+        self.user = user
+        if programme:
+            self.fields["delay_events"].queryset = programme.project.delay_events.all()
+        for field in self.fields.values():
+            if isinstance(field.widget, forms.FileInput):
+                field.widget.attrs.setdefault("class", "form-control")
+            elif isinstance(field.widget, forms.SelectMultiple):
+                field.widget.attrs.setdefault("class", "form-select")
+            else:
+                field.widget.attrs.setdefault("class", "form-control")
+
+    def clean(self):
+        cleaned = super().clean()
+        submitted_date = cleaned.get("submitted_date")
+        revised_start = cleaned.get("revised_start")
+        revised_end = cleaned.get("revised_end")
+        status = cleaned.get("status")
+        approved_by = cleaned.get("approved_by") or self.user
+        approved_date = cleaned.get("approved_date")
+        eot_days = cleaned.get("eot_days") or 0
+        delay_events = cleaned.get("delay_events")
+        causation_summary = (cleaned.get("causation_summary") or "").strip()
+
+        if revised_start and revised_end and revised_end < revised_start:
+            self.add_error("revised_end", "Revised end date cannot be before revised start date.")
+        if submitted_date and approved_date and approved_date < submitted_date:
+            self.add_error("approved_date", "Approved date cannot be before submitted date.")
+        if eot_days > 0 and not delay_events:
+            self.add_error("delay_events", "EOT revisions must be linked to one or more delay events.")
+        if eot_days > 0 and not causation_summary:
+            self.add_error("causation_summary", "EOT revisions must include a causation summary.")
+        if status == ProgrammeRevision.STATUS_APPROVED:
+            if approved_by:
+                cleaned["approved_by"] = approved_by
+            if not approved_date:
+                cleaned["approved_date"] = timezone.now().date()
+            if not approved_by:
+                self.add_error("approved_by", "Approved programme revisions require an approver.")
+        return cleaned
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if self.programme:
+            instance.programme = self.programme
+        if commit:
+            instance.save()
+        return instance
+
+
 class ActivityForm(forms.ModelForm):
     class Meta:
         model = Activity
@@ -126,6 +214,25 @@ class ActivityForm(forms.ModelForm):
         end = cleaned.get("end_date")
         if start and end and end < start:
             raise forms.ValidationError("End date must be on or after start date.")
+        predecessor = cleaned.get("predecessor")
+        dependency_type = cleaned.get("dependency_type")
+        if predecessor and self.instance.pk and predecessor.pk == self.instance.pk:
+            self.add_error("predecessor", "Activity cannot depend on itself.")
+        if predecessor:
+            seen = set()
+            node = predecessor
+            while node is not None:
+                if node.pk in seen or (self.instance.pk and node.pk == self.instance.pk):
+                    self.add_error("predecessor", "Activity dependency chain cannot contain a cycle.")
+                    break
+                seen.add(node.pk)
+                node = node.predecessor
+            if start and dependency_type == Activity.DEP_FS and start < predecessor.end_date:
+                self.add_error("start_date", "Finish-to-start activity cannot start before predecessor finishes.")
+            if start and dependency_type == Activity.DEP_SS and start < predecessor.start_date:
+                self.add_error("start_date", "Start-to-start activity cannot start before predecessor starts.")
+            if end and dependency_type == Activity.DEP_FF and end < predecessor.end_date:
+                self.add_error("end_date", "Finish-to-finish activity cannot finish before predecessor finishes.")
         return cleaned
 
     def save(self, commit=True):

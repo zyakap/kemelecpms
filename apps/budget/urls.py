@@ -1,10 +1,12 @@
 from django.urls import path
+from django.views.generic import RedirectView
 
 from . import views
 
 app_name = "budget"
 
 urlpatterns = [
+    path("", RedirectView.as_view(pattern_name="projects:project_list", permanent=False), name="index"),
     # Dashboard
     path(
         "projects/<int:project_pk>/budget/",
@@ -74,6 +76,36 @@ urlpatterns = [
         "projects/<int:project_pk>/subcontracts/<int:pk>/edit/",
         views.SubcontractUpdateView.as_view(),
         name="subcontract-update",
+    ),
+    path(
+        "projects/<int:project_pk>/subcontracts/<int:pk>/",
+        views.SubcontractDetailView.as_view(),
+        name="subcontract-detail",
+    ),
+    path(
+        "projects/<int:project_pk>/subcontracts/<int:subcontract_pk>/claims/add/",
+        views.SubcontractClaimCreateView.as_view(),
+        name="subcontract-claim-create",
+    ),
+    path(
+        "projects/<int:project_pk>/subcontracts/<int:subcontract_pk>/claims/<int:pk>/edit/",
+        views.SubcontractClaimUpdateView.as_view(),
+        name="subcontract-claim-update",
+    ),
+    path(
+        "projects/<int:project_pk>/subcontracts/<int:subcontract_pk>/backcharges/add/",
+        views.SubcontractBackChargeCreateView.as_view(),
+        name="subcontract-backcharge-create",
+    ),
+    path(
+        "projects/<int:project_pk>/subcontracts/<int:subcontract_pk>/backcharges/<int:pk>/edit/",
+        views.SubcontractBackChargeUpdateView.as_view(),
+        name="subcontract-backcharge-update",
+    ),
+    path(
+        "projects/<int:project_pk>/subcontracts/<int:subcontract_pk>/performance/add/",
+        views.SubcontractPerformanceReviewCreateView.as_view(),
+        name="subcontract-performance-create",
     ),
     # BoQ Import
     path(

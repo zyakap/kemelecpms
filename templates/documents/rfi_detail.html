@@ -22,10 +22,10 @@
           <dd class="col-7">{{ rfi.raised_by.get_full_name|default:rfi.raised_by.email }}</dd>
           <dt class="col-5 text-muted">Date Raised</dt>
           <dd class="col-7">{{ rfi.date_raised|date:"d M Y" }}</dd>
-          <dt class="col-5 text-muted">Required By</dt>
-          <dd class="col-7">{{ rfi.date_required|date:"d M Y"|default:"—" }}</dd>
-          <dt class="col-5 text-muted">Date Answered</dt>
-          <dd class="col-7">{{ rfi.date_answered|date:"d M Y"|default:"—" }}</dd>
+          <dt class="col-5 text-muted">Directed To</dt>
+          <dd class="col-7">{{ rfi.directed_to|default:"—" }}</dd>
+          <dt class="col-5 text-muted">Response Date</dt>
+          <dd class="col-7">{{ rfi.response_date|date:"d M Y"|default:"—" }}</dd>
           <dt class="col-5 text-muted">Drawing Ref</dt>
           <dd class="col-7">{{ rfi.drawing.drawing_number|default:"—" }}</dd>
         </dl>
@@ -43,9 +43,9 @@
       <div class="card-body small">{{ rfi.response }}</div>
     </div>
     {% endif %}
-    {% if rfi.attachment %}
+    {% if rfi.photo %}
     <div class="mt-2">
-      <a href="{{ rfi.attachment.url }}" class="btn btn-sm btn-outline-secondary" target="_blank"><i class="bi bi-paperclip me-1"></i>Attachment</a>
+      <a href="{{ rfi.photo.url }}" class="btn btn-sm btn-outline-secondary" target="_blank"><i class="bi bi-paperclip me-1"></i>Attachment</a>
     </div>
     {% endif %}
   </div>

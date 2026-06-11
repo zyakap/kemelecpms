@@ -137,3 +137,23 @@ def sms_notify_users(user_ids, message):
     User = get_user_model()
     for user in User.objects.filter(pk__in=user_ids).exclude(phone=""):
         send_sms_notification.delay(user.phone, message)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def send_whatsapp_notification(self, mobile_number, message):
+    """Send a WhatsApp-style message through a configured HTTP provider."""
+    import requests as req
+
+    gateway_url = getattr(settings, "WHATSAPP_GATEWAY_URL", "")
+    api_key = getattr(settings, "WHATSAPP_API_KEY", "")
+    if not gateway_url or not api_key:
+        return
+    try:
+        resp = req.post(
+            gateway_url,
+            json={"to": mobile_number, "message": message, "api_key": api_key},
+            timeout=15,
+        )
+        resp.raise_for_status()
+    except Exception as exc:
+        raise self.retry(exc=exc)

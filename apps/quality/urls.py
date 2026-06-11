@@ -1,10 +1,12 @@
 from django.urls import path
+from django.views.generic import RedirectView
 
 from . import views
 
 app_name = "quality"
 
 urlpatterns = [
+    path("", RedirectView.as_view(pattern_name="projects:project_list", permanent=False), name="index"),
     # ITP
     path(
         "projects/<int:project_pk>/itps/",
@@ -20,6 +22,16 @@ urlpatterns = [
         "projects/<int:project_pk>/itps/<int:pk>/",
         views.ITPDetailView.as_view(),
         name="itp-detail",
+    ),
+    path(
+        "projects/<int:project_pk>/itps/<int:itp_pk>/checklists/add/",
+        views.InspectionChecklistCreateView.as_view(),
+        name="checklist-create",
+    ),
+    path(
+        "projects/<int:project_pk>/checklists/<int:checklist_pk>/items/add/",
+        views.InspectionChecklistItemCreateView.as_view(),
+        name="checklist-item-create",
     ),
     # Inspection Records (scoped to an ITP item)
     path(

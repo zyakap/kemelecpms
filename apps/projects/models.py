@@ -225,8 +225,51 @@ class Project(TimeStampedModel):
             return 0
         approved_variations = self.variations.filter(
             status=Variation.STATUS_APPROVED
-        ).aggregate(total=models.Sum("amount"))["total"] or 0
-        return base + approved_variations
+        )
+        variation_total = sum(
+            variation.signed_amount for variation in approved_variations
+        )
+        return base + variation_total
+
+
+class ProjectMembership(TimeStampedModel):
+    ROLE_PM = "project_manager"
+    ROLE_SUPERVISOR = "site_supervisor"
+    ROLE_PROCUREMENT = "procurement"
+    ROLE_FINANCE = "finance"
+    ROLE_DOC_CTRL = "document_control"
+    ROLE_QAQC = "quality"
+    ROLE_HSE = "safety"
+    ROLE_CLIENT = "client"
+    ROLE_AUDITOR = "auditor"
+    ROLE_VIEWER = "viewer"
+
+    ROLE_CHOICES = [
+        (ROLE_PM, "Project Manager"),
+        (ROLE_SUPERVISOR, "Site Supervisor"),
+        (ROLE_PROCUREMENT, "Procurement"),
+        (ROLE_FINANCE, "Finance"),
+        (ROLE_DOC_CTRL, "Document Control"),
+        (ROLE_QAQC, "Quality"),
+        (ROLE_HSE, "Safety"),
+        (ROLE_CLIENT, "Client / Funder"),
+        (ROLE_AUDITOR, "Auditor"),
+        (ROLE_VIEWER, "Viewer"),
+    ]
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="memberships")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="project_memberships")
+    role = models.CharField(max_length=30, choices=ROLE_CHOICES, default=ROLE_VIEWER)
+    can_edit = models.BooleanField(default=False)
+    can_approve = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["project", "role", "user__first_name", "user__last_name"]
+        unique_together = [("project", "user")]
+
+    def __str__(self):
+        return f"{self.user} - {self.project} ({self.get_role_display()})"
 
 
 # ---------------------------------------------------------------------------
@@ -492,3 +535,149 @@ class DelayEvent(TimeStampedModel):
 
     def get_absolute_url(self):
         return reverse("projects:project_detail", kwargs={"pk": self.project.pk})
+
+
+# ---------------------------------------------------------------------------
+# Work Package
+# ---------------------------------------------------------------------------
+
+
+class WorkPackage(TimeStampedModel):
+    """
+    Represents a discrete scope of work within a project assigned to
+    either the principal contractor (Kemele) or a subcontractor.
+    Multiple work packages roll up into the overall project metrics.
+    """
+
+    CONTRACTOR_PRINCIPAL = "principal"
+    CONTRACTOR_SUBCONTRACTOR = "subcontractor"
+
+    CONTRACTOR_TYPE_CHOICES = [
+        (CONTRACTOR_PRINCIPAL, "Kemele Construction (Principal)"),
+        (CONTRACTOR_SUBCONTRACTOR, "Subcontractor"),
+    ]
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="work_packages",
+    )
+    name = models.CharField(max_length=255, help_text="e.g. 'Duplexes 1–30 (Kemele)'")
+    contractor_type = models.CharField(
+        max_length=20,
+        choices=CONTRACTOR_TYPE_CHOICES,
+        default=CONTRACTOR_PRINCIPAL,
+    )
+    subcontract = models.OneToOneField(
+        "budget.Subcontract",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="work_package",
+        help_text="Leave blank for Kemele's own work package.",
+    )
+    description = models.TextField(blank=True)
+    scope_quantity = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Quantity of deliverable units (e.g. 30 duplexes).",
+    )
+    scope_unit = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Unit of scope (e.g. duplexes, km, m²).",
+    )
+    contract_value = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        help_text="Value of this work package for weighting purposes.",
+    )
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    current_progress_pct = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text="Latest reported progress % (auto-updated from progress entries).",
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Work Package"
+        verbose_name_plural = "Work Packages"
+        ordering = ["contractor_type", "name"]
+
+    def __str__(self):
+        return f"{self.name} — {self.project.project_id}"
+
+    @property
+    def contractor_label(self):
+        if self.contractor_type == self.CONTRACTOR_PRINCIPAL:
+            return "Kemele Construction"
+        return self.subcontract.company_name if self.subcontract else "Subcontractor"
+
+    @property
+    def contractor_user(self):
+        """The login user for this package, or None for Kemele packages."""
+        if self.subcontract:
+            return self.subcontract.user
+        return None
+
+    def weight_pct(self, total_value=None):
+        """Weighting as % of total project work package value."""
+        from decimal import Decimal
+        if total_value is None:
+            total_value = self.project.work_packages.filter(is_active=True).aggregate(
+                t=models.Sum("contract_value")
+            )["t"] or Decimal("0")
+        if not total_value:
+            return Decimal("0")
+        return (self.contract_value / total_value * 100).quantize(Decimal("0.01"))
+
+    def update_progress(self):
+        """Refresh current_progress_pct from latest WorkPackageProgress entry."""
+        latest = self.progress_entries.order_by("-date", "-created_at").first()
+        if latest:
+            self.current_progress_pct = latest.percent_complete
+            self.save(update_fields=["current_progress_pct"])
+
+
+class WorkPackageProgress(TimeStampedModel):
+    """Periodic progress snapshot for a work package."""
+
+    work_package = models.ForeignKey(
+        WorkPackage,
+        on_delete=models.CASCADE,
+        related_name="progress_entries",
+    )
+    date = models.DateField()
+    percent_complete = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        help_text="Overall % completion of this work package.",
+    )
+    narrative = models.TextField(
+        blank=True,
+        help_text="What was achieved in this period.",
+    )
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="work_package_progress_entries",
+    )
+
+    class Meta:
+        verbose_name = "Work Package Progress Entry"
+        verbose_name_plural = "Work Package Progress Entries"
+        ordering = ["-date"]
+        unique_together = [("work_package", "date")]
+
+    def __str__(self):
+        return f"{self.work_package.name} — {self.date} — {self.percent_complete}%"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.work_package.update_progress()

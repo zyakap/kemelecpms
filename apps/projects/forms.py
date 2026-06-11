@@ -7,7 +7,10 @@ from .models import (
     Funder,
     Milestone,
     Project,
+    ProjectMembership,
     Variation,
+    WorkPackage,
+    WorkPackageProgress,
 )
 
 
@@ -146,6 +149,19 @@ class ProjectForm(forms.ModelForm):
                 self.fields[field_name].required = False
 
 
+class ProjectMembershipForm(forms.ModelForm):
+    class Meta:
+        model = ProjectMembership
+        exclude = ("project", "created_by", "updated_by", "created_at", "updated_at")
+        widgets = {
+            "user": _select(),
+            "role": _select(),
+            "can_edit": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "can_approve": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+
 # ---------------------------------------------------------------------------
 # Contract Form
 # ---------------------------------------------------------------------------
@@ -205,6 +221,63 @@ class VariationForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["supporting_document"].required = False
+
+    def clean(self):
+        cleaned = super().clean()
+        status = cleaned.get("status")
+        amount = cleaned.get("amount")
+        document = cleaned.get("supporting_document") or getattr(
+            self.instance, "supporting_document", None
+        )
+
+        if amount is not None and amount <= 0:
+            self.add_error("amount", "Variation amount must be greater than zero.")
+
+        evidence_required_statuses = {
+            Variation.STATUS_SUBMITTED,
+            Variation.STATUS_ASSESSED,
+            Variation.STATUS_APPROVED,
+        }
+        if status in evidence_required_statuses and not document:
+            self.add_error(
+                "supporting_document",
+                "Supporting document is required before a variation can be submitted, assessed, or approved.",
+            )
+
+        if not self.instance.pk:
+            if status not in (Variation.STATUS_INSTRUCTED, Variation.STATUS_SUBMITTED):
+                self.add_error(
+                    "status",
+                    "New variations can only be created as instructed or submitted.",
+                )
+            return cleaned
+
+        current_status = self.instance.status
+        if status == current_status:
+            return cleaned
+
+        allowed_transitions = {
+            Variation.STATUS_INSTRUCTED: {
+                Variation.STATUS_SUBMITTED,
+                Variation.STATUS_REJECTED,
+            },
+            Variation.STATUS_SUBMITTED: {
+                Variation.STATUS_ASSESSED,
+                Variation.STATUS_REJECTED,
+            },
+            Variation.STATUS_ASSESSED: {
+                Variation.STATUS_APPROVED,
+                Variation.STATUS_REJECTED,
+            },
+            Variation.STATUS_APPROVED: set(),
+            Variation.STATUS_REJECTED: set(),
+        }
+        if status not in allowed_transitions.get(current_status, set()):
+            self.add_error(
+                "status",
+                f"Variation cannot move from {current_status} to {status}.",
+            )
+        return cleaned
 
 
 # ---------------------------------------------------------------------------
@@ -273,3 +346,52 @@ class DelayEventForm(forms.ModelForm):
             )
         else:
             self.fields["linked_milestone"].queryset = Milestone.objects.none()
+
+
+# ---------------------------------------------------------------------------
+# Work Package Forms
+# ---------------------------------------------------------------------------
+
+class WorkPackageForm(forms.ModelForm):
+    class Meta:
+        model = WorkPackage
+        fields = [
+            "name", "contractor_type", "subcontract",
+            "description", "scope_quantity", "scope_unit",
+            "contract_value", "start_date", "end_date", "is_active",
+        ]
+        widgets = {
+            "name": _text("e.g. Duplexes 1–30 (Kemele)"),
+            "contractor_type": _select(),
+            "subcontract": _select(),
+            "description": _textarea(rows=3),
+            "scope_quantity": _number(),
+            "scope_unit": _text("e.g. duplexes, km, m²"),
+            "contract_value": _number(),
+            "start_date": _date(),
+            "end_date": _date(),
+            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+    def __init__(self, *args, project=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        from apps.budget.models import Subcontract
+        self.fields["subcontract"].queryset = (
+            Subcontract.objects.filter(project=project) if project else Subcontract.objects.none()
+        )
+        self.fields["subcontract"].required = False
+        self.fields["subcontract"].help_text = "Select the linked subcontract. Leave blank for Kemele's own work package."
+        self.fields["scope_quantity"].required = False
+        self.fields["end_date"].required = False
+        self.fields["start_date"].required = False
+
+
+class WorkPackageProgressForm(forms.ModelForm):
+    class Meta:
+        model = WorkPackageProgress
+        fields = ["date", "percent_complete", "narrative"]
+        widgets = {
+            "date": _date(),
+            "percent_complete": _number(),
+            "narrative": _textarea(rows=4, placeholder="Describe work completed, quantities achieved, issues, etc."),
+        }

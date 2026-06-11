@@ -5,7 +5,11 @@
 {% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Compliance Calendar</h1>
-  <a href="{% url 'compliance:calendar-create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle me-1"></i>Add Item</a>
+  <div class="d-flex gap-2">
+    <a href="{% url 'compliance:project-map' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-geo-alt me-1"></i>Map</a>
+    <a href="{% url 'compliance:calendar-template-list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-calendar2-week me-1"></i>Templates</a>
+    <a href="{% url 'compliance:calendar-create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle me-1"></i>Add Item</a>
+  </div>
 </div>
 
 <div class="card border-0 shadow-sm mb-3">
@@ -32,22 +36,22 @@
 
 <div class="card border-0 shadow-sm">
   <div class="card-body p-0">
-    <table class="table table-hover mb-0 small">
+    <table class="table table-hover table-mobile-stack mb-0 small">
       <thead class="table-light">
         <tr><th>Item</th><th>Project</th><th>Category</th><th>Due Date</th><th>Responsible</th><th>Status</th><th></th></tr>
       </thead>
       <tbody>
         {% for entry in entries %}
         <tr class="{% if entry.status == 'OVERDUE' %}table-danger{% elif entry.status == 'COMPLETE' %}table-success{% endif %}">
-          <td><a href="{% url 'compliance:calendar-detail' entry.pk %}" class="fw-semibold">{{ entry.title }}</a></td>
-          <td>{{ entry.project.project_id|default:"Company-wide" }}</td>
-          <td><span class="badge bg-secondary">{{ entry.get_category_display }}</span></td>
-          <td>{{ entry.due_date|date:"d M Y" }}</td>
-          <td>{{ entry.responsible.get_full_name|default:entry.responsible.email|default:"—" }}</td>
-          <td>
+          <td data-label="Item"><a href="{% url 'compliance:calendar-detail' entry.pk %}" class="fw-semibold">{{ entry.title }}</a></td>
+          <td data-label="Project">{{ entry.project.project_id|default:"Company-wide" }}</td>
+          <td data-label="Category"><span class="badge bg-secondary">{{ entry.get_category_display }}</span></td>
+          <td data-label="Due Date">{{ entry.due_date|date:"d M Y" }}</td>
+          <td data-label="Responsible">{{ entry.responsible.get_full_name|default:entry.responsible.email|default:"—" }}</td>
+          <td data-label="Status">
             <span class="badge bg-{% if entry.status == 'PENDING' %}warning text-dark{% elif entry.status == 'OVERDUE' %}danger{% elif entry.status == 'COMPLETE' %}success{% else %}secondary{% endif %}">{{ entry.get_status_display }}</span>
           </td>
-          <td><a href="{% url 'compliance:calendar-update' entry.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
+          <td data-label="Actions"><a href="{% url 'compliance:calendar-update' entry.pk %}" class="btn btn-sm btn-outline-secondary icon-btn" aria-label="Edit {{ entry.title }}"><i class="bi bi-pencil"></i></a></td>
         </tr>
         {% empty %}
         <tr><td colspan="7" class="text-muted text-center py-4">No compliance items found.</td></tr>

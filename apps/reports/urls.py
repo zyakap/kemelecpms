@@ -1,10 +1,12 @@
 from django.urls import path
+from django.views.generic import RedirectView
 
 from . import views
 
 app_name = "reports"
 
 urlpatterns = [
+    path("", RedirectView.as_view(pattern_name="projects:project_list", permanent=False), name="index"),
     # Project-scoped exports
     path(
         "projects/<int:project_pk>/export/boq/",
@@ -53,5 +55,10 @@ urlpatterns = [
         "",
         views.ReportsIndexView.as_view(),
         name="index",
+    ),
+    path(
+        "strategic-operations/",
+        views.StrategicOperationsView.as_view(),
+        name="strategic-operations",
     ),
 ]

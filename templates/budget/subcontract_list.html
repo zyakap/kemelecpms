@@ -20,21 +20,26 @@
   <div class="card-body p-0">
     <table class="table table-hover mb-0 small">
       <thead class="table-light">
-        <tr><th>Ref</th><th>Subcontractor</th><th>Description</th><th>Status</th><th class="text-end">Contract Value (K)</th><th class="text-end">Paid (K)</th><th></th></tr>
+        <tr><th>Subcontractor</th><th>Trade</th><th>Scope</th><th>Status</th><th class="text-end">Contract Value (K)</th><th class="text-end">Approved (K)</th><th class="text-end">Paid (K)</th><th class="text-end">Score</th><th></th></tr>
       </thead>
       <tbody>
         {% for sc in subcontracts %}
         <tr>
-          <td class="font-monospace fw-semibold">{{ sc.reference }}</td>
-          <td>{{ sc.subcontractor_name }}</td>
-          <td>{{ sc.scope_of_work|truncatechars:40 }}</td>
+          <td class="fw-semibold">{{ sc.company_name }}</td>
+          <td>{{ sc.trade }}</td>
+          <td>{{ sc.scope|truncatechars:40 }}</td>
           <td><span class="badge bg-secondary">{{ sc.get_status_display }}</span></td>
           <td class="text-end">{{ sc.contract_value|floatformat:0 }}</td>
+          <td class="text-end">{{ sc.amount_approved|floatformat:0 }}</td>
           <td class="text-end">{{ sc.amount_paid|floatformat:0 }}</td>
-          <td><a href="{% url 'budget:subcontract-update' project.pk sc.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
+          <td class="text-end">{{ sc.latest_performance_score|default:"-" }}</td>
+          <td class="text-end">
+            <a href="{% url 'budget:subcontract-detail' project.pk sc.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+            <a href="{% url 'budget:subcontract-update' project.pk sc.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+          </td>
         </tr>
         {% empty %}
-        <tr><td colspan="7" class="text-muted text-center py-4">No subcontracts recorded.</td></tr>
+        <tr><td colspan="9" class="text-muted text-center py-4">No subcontracts recorded.</td></tr>
         {% endfor %}
       </tbody>
     </table>

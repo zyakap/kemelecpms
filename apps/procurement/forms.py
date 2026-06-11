@@ -271,6 +271,7 @@ class SupplierInvoiceForm(forms.ModelForm):
             "document",
             "status",
             "is_matched",
+            "match_exception_reason",
             "payment_date",
             "payment_reference",
             "notes",
@@ -280,6 +281,36 @@ class SupplierInvoiceForm(forms.ModelForm):
             "payment_date": forms.DateInput(attrs={"type": "date"}),
             "notes": forms.Textarea(attrs={"rows": 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["supplier"].required = False
+        self.fields["supplier"].disabled = True
+        self.fields["is_matched"].required = False
+        self.fields["is_matched"].disabled = True
+        self.fields["match_exception_reason"].required = False
+
+    def clean(self):
+        cleaned = super().clean()
+        po = cleaned.get("po")
+        amount = cleaned.get("amount")
+        if po:
+            cleaned["supplier"] = po.supplier
+        if po and amount is not None:
+            self.instance.po = po
+            self.instance.supplier = po.supplier
+            self.instance.amount = amount
+            is_matched, reason = self.instance.evaluate_match()
+            cleaned["is_matched"] = is_matched
+            if cleaned.get("status") in (
+                SupplierInvoice.STATUS_MATCHED,
+                SupplierInvoice.STATUS_APPROVED,
+                SupplierInvoice.STATUS_PAID,
+            ) and not (is_matched or self.instance.match_exception_approved):
+                self.add_error("status", reason)
+            if not is_matched and cleaned.get("match_exception_reason") == "":
+                cleaned["match_exception_reason"] = reason
+        return cleaned
 
 
 # ---------------------------------------------------------------------------

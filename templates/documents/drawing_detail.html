@@ -21,8 +21,8 @@
           <dt class="col-5 text-muted">Discipline</dt><dd class="col-7">{{ drawing.get_discipline_display }}</dd>
           <dt class="col-5 text-muted">Status</dt><dd class="col-7">{{ drawing.get_status_display }}</dd>
           <dt class="col-5 text-muted">Scale</dt><dd class="col-7">{{ drawing.scale|default:"—" }}</dd>
-          <dt class="col-5 text-muted">Latest Rev</dt><dd class="col-7">{{ drawing.latest_revision|default:"—" }}</dd>
-          <dt class="col-5 text-muted">Latest Rev Date</dt><dd class="col-7">{{ drawing.latest_revision_date|date:"d M Y"|default:"—" }}</dd>
+          <dt class="col-5 text-muted">Latest Rev</dt><dd class="col-7">{{ drawing.current_revision|default:"—" }}</dd>
+          <dt class="col-5 text-muted">Latest Rev Date</dt><dd class="col-7">{{ drawing.current_revision_date|date:"d M Y"|default:"—" }}</dd>
         </dl>
       </div>
     </div>
@@ -51,7 +51,7 @@
             <tr>
               <td class="fw-semibold">{{ rev.revision }}</td>
               <td>{{ rev.date|date:"d M Y" }}</td>
-              <td>{{ rev.description|truncatechars:40 }}</td>
+              <td>{{ rev.notes|truncatechars:40 }}</td>
               <td>{{ rev.uploaded_by.get_full_name|default:rev.uploaded_by.email }}</td>
               <td>{% if rev.file %}<a href="{{ rev.file.url }}" target="_blank"><i class="bi bi-file-earmark-arrow-down"></i></a>{% else %}—{% endif %}</td>
             </tr>

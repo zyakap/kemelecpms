@@ -13,12 +13,12 @@
     </span>
   </div>
   <div class="d-flex gap-2">
-    {% if po.status == 'PENDING_APPROVAL' %}
+    {% if can_approve %}
     <form method="post" action="{% url 'procurement:po_approve' po.pk %}">{% csrf_token %}
       <button type="submit" class="btn btn-success btn-sm">Approve PO</button>
     </form>
     {% endif %}
-    {% if po.status == 'APPROVED' %}
+    {% if can_create_grn %}
     <a href="{% url 'procurement:grn_create' po.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-truck me-1"></i>Record Delivery</a>
     {% endif %}
   </div>
@@ -53,6 +53,32 @@
   </div>
   <div class="col-lg-4">
     <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Three-Way Match</div>
+      <div class="card-body small">
+        <div class="d-flex justify-content-between mb-1">
+          <span class="text-muted">PO Total</span>
+          <strong>K {{ po.total_amount|floatformat:2 }}</strong>
+        </div>
+        <div class="d-flex justify-content-between mb-1">
+          <span class="text-muted">Delivered Value</span>
+          <strong>K {{ total_delivered_value|floatformat:2 }}</strong>
+        </div>
+        <div class="d-flex justify-content-between mb-1">
+          <span class="text-muted">Matched/Invoiced</span>
+          <strong>K {{ total_invoiced_amount|floatformat:2 }}</strong>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Available to Invoice</span>
+          <strong>K {{ unmatched_delivery_value|floatformat:2 }}</strong>
+        </div>
+        {% if has_delivery_discrepancies %}
+        <div class="alert alert-warning py-2 mt-3 mb-0">
+          Resolve GRN discrepancies before approving invoices.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="card border-0 shadow-sm mb-3">
       <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Delivery Info</div>
       <div class="card-body small">
         <div class="text-muted">Delivery Address</div><div class="fw-semibold mb-2">{{ po.delivery_address }}</div>
@@ -67,6 +93,59 @@
       <div class="card-body small">{{ po.notes }}</div>
     </div>
     {% endif %}
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Goods Received</div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0 small">
+          <thead class="table-light"><tr><th>GRN</th><th>Date</th><th>Partial</th><th>Discrepancy</th></tr></thead>
+          <tbody>
+            {% for grn in grns %}
+            <tr>
+              <td><a href="{{ grn.get_absolute_url }}">{{ grn.grn_number }}</a></td>
+              <td>{{ grn.delivery_date|date:"d M Y" }}</td>
+              <td>{{ grn.is_partial|yesno:"Yes,No" }}</td>
+              <td>
+                {% if grn.has_discrepancy %}
+                  <span class="badge bg-warning text-dark">Check</span>
+                {% else %}
+                  <span class="badge bg-success">No</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-muted text-center py-3">No GRNs recorded.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Supplier Invoices</div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0 small">
+          <thead class="table-light"><tr><th>Invoice</th><th>Status</th><th class="text-end">Amount</th><th>Matched</th></tr></thead>
+          <tbody>
+            {% for inv in invoices %}
+            <tr>
+              <td>{{ inv.invoice_number }}</td>
+              <td>{{ inv.get_status_display }}</td>
+              <td class="text-end">K {{ inv.amount|floatformat:2 }}</td>
+              <td>{{ inv.is_matched|yesno:"Yes,No" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-muted text-center py-3">No invoices recorded.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}My Documents — {{ subcontract.company_name }}{% endblock %}
+{% block topbar_title %}My Submitted Documents{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">
+    <i class="bi bi-files me-2"></i>Document Submissions
+  </h1>
+  <a href="{% url 'subcontractor:document-upload' %}" class="btn btn-kc">
+    <i class="bi bi-upload me-1"></i>Submit Document
+  </a>
+</div>
+
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-sm-4">
+        <select name="status" class="form-select form-select-sm">
+          <option value="">All Statuses</option>
+          {% for val, label in status_choices %}
+          <option value="{{ val }}" {% if val == selected_status %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-sm-4">
+        <select name="doc_type" class="form-select form-select-sm">
+          <option value="">All Types</option>
+          {% for val, label in doc_type_choices %}
+          <option value="{{ val }}" {% if val == selected_type %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-sm-2">
+        <button type="submit" class="btn btn-sm btn-outline-secondary w-100">Filter</button>
+      </div>
+      <div class="col-sm-2">
+        <a href="{% url 'subcontractor:document-list' %}" class="btn btn-sm btn-outline-danger w-100">Clear</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if documents %}
+<div class="row g-3">
+  {% for doc in documents %}
+  <div class="col-12">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="d-flex align-items-start justify-content-between gap-2">
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <span class="fw-semibold" style="color:var(--kc-primary)">{{ doc.title }}</span>
+              {% if doc.revision %}<span class="badge bg-light text-dark border">Rev {{ doc.revision }}</span>{% endif %}
+            </div>
+            <div class="d-flex flex-wrap gap-2 mb-2">
+              <span class="badge bg-secondary small">{{ doc.get_doc_type_display }}</span>
+              <span class="badge bg-{{ doc.status_badge }}">{{ doc.get_status_display }}</span>
+              <span class="text-muted small"><i class="bi bi-calendar3 me-1"></i>{{ doc.created_at|date:"d M Y, H:i" }}</span>
+            </div>
+            {% if doc.description %}
+            <p class="small text-muted mb-1">{{ doc.description }}</p>
+            {% endif %}
+            {% if doc.review_notes %}
+            <div class="alert alert-{{ doc.status_badge }} alert-sm py-1 px-2 mb-0 small mt-2">
+              <i class="bi bi-chat-left-text me-1"></i>
+              <strong>Reviewer note:</strong> {{ doc.review_notes }}
+              {% if doc.reviewed_by %} — {{ doc.reviewed_by.get_full_name }}{% endif %}
+              {% if doc.reviewed_at %} ({{ doc.reviewed_at|date:"d M Y" }}){% endif %}
+            </div>
+            {% endif %}
+          </div>
+          {% if doc.file %}
+          <a href="{{ doc.file.url }}" class="btn btn-sm btn-outline-primary flex-shrink-0" target="_blank">
+            <i class="bi bi-download me-1"></i>Download
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% include "partials/pagination.html" %}
+{% else %}
+<div class="text-center text-muted py-5">
+  <i class="bi bi-folder2-open fs-1 d-block mb-2"></i>
+  No documents match your filters.
+</div>
+{% endif %}
+{% endblock %}

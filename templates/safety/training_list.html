@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Safety Training{% endblock %}
+{% block active_nav %}safety{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">Training & Certification Matrix</h1>
+  <a href="{% url 'safety:training_add' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Record</a>
+</div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-auto"><select name="project" class="form-select form-select-sm"><option value="">All Projects</option>{% for proj in projects %}<option value="{{ proj.pk }}" {% if proj.pk|stringformat:"s" == request.GET.project %}selected{% endif %}>{{ proj.name }}</option>{% endfor %}</select></div>
+  <div class="col-auto"><label class="form-check mt-1"><input class="form-check-input" type="checkbox" name="expired" value="1" {% if request.GET.expired %}checked{% endif %}> <span class="form-check-label small">Expired only</span></label></div>
+  <div class="col-auto"><button class="btn btn-outline-secondary btn-sm">Filter</button></div>
+</form>
+<div class="card border-0 shadow-sm"><div class="card-body p-0"><table class="table table-hover mb-0 small">
+  <thead class="table-light"><tr><th>Worker</th><th>Project</th><th>Course</th><th>Provider</th><th>Completed</th><th>Expiry</th><th>Evidence</th><th></th></tr></thead>
+  <tbody>{% for record in training_records %}<tr>
+    <td class="fw-semibold">{{ record.worker }}</td>
+    <td>{{ record.project.name|truncatechars:18 }}</td>
+    <td>{{ record.course_name }}</td>
+    <td>{{ record.provider|default:"-" }}</td>
+    <td>{{ record.completed_date|date:"d M Y" }}</td>
+    <td><span class="{% if record.is_expired %}text-danger fw-semibold{% endif %}">{{ record.expiry_date|date:"d M Y"|default:"-" }}</span></td>
+    <td>{% if record.evidence %}<a href="{{ record.evidence.url }}" target="_blank">Open</a>{% else %}-{% endif %}</td>
+    <td class="text-end"><a href="{% url 'safety:training_edit' record.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
+  </tr>{% empty %}<tr><td colspan="8" class="text-muted text-center py-4">No training records.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% include "partials/pagination.html" %}
+{% endblock %}

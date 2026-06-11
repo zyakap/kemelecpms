@@ -10,9 +10,8 @@ def notify_ipc_submitted(ipc_id):
     """Notify Finance and MD when an IPC is submitted for internal review."""
     from apps.ipc.models import IPC
     from apps.notifications.tasks import notify_users
-    from django.contrib.auth import get_user_model
+    from apps.accounts.models import User
 
-    User = get_user_model()
     try:
         ipc = IPC.objects.select_related("project").get(pk=ipc_id)
     except IPC.DoesNotExist:
@@ -20,7 +19,7 @@ def notify_ipc_submitted(ipc_id):
 
     # Notify Finance role and MD role users
     finance_md_users = User.objects.filter(
-        role__in=["FINANCE", "MANAGING_DIRECTOR"],
+        role__in=[User.ROLE_FINANCE, User.ROLE_MD],
         is_active=True,
     ).values_list("pk", flat=True)
 

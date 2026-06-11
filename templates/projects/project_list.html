@@ -15,8 +15,8 @@
       All construction projects managed by Kemele Construction.
     </p>
   </div>
-  {% if user.is_staff or user.profile.role in 'admin,pm' %}
-  <a href="/projects/new/" class="btn btn-kc">
+  {% if user.is_staff or user.is_pm or user.is_admin %}
+  <a href="{% url 'projects:project_create' %}" class="btn btn-kc">
     <i class="bi bi-plus-lg me-1"></i> New Project
   </a>
   {% endif %}
@@ -43,23 +43,18 @@
         <label class="form-label fw-semibold small mb-1">Status</label>
         <select name="status" class="form-select form-select-sm">
           <option value="">All statuses</option>
-          <option value="tender"     {% if request.GET.status == 'tender' %}selected{% endif %}>Tender</option>
-          <option value="awarded"    {% if request.GET.status == 'awarded' %}selected{% endif %}>Awarded</option>
-          <option value="active"     {% if request.GET.status == 'active' %}selected{% endif %}>Active</option>
-          <option value="on_hold"    {% if request.GET.status == 'on_hold' %}selected{% endif %}>On Hold</option>
-          <option value="completed"  {% if request.GET.status == 'completed' %}selected{% endif %}>Completed</option>
-          <option value="closed"     {% if request.GET.status == 'closed' %}selected{% endif %}>Closed</option>
+          {% for value,label in status_choices %}
+          <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
         </select>
       </div>
       <div class="col-6 col-md-2">
         <label class="form-label fw-semibold small mb-1">Type</label>
         <select name="type" class="form-select form-select-sm">
           <option value="">All types</option>
-          <option value="roads"       {% if request.GET.type == 'roads' %}selected{% endif %}>Roads</option>
-          <option value="bridges"     {% if request.GET.type == 'bridges' %}selected{% endif %}>Bridges</option>
-          <option value="buildings"   {% if request.GET.type == 'buildings' %}selected{% endif %}>Buildings</option>
-          <option value="utilities"   {% if request.GET.type == 'utilities' %}selected{% endif %}>Utilities</option>
-          <option value="marine"      {% if request.GET.type == 'marine' %}selected{% endif %}>Marine</option>
+          {% for value,label in project_type_choices %}
+          <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
         </select>
       </div>
       <div class="col-12 col-md-3 d-flex gap-2">
@@ -68,6 +63,9 @@
         </button>
         <a href="/projects/" class="btn btn-sm btn-outline-secondary">
           <i class="bi bi-x-lg"></i>
+        </a>
+        <a href="?{{ request.GET.urlencode }}&export=csv" class="btn btn-sm btn-outline-secondary" aria-label="Export filtered projects">
+          <i class="bi bi-download"></i>
         </a>
         <!-- Toggle view -->
         <div class="btn-group btn-group-sm">
@@ -80,6 +78,13 @@
         </div>
       </div>
     </form>
+    <div class="d-flex align-items-center gap-2 flex-wrap mt-3">
+      <span class="small fw-semibold text-muted">Saved filters</span>
+      <a href="?status=ACTIVE" class="btn btn-sm btn-outline-secondary">Active</a>
+      <a href="?status=MOBILISATION" class="btn btn-sm btn-outline-secondary">Mobilisation</a>
+      <a href="?type=BUILDING" class="btn btn-sm btn-outline-secondary">Building</a>
+      <a href="?type=CIVIL" class="btn btn-sm btn-outline-secondary">Civil</a>
+    </div>
   </div>
 </div>
 
@@ -99,37 +104,33 @@
                  style="font-size:0.95rem; line-height:1.3;">
                 {{ project.name }}
               </a>
-              <span class="text-muted" style="font-size:0.75rem;">{{ project.project_code }}</span>
+              <span class="text-muted" style="font-size:0.75rem;">{{ project.project_id }}</span>
             </div>
             <div class="text-end flex-shrink-0">
-              {% if project.status == 'active' %}
+              {% if project.status == 'ACTIVE' %}
                 <span class="badge badge-rag-green">Active</span>
-              {% elif project.status == 'awarded' %}
+              {% elif project.status == 'AWARDED' %}
                 <span class="badge bg-info text-dark">Awarded</span>
-              {% elif project.status == 'tender' %}
+              {% elif project.status == 'TENDERING' %}
                 <span class="badge bg-warning text-dark">Tender</span>
-              {% elif project.status == 'on_hold' %}
-                <span class="badge badge-rag-amber">On Hold</span>
-              {% elif project.status == 'completed' %}
+              {% elif project.is_complete %}
                 <span class="badge bg-primary">Completed</span>
-              {% elif project.status == 'closed' %}
-                <span class="badge bg-secondary">Closed</span>
               {% else %}
-                <span class="badge bg-secondary">{{ project.status|title }}</span>
+                <span class="badge bg-secondary">{{ project.get_status_display }}</span>
               {% endif %}
             </div>
           </div>
 
           <!-- Location -->
           <div class="text-muted small mb-2">
-            <i class="bi bi-geo-alt me-1"></i>{{ project.location|default:"Location TBC" }}
+            <i class="bi bi-geo-alt me-1"></i>{{ project.site_address|default:project.province|default:"Location TBC" }}
           </div>
 
           <!-- Contract Value -->
           <div class="d-flex justify-content-between align-items-center py-2 border-top border-bottom mb-2">
             <span class="text-muted small">Contract Value</span>
             <span class="fw-bold" style="color:var(--kc-primary); font-size:0.9rem;">
-              PGK {{ project.contract.contract_value|floatformat:0|default:"—" }}
+              PGK {{ project.contract_value|floatformat:0|default:"—" }}
             </span>
           </div>
 
@@ -141,7 +142,7 @@
             </div>
             <div class="col-6 text-end">
               <i class="bi bi-calendar3 me-1"></i>
-              {{ project.end_date|date:"M Y"|default:"—" }}
+              {{ project.target_completion_date|date:"M Y"|default:"—" }}
             </div>
           </div>
 
@@ -198,10 +199,27 @@
 <!-- ── Table View (hidden by default) ── -->
 <div id="tableView" class="d-none">
   <div class="content-card">
+    <form method="post">
+      {% csrf_token %}
+      {% if user.is_superuser or user.is_md or user.is_admin %}
+      <div class="cc-header gap-2 flex-wrap">
+        <h5 class="mb-0"><i class="bi bi-check2-square me-2"></i>Bulk Actions</h5>
+        <div class="d-flex gap-2">
+          <select name="bulk_status" class="form-select form-select-sm" aria-label="Bulk project status">
+            <option value="">Set status...</option>
+            {% for value,label in status_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+          <button class="btn btn-sm btn-primary" type="submit">Apply</button>
+        </div>
+      </div>
+      {% endif %}
     <div class="table-responsive">
-      <table class="table table-custom mb-0">
+      <table class="table table-custom table-mobile-stack mb-0">
         <thead>
           <tr>
+            {% if user.is_superuser or user.is_md or user.is_admin %}<th><input type="checkbox" class="form-check-input" id="selectAllProjects" aria-label="Select all projects"></th>{% endif %}
             <th>Project</th>
             <th>Code</th>
             <th>Type</th>
@@ -216,38 +234,39 @@
         <tbody>
           {% for project in projects %}
           <tr>
-            <td class="fw-semibold">
+            {% if user.is_superuser or user.is_md or user.is_admin %}
+            <td data-label="Select"><input type="checkbox" class="form-check-input project-select" name="selected_projects" value="{{ project.pk }}" aria-label="Select {{ project.name }}"></td>
+            {% endif %}
+            <td class="fw-semibold" data-label="Project">
               <a href="/projects/{{ project.pk }}/" class="text-decoration-none text-dark">
                 {{ project.name }}
               </a>
             </td>
-            <td class="text-muted small">{{ project.project_code }}</td>
-            <td class="text-muted small">{{ project.project_type|title|default:"—" }}</td>
-            <td>
-              {% if project.status == 'active' %}
-                <span class="badge badge-rag-green">Active</span>
-              {% elif project.status == 'awarded' %}
-                <span class="badge bg-info text-dark">Awarded</span>
-              {% elif project.status == 'tender' %}
-                <span class="badge bg-warning text-dark">Tender</span>
-              {% elif project.status == 'on_hold' %}
-                <span class="badge badge-rag-amber">On Hold</span>
-              {% elif project.status == 'completed' %}
-                <span class="badge bg-primary">Completed</span>
+            <td class="text-muted small" data-label="Code">{{ project.project_id }}</td>
+            <td class="text-muted small" data-label="Type">{{ project.get_project_type_display|default:"—" }}</td>
+            <td data-label="Status">
+              {% if project.status == 'ACTIVE' %}
+                <span class="badge badge-rag-green status-chip">Active</span>
+              {% elif project.status == 'AWARDED' %}
+                <span class="badge bg-info text-dark status-chip">Awarded</span>
+              {% elif project.status == 'TENDERING' %}
+                <span class="badge bg-warning text-dark status-chip">Tender</span>
+              {% elif project.is_complete %}
+                <span class="badge bg-primary status-chip">Completed</span>
               {% else %}
-                <span class="badge bg-secondary">{{ project.status|title }}</span>
+                <span class="badge bg-secondary status-chip">{{ project.get_status_display }}</span>
               {% endif %}
             </td>
-            <td class="fw-medium">{{ project.contract.contract_value|floatformat:0|default:"—" }}</td>
-            <td class="small">{{ project.project_manager.get_full_name|default:"—" }}</td>
-            <td class="small text-muted">{{ project.end_date|date:"d M Y"|default:"—" }}</td>
-            <td>
+            <td class="fw-medium" data-label="Contract Value">{{ project.contract_value|floatformat:0|default:"—" }}</td>
+            <td class="small" data-label="Project Manager">{{ project.project_manager.get_full_name|default:"—" }}</td>
+            <td class="small text-muted" data-label="End Date">{{ project.target_completion_date|date:"d M Y"|default:"—" }}</td>
+            <td data-label="RAG">
               <span class="badge {% if project.budget_rag == 'G' %}badge-rag-green{% elif project.budget_rag == 'A' %}badge-rag-amber{% elif project.budget_rag == 'R' %}badge-rag-red{% else %}bg-secondary{% endif %}" style="font-size:0.62rem;">B</span>
               <span class="badge {% if project.schedule_rag == 'G' %}badge-rag-green{% elif project.schedule_rag == 'A' %}badge-rag-amber{% elif project.schedule_rag == 'R' %}badge-rag-red{% else %}bg-secondary{% endif %}" style="font-size:0.62rem;">S</span>
               <span class="badge {% if project.safety_rag == 'G' %}badge-rag-green{% elif project.safety_rag == 'A' %}badge-rag-amber{% elif project.safety_rag == 'R' %}badge-rag-red{% else %}bg-secondary{% endif %}" style="font-size:0.62rem;">H</span>
             </td>
-            <td class="text-end">
-              <a href="/projects/{{ project.pk }}/" class="btn btn-sm btn-outline-secondary">
+            <td class="text-end" data-label="Actions">
+              <a href="/projects/{{ project.pk }}/" class="btn btn-sm btn-outline-secondary icon-btn" aria-label="Open {{ project.name }}">
                 <i class="bi bi-eye"></i>
               </a>
             </td>
@@ -263,6 +282,7 @@
         </tbody>
       </table>
     </div>
+    </form>
     {% include "partials/pagination.html" %}
   </div>
 </div>
@@ -294,6 +314,15 @@
   // Restore preference
   if (localStorage.getItem('kc_proj_view') === 'table') {
     btnTable.click();
+  }
+
+  const selectAllProjects = document.getElementById('selectAllProjects');
+  if (selectAllProjects) {
+    selectAllProjects.addEventListener('change', () => {
+      document.querySelectorAll('.project-select').forEach((box) => {
+        box.checked = selectAllProjects.checked;
+      });
+    });
   }
 </script>
 {% endblock %}

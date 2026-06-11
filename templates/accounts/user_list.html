@@ -117,21 +117,11 @@
           </td>
           <td class="text-muted small">{{ member.email|default:"—" }}</td>
           <td>
-            {% with role=member.profile.role %}
-              {% if role == 'admin' or member.is_superuser %}
-                <span class="badge bg-danger">Admin</span>
-              {% elif role == 'pm' %}
-                <span class="badge bg-primary">Project Manager</span>
-              {% elif role == 'engineer' %}
-                <span class="badge" style="background:#1a3c5e;">Site Engineer</span>
-              {% elif role == 'finance' %}
-                <span class="badge bg-success">Finance</span>
-              {% elif role == 'safety' %}
-                <span class="badge bg-warning text-dark">Safety Officer</span>
-              {% else %}
-                <span class="badge bg-secondary">{{ role|title|default:"Viewer" }}</span>
-              {% endif %}
-            {% endwith %}
+            {% if member.is_superuser %}
+              <span class="badge bg-danger">Super Admin</span>
+            {% else %}
+              <span class="badge bg-secondary">{{ member.get_role_display }}</span>
+            {% endif %}
           </td>
           <td>
             {% if member.is_active %}

@@ -30,7 +30,11 @@ from django.views.generic import (
     UpdateView,
 )
 
-from apps.projects.models import Project
+from apps.core.permissions import accessible_projects, can_approve_dsr, can_submit_dsr
+from apps.ipc.models import IPCLineItem
+from apps.procurement.models import StockLedger
+from apps.schedule.models import Activity
+from apps.schedule.models import ProgressEntry
 
 from .forms import (
     DSRActivityFormSet,
@@ -41,6 +45,7 @@ from .forms import (
     DSRLabourFormSet,
     DSRMaterialUsageFormSet,
     DSRPhotoForm,
+    DSRPhotoFormSet,
     DSRReturnForm,
     DSRVisitorFormSet,
 )
@@ -65,7 +70,7 @@ class DSRListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         qs = DailySiteReport.objects.select_related(
             "project", "prepared_by"
-        ).order_by("-date", "-dsr_number")
+        ).filter(project__in=accessible_projects(self.request.user)).order_by("-date", "-dsr_number")
 
         project_pk = self.request.GET.get("project")
         if project_pk:
@@ -87,7 +92,7 @@ class DSRListView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["projects"] = Project.objects.all()
+        ctx["projects"] = accessible_projects(self.request.user)
         ctx["status_choices"] = DailySiteReport.STATUS_CHOICES
         ctx["selected_project"] = self.request.GET.get("project", "")
         ctx["selected_status"] = self.request.GET.get("status", "")
@@ -104,15 +109,65 @@ class DSRCreateView(LoginRequiredMixin, CreateView):
     form_class = DSRForm
     template_name = "dsr/dsr_form.html"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["projects"] = accessible_projects(self.request.user)
+        return kwargs
+
+    def _selected_project(self):
+        project_id = self.request.POST.get("project") if self.request.POST else None
+        if project_id:
+            return accessible_projects(self.request.user).filter(pk=project_id).first()
+        return None
+
+    def _scope_formsets(self, formsets, project):
+        if not project:
+            return
+        for formset in formsets:
+            for child_form in formset.forms:
+                fields = child_form.fields
+                if "wbs_activity" in fields:
+                    fields["wbs_activity"].queryset = project.wbs_activities.all()
+                if "schedule_activity" in fields:
+                    fields["schedule_activity"].queryset = Activity.objects.filter(programme__project=project)
+                if "ipc_line_item" in fields:
+                    fields["ipc_line_item"].queryset = IPCLineItem.objects.filter(ipc__project=project)
+                if "material" in fields:
+                    fields["material"].queryset = fields["material"].queryset.all()
+                if "stock_ledger_entry" in fields:
+                    fields["stock_ledger_entry"].queryset = project.stock_ledger_entries.all()
+                if "rfi" in fields:
+                    fields["rfi"].queryset = project.rfis.all()
+                if "ncr" in fields:
+                    fields["ncr"].queryset = project.ncrs.all()
+                if "incident" in fields:
+                    fields["incident"].queryset = project.incidents.all()
+                if "delay_event" in fields:
+                    fields["delay_event"].queryset = project.delay_events.all()
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         post = self.request.POST if self.request.POST else None
+        files = self.request.FILES if self.request.FILES else None
         ctx["activity_formset"] = DSRActivityFormSet(post, prefix="activities")
         ctx["labour_formset"] = DSRLabourFormSet(post, prefix="labour")
         ctx["visitor_formset"] = DSRVisitorFormSet(post, prefix="visitors")
         ctx["equipment_formset"] = DSREquipmentFormSet(post, prefix="equipment")
         ctx["material_usage_formset"] = DSRMaterialUsageFormSet(post, prefix="mat_usage")
+        ctx["photo_formset"] = DSRPhotoFormSet(post, files, prefix="photos")
         ctx["issue_formset"] = DSRIssueFormSet(post, prefix="issues")
+        self._scope_formsets(
+            [
+                ctx["activity_formset"],
+                ctx["labour_formset"],
+                ctx["visitor_formset"],
+                ctx["equipment_formset"],
+                ctx["material_usage_formset"],
+                ctx["photo_formset"],
+                ctx["issue_formset"],
+            ],
+            self._selected_project(),
+        )
         return ctx
 
     def form_valid(self, form):
@@ -123,14 +178,24 @@ class DSRCreateView(LoginRequiredMixin, CreateView):
             ctx["visitor_formset"],
             ctx["equipment_formset"],
             ctx["material_usage_formset"],
+            ctx["photo_formset"],
             ctx["issue_formset"],
         ]
         if not all(fs.is_valid() for fs in formsets):
+            return self.form_invalid(form)
+        if not accessible_projects(self.request.user).filter(pk=form.instance.project_id).exists():
+            messages.error(self.request, "You do not have access to create a DSR for this project.")
             return self.form_invalid(form)
 
         with transaction.atomic():
             form.instance.created_by = self.request.user
             form.instance.updated_by = self.request.user
+            user = self.request.user
+            if getattr(user, "is_subcontractor", False):
+                try:
+                    form.instance.work_package = user.subcontract.work_package
+                except Exception:
+                    pass
             self.object = form.save()
             for fs in formsets:
                 fs.instance = self.object
@@ -157,14 +222,17 @@ class DSRDetailView(LoginRequiredMixin, DetailView):
             "project",
             "prepared_by",
             "approved_by",
-        ).prefetch_related(
+        ).filter(project__in=accessible_projects(self.request.user)).prefetch_related(
             "activities__wbs_activity",
+            "activities__schedule_activity",
+            "activities__ipc_line_item__boq_item",
             "activities__crew",
             "labour_records",
             "visitors",
             "equipment_records__equipment",
             "material_deliveries__grn",
             "material_usages__material",
+            "material_usages__stock_ledger_entry",
             "photos",
             "issues__raised_by",
         )
@@ -173,10 +241,17 @@ class DSRDetailView(LoginRequiredMixin, DetailView):
         ctx = super().get_context_data(**kwargs)
         dsr = self.object
         ctx["can_edit"] = dsr.can_edit
-        ctx["can_submit"] = dsr.status == DailySiteReport.STATUS_DRAFT and not dsr.is_locked
-        ctx["can_approve"] = dsr.status == DailySiteReport.STATUS_SUBMITTED
-        ctx["can_return"] = dsr.status == DailySiteReport.STATUS_SUBMITTED
-        ctx["photo_form"] = DSRPhotoForm()
+        ctx["can_submit"] = (
+            dsr.status == DailySiteReport.STATUS_DRAFT
+            and not dsr.is_locked
+            and can_submit_dsr(self.request.user, dsr)
+        )
+        ctx["can_approve"] = (
+            dsr.status == DailySiteReport.STATUS_SUBMITTED
+            and can_approve_dsr(self.request.user, dsr)
+        )
+        ctx["can_return"] = ctx["can_approve"]
+        ctx["photo_form"] = DSRPhotoForm(project=dsr.project)
         ctx["issue_form"] = DSRIssueForm(initial={"raised_by": self.request.user, "date": dsr.date})
         return ctx
 
@@ -190,6 +265,14 @@ class DSRUpdateView(LoginRequiredMixin, UpdateView):
     model = DailySiteReport
     form_class = DSRForm
     template_name = "dsr/dsr_form.html"
+
+    def get_queryset(self):
+        return DailySiteReport.objects.filter(project__in=accessible_projects(self.request.user))
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["projects"] = accessible_projects(self.request.user)
+        return kwargs
 
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
@@ -207,6 +290,7 @@ class DSRUpdateView(LoginRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         post = self.request.POST if self.request.POST else None
+        files = self.request.FILES if self.request.FILES else None
         ctx["activity_formset"] = DSRActivityFormSet(
             post, instance=self.object, prefix="activities"
         )
@@ -222,8 +306,24 @@ class DSRUpdateView(LoginRequiredMixin, UpdateView):
         ctx["material_usage_formset"] = DSRMaterialUsageFormSet(
             post, instance=self.object, prefix="mat_usage"
         )
+        ctx["photo_formset"] = DSRPhotoFormSet(
+            post, files, instance=self.object, prefix="photos"
+        )
         ctx["issue_formset"] = DSRIssueFormSet(
             post, instance=self.object, prefix="issues"
+        )
+        DSRCreateView._scope_formsets(
+            self,
+            [
+                ctx["activity_formset"],
+                ctx["labour_formset"],
+                ctx["visitor_formset"],
+                ctx["equipment_formset"],
+                ctx["material_usage_formset"],
+                ctx["photo_formset"],
+                ctx["issue_formset"],
+            ],
+            self.object.project,
         )
         return ctx
 
@@ -235,6 +335,7 @@ class DSRUpdateView(LoginRequiredMixin, UpdateView):
             ctx["visitor_formset"],
             ctx["equipment_formset"],
             ctx["material_usage_formset"],
+            ctx["photo_formset"],
             ctx["issue_formset"],
         ]
         if not all(fs.is_valid() for fs in formsets):
@@ -260,7 +361,14 @@ class DSRSubmitView(LoginRequiredMixin, View):
     """POST-only: submit a draft DSR for approval."""
 
     def post(self, request, pk):
-        dsr = get_object_or_404(DailySiteReport, pk=pk)
+        dsr = get_object_or_404(
+            DailySiteReport,
+            pk=pk,
+            project__in=accessible_projects(request.user),
+        )
+        if not can_submit_dsr(request.user, dsr):
+            messages.error(request, "You do not have permission to submit this DSR.")
+            return redirect(dsr.get_absolute_url())
         if dsr.status != DailySiteReport.STATUS_DRAFT:
             messages.error(request, "Only draft DSRs can be submitted.")
             return redirect(dsr.get_absolute_url())
@@ -284,28 +392,71 @@ class DSRSubmitView(LoginRequiredMixin, View):
 class DSRApproveView(LoginRequiredMixin, View):
     """POST-only: approve and lock a submitted DSR."""
 
+    def _sync_schedule_progress(self, dsr, user):
+        for activity in dsr.activities.filter(schedule_activity__isnull=False):
+            ProgressEntry.objects.update_or_create(
+                activity=activity.schedule_activity,
+                date=dsr.date,
+                defaults={
+                    "percent_complete": activity.percent_complete,
+                    "recorded_by": user,
+                    "notes": f"Progress recorded from {dsr.dsr_number}: {activity.description}",
+                    "dsr_id": dsr.pk,
+                    "created_by": user,
+                    "updated_by": user,
+                },
+            )
+
+    def _sync_material_usage(self, dsr, user):
+        for usage in dsr.material_usages.filter(stock_ledger_entry__isnull=True):
+            ledger = StockLedger.objects.create(
+                project=dsr.project,
+                material=usage.material,
+                date=dsr.date,
+                transaction_type=StockLedger.TYPE_ISSUE,
+                quantity=usage.quantity_used,
+                reference=dsr.dsr_number,
+                recorded_by=user,
+                notes=usage.notes or f"Issued to works from {dsr.dsr_number}",
+                created_by=user,
+                updated_by=user,
+            )
+            usage.stock_ledger_entry = ledger
+            usage.updated_by = user
+            usage.save(update_fields=["stock_ledger_entry", "updated_by", "updated_at"])
+
     def post(self, request, pk):
-        dsr = get_object_or_404(DailySiteReport, pk=pk)
+        dsr = get_object_or_404(
+            DailySiteReport,
+            pk=pk,
+            project__in=accessible_projects(request.user),
+        )
+        if not can_approve_dsr(request.user, dsr):
+            messages.error(request, "You do not have permission to approve this DSR.")
+            return redirect(dsr.get_absolute_url())
         if dsr.status != DailySiteReport.STATUS_SUBMITTED:
             messages.error(request, "Only submitted DSRs can be approved.")
             return redirect(dsr.get_absolute_url())
-        dsr.status = DailySiteReport.STATUS_APPROVED
-        dsr.approved_by = request.user
-        dsr.approved_at = timezone.now()
-        dsr.is_locked = True
-        dsr.updated_by = request.user
-        dsr.save(
-            update_fields=[
-                "status",
-                "approved_by",
-                "approved_at",
-                "is_locked",
-                "updated_by",
-                "updated_at",
-            ]
-        )
-        from apps.core.models import AuditLog
-        AuditLog.log(request.user, AuditLog.ACTION_APPROVE, dsr, request=request)
+        with transaction.atomic():
+            dsr.status = DailySiteReport.STATUS_APPROVED
+            dsr.approved_by = request.user
+            dsr.approved_at = timezone.now()
+            dsr.is_locked = True
+            dsr.updated_by = request.user
+            dsr.save(
+                update_fields=[
+                    "status",
+                    "approved_by",
+                    "approved_at",
+                    "is_locked",
+                    "updated_by",
+                    "updated_at",
+                ]
+            )
+            self._sync_schedule_progress(dsr, request.user)
+            self._sync_material_usage(dsr, request.user)
+            from apps.core.models import AuditLog
+            AuditLog.log(request.user, AuditLog.ACTION_APPROVE, dsr, request=request)
         messages.success(request, f"{dsr.dsr_number} approved and locked.")
         return redirect(dsr.get_absolute_url())
 
@@ -322,7 +473,11 @@ class DSRReturnView(LoginRequiredMixin, FormView):
     template_name = "dsr/dsr_return.html"
 
     def get_dsr(self):
-        return get_object_or_404(DailySiteReport, pk=self.kwargs["pk"])
+        return get_object_or_404(
+            DailySiteReport,
+            pk=self.kwargs["pk"],
+            project__in=accessible_projects(self.request.user),
+        )
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -357,12 +512,16 @@ class DSRPhotoUploadView(LoginRequiredMixin, View):
     """
 
     def post(self, request, pk):
-        dsr = get_object_or_404(DailySiteReport, pk=pk)
+        dsr = get_object_or_404(
+            DailySiteReport,
+            pk=pk,
+            project__in=accessible_projects(request.user),
+        )
         if dsr.is_locked:
             return JsonResponse(
                 {"success": False, "error": "DSR is locked."}, status=403
             )
-        form = DSRPhotoForm(request.POST, request.FILES)
+        form = DSRPhotoForm(request.POST, request.FILES, project=dsr.project)
         if form.is_valid():
             photo = form.save(commit=False)
             photo.dsr = dsr
@@ -394,13 +553,21 @@ class DSRPDFView(LoginRequiredMixin, DetailView):
     model = DailySiteReport
     context_object_name = "dsr"
 
+    def get_queryset(self):
+        return DailySiteReport.objects.filter(
+            project__in=accessible_projects(self.request.user)
+        )
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         dsr = self.object
         ctx["activities"] = dsr.activities.all()
-        ctx["labour_entries"] = dsr.labour_entries.select_related("worker").all()
-        ctx["equipment_entries"] = dsr.equipment_entries.select_related("equipment").all()
+        ctx["labour_entries"] = dsr.labour_records.all()
+        ctx["equipment_entries"] = dsr.equipment_records.select_related("equipment").all()
         ctx["material_deliveries"] = dsr.material_deliveries.all()
+        ctx["material_usages"] = dsr.material_usages.select_related(
+            "material", "stock_ledger_entry"
+        ).all()
         ctx["photos"] = dsr.photos.all()
         ctx["issues"] = dsr.issues.all()
         return ctx

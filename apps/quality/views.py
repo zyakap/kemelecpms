@@ -9,17 +9,30 @@ from django.views.generic import (
     UpdateView,
 )
 
+from apps.core.permissions import accessible_projects, can_manage_quality
+from apps.core.models import AuditLog
 from apps.projects.models import Project
 
 from .forms import (
     DefectForm,
+    InspectionChecklistForm,
+    InspectionChecklistItemForm,
     InspectionRecordForm,
     ITPForm,
     ITPItemForm,
     MaterialTestResultForm,
     NCRForm,
 )
-from .models import Defect, ITP, InspectionRecord, ITPItem, MaterialTestResult, NCR
+from .models import (
+    Defect,
+    ITP,
+    InspectionChecklist,
+    InspectionChecklistItem,
+    InspectionRecord,
+    ITPItem,
+    MaterialTestResult,
+    NCR,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -32,7 +45,10 @@ class ProjectMixin(LoginRequiredMixin):
 
     def get_project(self):
         if not hasattr(self, "_project"):
-            self._project = get_object_or_404(Project, pk=self.kwargs["project_pk"])
+            self._project = get_object_or_404(
+                accessible_projects(self.request.user),
+                pk=self.kwargs["project_pk"],
+            )
         return self._project
 
     def get_context_data(self, **kwargs):
@@ -75,6 +91,9 @@ class ITPCreateView(ProjectMixin, CreateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_quality(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to create ITPs for this project.")
+            return redirect(reverse_lazy("quality:itp-list", kwargs={"project_pk": self.get_project().pk}))
         form.instance.project = self.get_project()
         form.instance.created_by = self.request.user
         messages.success(self.request, "ITP created successfully.")
@@ -99,6 +118,7 @@ class ITPDetailView(ProjectMixin, DetailView):
         itp = self.object
         ctx["items"] = itp.items.order_by("sequence").prefetch_related("inspection_records")
         ctx["itp_item_form"] = ITPItemForm(itp=itp)
+        ctx["checklists"] = itp.checklists.prefetch_related("items").order_by("-inspection_date")
         return ctx
 
 
@@ -116,7 +136,11 @@ class InspectionRecordCreateView(LoginRequiredMixin, CreateView):
 
     def get_itp_item(self):
         if not hasattr(self, "_itp_item"):
-            self._itp_item = get_object_or_404(ITPItem, pk=self.kwargs["itp_item_pk"])
+            self._itp_item = get_object_or_404(
+                ITPItem,
+                pk=self.kwargs["itp_item_pk"],
+                itp__project__in=accessible_projects(self.request.user),
+            )
         return self._itp_item
 
     def get_form_kwargs(self):
@@ -132,6 +156,17 @@ class InspectionRecordCreateView(LoginRequiredMixin, CreateView):
         return ctx
 
     def form_valid(self, form):
+        if not can_manage_quality(self.request.user, self.get_itp_item().itp.project):
+            messages.error(self.request, "You do not have permission to record inspections for this project.")
+            return redirect(
+                reverse_lazy(
+                    "quality:itp-detail",
+                    kwargs={
+                        "project_pk": self.get_itp_item().itp.project_id,
+                        "pk": self.get_itp_item().itp_id,
+                    },
+                )
+            )
         form.instance.itp_item = self.get_itp_item()
         form.instance.created_by = self.request.user
         messages.success(self.request, "Inspection record saved.")
@@ -143,6 +178,80 @@ class InspectionRecordCreateView(LoginRequiredMixin, CreateView):
             "quality:itp-detail",
             kwargs={"project_pk": itp.project_id, "pk": itp.pk},
         )
+
+
+class InspectionChecklistCreateView(ProjectMixin, CreateView):
+    model = InspectionChecklist
+    form_class = InspectionChecklistForm
+    template_name = "quality/checklist_form.html"
+
+    def get_itp(self):
+        if not hasattr(self, "_itp"):
+            self._itp = get_object_or_404(ITP, pk=self.kwargs["itp_pk"], project=self.get_project())
+        return self._itp
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["itp"] = self.get_itp()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["itp"] = self.get_itp()
+        return ctx
+
+    def form_valid(self, form):
+        if not can_manage_quality(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to create inspection checklists for this project.")
+            return redirect(self.get_success_url())
+        form.instance.itp = self.get_itp()
+        form.instance.inspected_by = self.request.user
+        form.instance.created_by = self.request.user
+        messages.success(self.request, "Inspection checklist created.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy("quality:itp-detail", kwargs={"project_pk": self.get_project().pk, "pk": self.get_itp().pk})
+
+
+class InspectionChecklistItemCreateView(ProjectMixin, CreateView):
+    model = InspectionChecklistItem
+    form_class = InspectionChecklistItemForm
+    template_name = "quality/checklist_item_form.html"
+
+    def get_checklist(self):
+        if not hasattr(self, "_checklist"):
+            self._checklist = get_object_or_404(
+                InspectionChecklist,
+                pk=self.kwargs["checklist_pk"],
+                itp__project=self.get_project(),
+            )
+        return self._checklist
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["checklist"] = self.get_checklist()
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["checklist"] = self.get_checklist()
+        ctx["itp"] = self.get_checklist().itp
+        return ctx
+
+    def form_valid(self, form):
+        if not can_manage_quality(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to add checklist items for this project.")
+            return redirect(self.get_success_url())
+        form.instance.checklist = self.get_checklist()
+        form.instance.created_by = self.request.user
+        messages.success(self.request, "Checklist item added.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        checklist = self.get_checklist()
+        return reverse_lazy("quality:itp-detail", kwargs={"project_pk": self.get_project().pk, "pk": checklist.itp_id})
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +297,9 @@ class NCRCreateView(ProjectMixin, CreateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_quality(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to raise NCRs for this project.")
+            return redirect(reverse_lazy("quality:ncr-list", kwargs={"project_pk": self.get_project().pk}))
         form.instance.project = self.get_project()
         form.instance.raised_by = self.request.user
         form.instance.created_by = self.request.user
@@ -212,9 +324,24 @@ class NCRUpdateView(ProjectMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_quality(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to update NCRs for this project.")
+            return redirect(
+                reverse_lazy("quality:ncr-detail", kwargs={"project_pk": self.get_project().pk, "pk": self.object.pk})
+            )
+        old_status = self.object.status
         form.instance.updated_by = self.request.user
         messages.success(self.request, "NCR updated successfully.")
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        if old_status != self.object.status:
+            AuditLog.log(
+                self.request.user,
+                AuditLog.ACTION_UPDATE,
+                self.object,
+                changes=f"NCR status changed from {old_status} to {self.object.status}.",
+                request=self.request,
+            )
+        return response
 
     def get_success_url(self):
         return reverse_lazy(
@@ -274,6 +401,9 @@ class MaterialTestCreateView(ProjectMixin, CreateView):
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_quality(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to record material tests for this project.")
+            return redirect(reverse_lazy("quality:materialtest-list", kwargs={"project_pk": self.get_project().pk}))
         form.instance.project = self.get_project()
         form.instance.created_by = self.request.user
         messages.success(self.request, "Material test result recorded.")
@@ -328,9 +458,13 @@ class DefectCreateView(ProjectMixin, CreateView):
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs["project"] = self.get_project()
+        kwargs["user"] = self.request.user
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_quality(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to log defects for this project.")
+            return redirect(reverse_lazy("quality:defect-list", kwargs={"project_pk": self.get_project().pk}))
         form.instance.project = self.get_project()
         form.instance.created_by = self.request.user
         messages.success(self.request, "Defect logged successfully.")
@@ -351,12 +485,26 @@ class DefectUpdateView(ProjectMixin, UpdateView):
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs["project"] = self.get_project()
+        kwargs["user"] = self.request.user
         return kwargs
 
     def form_valid(self, form):
+        if not can_manage_quality(self.request.user, self.get_project()):
+            messages.error(self.request, "You do not have permission to update defects for this project.")
+            return redirect(reverse_lazy("quality:defect-list", kwargs={"project_pk": self.get_project().pk}))
+        old_status = self.object.status
         form.instance.updated_by = self.request.user
         messages.success(self.request, "Defect updated successfully.")
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        if old_status != self.object.status:
+            AuditLog.log(
+                self.request.user,
+                AuditLog.ACTION_UPDATE,
+                self.object,
+                changes=f"Defect status changed from {old_status} to {self.object.status}.",
+                request=self.request,
+            )
+        return response
 
     def get_success_url(self):
         return reverse_lazy("quality:defect-list", kwargs={"project_pk": self.get_project().pk})

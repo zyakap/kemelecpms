@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Local Content - {{ project.project_id }}{% endblock %}
+{% block active_nav %}compliance{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div><h1><i class="bi bi-people me-2 text-kc-accent"></i>National Participation / Local Content</h1><div class="text-muted small">{{ project.project_id }} - {{ project.name }}</div></div>
+  <a href="{% url 'compliance:local-content-create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Period</a>
+</div>
+<section class="content-card"><div class="table-responsive"><table class="table table-custom table-mobile-stack mb-0"><thead><tr><th>Period</th><th>PNG Labour</th><th>Local Suppliers</th><th>Local Subcontractors</th><th>PNG Materials</th><th></th></tr></thead><tbody>{% for record in records %}<tr><td data-label="Period">{{ record.period_from|date:"d M Y" }} - {{ record.period_to|date:"d M Y" }}</td><td data-label="PNG Labour">{{ record.png_labour_pct|floatformat:1 }}%</td><td data-label="Local Suppliers">{{ record.local_supplier_pct|floatformat:1 }}%</td><td data-label="Local Subcontractors">{{ record.local_subcontractor_pct|floatformat:1 }}%</td><td data-label="PNG Materials">{{ record.png_material_pct|floatformat:1 }}%</td><td data-label="Actions" class="text-end"><a href="{% url 'compliance:local-content-update' project.pk record.pk %}" class="btn btn-sm btn-outline-secondary icon-btn" aria-label="Edit local content period"><i class="bi bi-pencil"></i></a></td></tr>{% empty %}<tr><td colspan="6" class="text-center text-muted py-4">No local content periods recorded.</td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}

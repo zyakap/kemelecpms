@@ -5,6 +5,8 @@ app_name = "dashboard"
 
 urlpatterns = [
     path("", views.HomeRedirectView.as_view(), name="home"),
+    path("role/", views.RoleWorkspaceView.as_view(), name="role-workspace"),
+    path("switch-project/", views.ProjectSwitchView.as_view(), name="project-switch"),
     path("portfolio/", views.PortfolioDashboardView.as_view(), name="portfolio"),
     path("project/<int:pk>/", views.ProjectDashboardView.as_view(), name="project"),
     # Analytics

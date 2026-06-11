@@ -1,10 +1,12 @@
 from django.urls import path
+from django.views.generic import RedirectView
 
 from . import views
 
 app_name = "tender"
 
 urlpatterns = [
+    path("", RedirectView.as_view(pattern_name="tender:archive-list", permanent=False), name="index"),
     # Archive
     path("library/", views.TenderArchiveListView.as_view(), name="archive-list"),
     path("library/new/", views.TenderArchiveCreateView.as_view(), name="archive-create"),

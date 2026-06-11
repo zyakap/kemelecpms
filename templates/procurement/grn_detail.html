@@ -5,7 +5,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div>
     <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">{{ grn.grn_number }}</h1>
-    <div class="text-muted small">PO: {{ grn.purchase_order.po_number }} | {{ grn.received_date|date:"d M Y" }}</div>
+    <div class="text-muted small">PO: {{ grn.po.po_number }} | {{ grn.delivery_date|date:"d M Y" }}</div>
   </div>
 </div>
 <div class="row g-4">
@@ -15,10 +15,11 @@
       <div class="card-body small">
         <dl class="row mb-0">
           <dt class="col-5 text-muted">GRN Number</dt><dd class="col-7">{{ grn.grn_number }}</dd>
-          <dt class="col-5 text-muted">PO Number</dt><dd class="col-7">{{ grn.purchase_order.po_number }}</dd>
-          <dt class="col-5 text-muted">Received Date</dt><dd class="col-7">{{ grn.received_date|date:"d M Y" }}</dd>
+          <dt class="col-5 text-muted">PO Number</dt><dd class="col-7">{{ grn.po.po_number }}</dd>
+          <dt class="col-5 text-muted">Received Date</dt><dd class="col-7">{{ grn.delivery_date|date:"d M Y" }}</dd>
           <dt class="col-5 text-muted">Received By</dt><dd class="col-7">{{ grn.received_by.get_full_name|default:grn.received_by.email }}</dd>
-          <dt class="col-5 text-muted">Delivery Note</dt><dd class="col-7">{{ grn.delivery_note_number|default:"—" }}</dd>
+          <dt class="col-5 text-muted">Delivered By</dt><dd class="col-7">{{ grn.delivered_by|default:"—" }}</dd>
+          <dt class="col-5 text-muted">Partial Delivery</dt><dd class="col-7">{{ grn.is_partial|yesno:"Yes,No" }}</dd>
           {% if grn.notes %}<dt class="col-5 text-muted">Notes</dt><dd class="col-7">{{ grn.notes }}</dd>{% endif %}
         </dl>
       </div>
@@ -29,7 +30,7 @@
       <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Items Received</div>
       <div class="card-body p-0">
         <table class="table table-hover mb-0 small">
-          <thead class="table-light"><tr><th>Item</th><th>Description</th><th>Unit</th><th class="text-end">Ordered</th><th class="text-end">Received</th><th>Condition</th></tr></thead>
+          <thead class="table-light"><tr><th>Item</th><th>Description</th><th>Unit</th><th class="text-end">Ordered</th><th class="text-end">Received</th><th>Discrepancy</th></tr></thead>
           <tbody>
             {% for item in grn.items.all %}
             <tr>
@@ -37,8 +38,14 @@
               <td>{{ item.po_item.description|truncatechars:30 }}</td>
               <td>{{ item.po_item.unit }}</td>
               <td class="text-end">{{ item.po_item.quantity|floatformat:2 }}</td>
-              <td class="text-end fw-semibold">{{ item.quantity_received|floatformat:2 }}</td>
-              <td>{{ item.get_condition_display }}</td>
+              <td class="text-end fw-semibold">{{ item.quantity_delivered|floatformat:2 }}</td>
+              <td>
+                {% if item.has_discrepancy %}
+                  <span class="badge bg-warning text-dark">{{ item.discrepancy_notes|default:"Yes" }}</span>
+                {% else %}
+                  <span class="badge bg-success">No</span>
+                {% endif %}
+              </td>
             </tr>
             {% empty %}
             <tr><td colspan="6" class="text-muted text-center py-3">No items recorded.</td></tr>

@@ -18,16 +18,20 @@
         </div>
       </div>
       <div class="d-flex gap-2 flex-wrap">
-        {% if dsr.status == 'DRAFT' and request.user == dsr.prepared_by %}
+        {% if can_edit %}
         <a href="{% url 'dsr:dsr_edit' dsr.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+        {% endif %}
+        {% if can_submit %}
         <form method="post" action="{% url 'dsr:dsr_submit' dsr.pk %}" class="d-inline">
           {% csrf_token %}<button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-send me-1"></i>Submit for Approval</button>
         </form>
         {% endif %}
-        {% if dsr.status == 'SUBMITTED' and request.user.is_pm or request.user.is_admin %}
+        {% if can_approve %}
         <form method="post" action="{% url 'dsr:dsr_approve' dsr.pk %}" class="d-inline">
           {% csrf_token %}<button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-lg me-1"></i>Approve</button>
         </form>
+        {% endif %}
+        {% if can_return %}
         <a href="{% url 'dsr:dsr_return' dsr.pk %}" class="btn btn-warning btn-sm"><i class="bi bi-arrow-return-left me-1"></i>Return</a>
         {% endif %}
         {% if dsr.pdf_file %}
@@ -62,18 +66,20 @@
       <div class="card-body p-0">
         <table class="table table-hover mb-0 small">
           <thead class="table-light">
-            <tr><th>Activity</th><th>Location</th><th>Status</th><th>Qty</th><th>% Complete</th></tr>
+            <tr><th>Activity</th><th>Schedule</th><th>IPC</th><th>Location</th><th>Status</th><th>Qty</th><th>% Complete</th></tr>
           </thead>
           <tbody>
-            {% for a in dsr.dsractivity_set.all %}
+            {% for a in dsr.activities.all %}
             <tr>
               <td>{{ a.description }}</td>
+              <td>{% if a.schedule_activity %}{{ a.schedule_activity.name|truncatechars:30 }}{% elif a.wbs_activity %}{{ a.wbs_activity.wbs_code }}{% else %}—{% endif %}</td>
+              <td>{% if a.ipc_line_item %}{{ a.ipc_line_item.boq_item.item_number }}{% else %}—{% endif %}</td>
               <td>{{ a.location_on_site|default:"—" }}</td>
               <td><span class="badge {% if a.status == 'COMPLETED' %}bg-success{% elif a.status == 'IN_PROGRESS' %}bg-primary{% else %}bg-secondary{% endif %}">{{ a.get_status_display }}</span></td>
               <td>{% if a.quantity_achieved %}{{ a.quantity_achieved }} {{ a.unit }}{% else %}—{% endif %}</td>
               <td>{{ a.percent_complete }}%</td>
             </tr>
-            {% empty %}<tr><td colspan="5" class="text-muted text-center py-3">No activities recorded.</td></tr>{% endfor %}
+            {% empty %}<tr><td colspan="7" class="text-muted text-center py-3">No activities recorded.</td></tr>{% endfor %}
           </tbody>
         </table>
       </div>
@@ -84,33 +90,63 @@
       <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)"><i class="bi bi-truck me-2"></i>Equipment on Site</div>
       <div class="card-body p-0">
         <table class="table table-hover mb-0 small">
-          <thead class="table-light"><tr><th>Equipment</th><th>Hours Worked</th><th>Hours Idle</th><th>Hours Breakdown</th></tr></thead>
+          <thead class="table-light"><tr><th>Equipment</th><th>Hours Worked</th><th>Hours Idle</th><th>Hours Breakdown</th><th>Utilisation</th></tr></thead>
           <tbody>
-            {% for eq in dsr.dsrequipment_set.all %}
+            {% for eq in dsr.equipment_records.all %}
             <tr>
               <td>{{ eq.equipment.description }}</td>
               <td class="text-success fw-semibold">{{ eq.hours_worked }}</td>
               <td class="text-warning">{{ eq.hours_idle }}</td>
               <td class="text-danger">{{ eq.hours_breakdown }}</td>
+              <td>{{ eq.utilisation_pct }}%</td>
             </tr>
-            {% empty %}<tr><td colspan="4" class="text-muted text-center py-3">No equipment logged.</td></tr>{% endfor %}
+            {% empty %}<tr><td colspan="5" class="text-muted text-center py-3">No equipment logged.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Materials -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)"><i class="bi bi-box-seam me-2"></i>Material Usage</div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0 small">
+          <thead class="table-light"><tr><th>Material</th><th class="text-end">Qty Used</th><th>Stock Evidence</th></tr></thead>
+          <tbody>
+            {% for usage in dsr.material_usages.all %}
+            <tr>
+              <td>{{ usage.material.name }}</td>
+              <td class="text-end">{{ usage.quantity_used }} {{ usage.material.unit }}</td>
+              <td>{% if usage.stock_ledger_entry %}{{ usage.stock_ledger_entry.get_transaction_type_display }} · {{ usage.stock_ledger_entry.reference }}{% else %}<span class="text-muted">Pending approval sync</span>{% endif %}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-muted text-center py-3">No material usage logged.</td></tr>
+            {% endfor %}
           </tbody>
         </table>
       </div>
     </div>
 
     <!-- Issues -->
-    {% if dsr.dsrissue_set.exists %}
+    {% if dsr.issues.exists %}
     <div class="card border-0 shadow-sm mb-4">
       <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)"><i class="bi bi-exclamation-circle me-2"></i>Issues & Instructions</div>
       <div class="card-body p-0">
         <table class="table mb-0 small">
           <thead class="table-light"><tr><th>Type</th><th>Description</th><th>Date</th><th>Resolved</th></tr></thead>
           <tbody>
-            {% for issue in dsr.dsrissue_set.all %}
+            {% for issue in dsr.issues.all %}
             <tr>
               <td><span class="badge bg-secondary">{{ issue.get_issue_type_display }}</span></td>
-              <td>{{ issue.description }}</td>
+              <td>
+                {{ issue.description }}
+                <div class="text-muted small">
+                  {% if issue.rfi %}RFI: {{ issue.rfi.rfi_number }}{% endif %}
+                  {% if issue.ncr %} NCR: {{ issue.ncr.ncr_number }}{% endif %}
+                  {% if issue.incident %} Incident: {{ issue.incident.incident_number }}{% endif %}
+                  {% if issue.delay_event %} Delay: {{ issue.delay_event.get_delay_type_display }}{% endif %}
+                </div>
+              </td>
               <td>{{ issue.date|date:"d M Y" }}</td>
               <td>{% if issue.resolved %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-x-circle text-danger"></i>{% endif %}</td>
             </tr>
@@ -130,7 +166,7 @@
         <table class="table table-sm mb-0 small">
           <thead class="table-light"><tr><th>Classification</th><th>Nationality</th><th class="text-end">Count</th></tr></thead>
           <tbody>
-            {% for l in dsr.dsrlabour_set.all %}
+            {% for l in dsr.labour_records.all %}
             <tr><td>{{ l.classification }}</td><td>{{ l.nationality }}</td><td class="text-end fw-bold">{{ l.count }}</td></tr>
             {% empty %}<tr><td colspan="3" class="text-muted text-center py-3">No labour data.</td></tr>{% endfor %}
           </tbody>
@@ -140,16 +176,25 @@
 
     <!-- Photo Gallery -->
     <div class="card border-0 shadow-sm">
-      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)"><i class="bi bi-images me-2"></i>Site Photos ({{ dsr.dsrphoto_set.count }})</div>
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)"><i class="bi bi-images me-2"></i>Site Photos ({{ dsr.photos.count }})</div>
       <div class="card-body">
         <div class="row g-2">
-          {% for photo in dsr.dsrphoto_set.all %}
+          {% for photo in dsr.photos.all %}
           <div class="col-6">
             <a href="{{ photo.photo.url }}" target="_blank">
               <img src="{{ photo.photo.url }}" class="img-fluid rounded" alt="{{ photo.caption }}" style="object-fit:cover;height:80px;width:100%">
             </a>
             {% if photo.caption %}<div class="text-muted small mt-1">{{ photo.caption }}</div>{% endif %}
             <span class="badge bg-secondary small">{{ photo.get_tag_display }}</span>
+            {% if photo.schedule_activity or photo.rfi or photo.ncr or photo.defect or photo.incident %}
+            <div class="text-muted small mt-1">
+              {% if photo.schedule_activity %}{{ photo.schedule_activity.name|truncatechars:24 }}{% endif %}
+              {% if photo.rfi %}{{ photo.rfi.rfi_number }}{% endif %}
+              {% if photo.ncr %}{{ photo.ncr.ncr_number }}{% endif %}
+              {% if photo.defect %}{{ photo.defect.defect_number }}{% endif %}
+              {% if photo.incident %}{{ photo.incident.incident_number }}{% endif %}
+            </div>
+            {% endif %}
           </div>
           {% empty %}
           <div class="col-12 text-muted text-center py-2">No photos uploaded.</div>

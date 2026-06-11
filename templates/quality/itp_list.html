@@ -22,7 +22,7 @@
           </span>
         </div>
         <div class="mt-2 d-flex gap-3 small text-muted">
-          <span><i class="bi bi-stop-circle me-1 text-danger"></i>{{ itp.items.filter(inspection_type='HOLD').count }} Hold Points</span>
+          <span><i class="bi bi-stop-circle me-1 text-danger"></i>{{ itp.hold_points_count }} Hold Points</span>
         </div>
         <a href="{% url 'quality:itp-detail' project.pk itp.pk %}" class="btn btn-outline-primary btn-sm mt-2">View ITP</a>
       </div>

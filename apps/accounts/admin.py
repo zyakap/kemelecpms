@@ -10,7 +10,7 @@ class UserProfileInline(admin.StackedInline):
     can_delete = False
     verbose_name_plural = "Profile"
     fk_name = "user"
-    fields = ("profile_photo", "position", "bio", "po_approval_threshold", "signature")
+    fields = ("profile_photo", "position", "bio", "po_approval_threshold", "financial_approval_threshold", "signature")
 
 
 @admin.register(User)
@@ -73,6 +73,6 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ("user", "position", "po_approval_threshold")
+    list_display = ("user", "position", "po_approval_threshold", "financial_approval_threshold")
     search_fields = ("user__email", "user__first_name", "user__last_name", "position")
     raw_id_fields = ("user",)

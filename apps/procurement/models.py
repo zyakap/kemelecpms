@@ -371,6 +371,43 @@ class PurchaseOrder(TimeStampedModel):
         PurchaseOrder.objects.filter(pk=self.pk).update(total_amount=total)
         self.total_amount = total
 
+    @property
+    def total_delivered_value(self):
+        total = Decimal("0.00")
+        for item in self.items.all():
+            delivered_qty = (
+                item.grn_items.aggregate(total=Sum("quantity_delivered"))["total"]
+                or Decimal("0.000")
+            )
+            total += delivered_qty * item.unit_price
+        return total.quantize(Decimal("0.01"))
+
+    @property
+    def total_invoiced_amount(self):
+        result = self.invoices.exclude(
+            status=SupplierInvoice.STATUS_RECEIVED
+        ).aggregate(total=Sum("amount"))["total"]
+        return result or Decimal("0.00")
+
+    @property
+    def unmatched_delivery_value(self):
+        return (self.total_delivered_value - self.total_invoiced_amount).quantize(Decimal("0.01"))
+
+    @property
+    def has_delivery_discrepancies(self):
+        return GRNItem.objects.filter(grn__po=self, has_discrepancy=True).exists()
+
+    @property
+    def is_fully_delivered_by_quantity(self):
+        for item in self.items.all():
+            delivered_qty = (
+                item.grn_items.aggregate(total=Sum("quantity_delivered"))["total"]
+                or Decimal("0.000")
+            )
+            if delivered_qty < item.quantity:
+                return False
+        return self.items.exists()
+
 
 class POItem(TimeStampedModel):
     po = models.ForeignKey(
@@ -454,6 +491,10 @@ class GoodsReceivedNote(TimeStampedModel):
     def get_absolute_url(self):
         return reverse("procurement:grn_detail", kwargs={"pk": self.pk})
 
+    @property
+    def has_discrepancy(self):
+        return self.items.filter(has_discrepancy=True).exists()
+
 
 class GRNItem(TimeStampedModel):
     grn = models.ForeignKey(
@@ -509,6 +550,16 @@ class SupplierInvoice(TimeStampedModel):
         max_length=20, choices=STATUS_CHOICES, default=STATUS_RECEIVED
     )
     is_matched = models.BooleanField(default=False)
+    match_exception_approved = models.BooleanField(default=False)
+    match_exception_reason = models.TextField(blank=True)
+    match_exception_approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="supplier_invoice_match_exceptions_approved",
+    )
+    match_exception_approved_at = models.DateTimeField(null=True, blank=True)
     payment_date = models.DateField(null=True, blank=True)
     payment_reference = models.CharField(max_length=100, blank=True)
     notes = models.TextField(blank=True)
@@ -524,6 +575,29 @@ class SupplierInvoice(TimeStampedModel):
 
     def get_absolute_url(self):
         return reverse("procurement:invoice_list")
+
+    def evaluate_match(self):
+        """Return (is_matched, reason) for PO/GRN/invoice consistency."""
+        if self.supplier_id and self.po_id and self.supplier_id != self.po.supplier_id:
+            return False, "Invoice supplier does not match the PO supplier."
+        if not self.po.grns.exists():
+            return False, "No GRN has been recorded for this PO."
+        if self.po.has_delivery_discrepancies:
+            return False, "One or more GRNs have unresolved discrepancies."
+        delivered_value = self.po.total_delivered_value
+        previously_invoiced = (
+            self.po.invoices.exclude(pk=self.pk)
+            .exclude(status=self.STATUS_RECEIVED)
+            .aggregate(total=Sum("amount"))["total"]
+            or Decimal("0.00")
+        )
+        if self.amount + previously_invoiced > delivered_value:
+            return False, "Invoice amount exceeds delivered value not yet invoiced."
+        return True, ""
+
+    @property
+    def can_progress_with_exception(self):
+        return self.is_matched or self.match_exception_approved
 
 
 # ---------------------------------------------------------------------------
