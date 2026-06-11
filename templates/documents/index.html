@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Document Control — Kemele Construction CPMS{% endblock %}
+{% block active_nav %}documents{% endblock %}
+{% block topbar_title %}Document Control{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">
+    <i class="bi bi-folder me-2" style="color:var(--kc-accent);"></i>Document Control
+  </h1>
+  <div class="d-flex gap-2">
+    <a href="{% url 'documents:projectdoc-templates' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-file-earmark-text me-1"></i>Company Templates
+    </a>
+    {% if can_manage_settings %}
+    <a href="{% url 'documents:company-settings' %}" class="btn btn-kc btn-sm">
+      <i class="bi bi-gear me-1"></i>Document Control Settings
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Project</th>
+          <th class="text-center">Drawings</th>
+          <th class="text-center">Open RFIs</th>
+          <th class="text-center">Pending Submittals</th>
+          <th class="text-center">Documents</th>
+          <th class="text-center">Transmittals</th>
+          <th class="text-end">Registers</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in projects %}
+        <tr>
+          <td>
+            <div class="fw-semibold">{{ p.name }}</div>
+            <div class="text-muted">{{ p.project_id }}</div>
+          </td>
+          <td class="text-center">{{ p.drawing_count }}</td>
+          <td class="text-center">
+            {% if p.open_rfi_count %}<span class="badge bg-warning text-dark">{{ p.open_rfi_count }}</span>{% else %}0{% endif %}
+          </td>
+          <td class="text-center">
+            {% if p.pending_submittal_count %}<span class="badge bg-info text-dark">{{ p.pending_submittal_count }}</span>{% else %}0{% endif %}
+          </td>
+          <td class="text-center">{{ p.document_count }}</td>
+          <td class="text-center">{{ p.transmittal_count }}</td>
+          <td class="text-end">
+            <div class="btn-group btn-group-sm">
+              <a class="btn btn-outline-secondary" href="{% url 'documents:drawing-list' p.pk %}" title="Drawings"><i class="bi bi-bounding-box"></i></a>
+              <a class="btn btn-outline-secondary" href="{% url 'documents:rfi-list' p.pk %}" title="RFIs"><i class="bi bi-question-circle"></i></a>
+              <a class="btn btn-outline-secondary" href="{% url 'documents:submittal-list' p.pk %}" title="Submittals"><i class="bi bi-upload"></i></a>
+              <a class="btn btn-outline-secondary" href="{% url 'documents:correspondence-list' p.pk %}" title="Correspondence"><i class="bi bi-envelope"></i></a>
+              <a class="btn btn-outline-secondary" href="{% url 'documents:transmittal-list' p.pk %}" title="Transmittals"><i class="bi bi-send"></i></a>
+              <a class="btn btn-outline-secondary" href="{% url 'documents:projectdoc-list' p.pk %}" title="Document Register"><i class="bi bi-folder2-open"></i></a>
+              <a class="btn btn-outline-secondary" href="{% url 'documents:project-settings' p.pk %}" title="Project Document Settings"><i class="bi bi-gear"></i></a>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-muted text-center py-4">No accessible projects.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

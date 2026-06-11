@@ -60,6 +60,16 @@ urlpatterns = [
         views.NCRUpdateView.as_view(),
         name="ncr-update",
     ),
+    path(
+        "projects/<int:project_pk>/ncrs/<int:pk>/start-review/",
+        views.NCRStartReviewView.as_view(),
+        name="ncr-start-review",
+    ),
+    path(
+        "projects/<int:project_pk>/ncrs/<int:pk>/close/",
+        views.NCRCloseView.as_view(),
+        name="ncr-close",
+    ),
     # Material Test Results
     path(
         "projects/<int:project_pk>/material-tests/",

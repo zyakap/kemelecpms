@@ -2,9 +2,36 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.db import connection
+from django.http import JsonResponse
+from django.views.decorators.cache import never_cache
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.authtoken.views import obtain_auth_token
 
+
+@csrf_exempt
+@never_cache
+def health_check(request):
+    """Lightweight health check for load balancers / uptime monitors.
+
+    No authentication required. Reports overall status and database
+    connectivity (cheap SELECT 1).
+    """
+    database_ok = True
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+    except Exception:
+        database_ok = False
+    return JsonResponse(
+        {"status": "ok" if database_ok else "degraded", "database": database_ok},
+        status=200 if database_ok else 503,
+    )
+
+
 urlpatterns = [
+    path("health/", health_check, name="health-check"),
     path("admin/", admin.site.urls),
     # REST API token authentication endpoint
     path("api/auth/token/", obtain_auth_token, name="api-token-auth"),

@@ -1,7 +1,10 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
+from django.utils import timezone
+from django.views import View
 from django.views.generic import (
     CreateView,
     DetailView,
@@ -11,6 +14,7 @@ from django.views.generic import (
 
 from apps.core.permissions import accessible_projects, can_manage_quality
 from apps.core.models import AuditLog
+from apps.core.workflows import assert_transition
 from apps.projects.models import Project
 
 from .forms import (
@@ -330,6 +334,13 @@ class NCRUpdateView(ProjectMixin, UpdateView):
                 reverse_lazy("quality:ncr-detail", kwargs={"project_pk": self.get_project().pk, "pk": self.object.pk})
             )
         old_status = self.object.status
+        new_status = form.instance.status
+        if old_status != new_status:
+            try:
+                assert_transition("ncr", old_status, new_status)
+            except ValidationError as exc:
+                form.add_error("status", exc.messages[0])
+                return self.form_invalid(form)
         form.instance.updated_by = self.request.user
         messages.success(self.request, "NCR updated successfully.")
         response = super().form_valid(form)
@@ -348,6 +359,79 @@ class NCRUpdateView(ProjectMixin, UpdateView):
             "quality:ncr-detail",
             kwargs={"project_pk": self.get_project().pk, "pk": self.object.pk},
         )
+
+
+class NCRStartReviewView(ProjectMixin, View):
+    """POST-only: move an open NCR to Under Review."""
+
+    http_method_names = ["post"]
+
+    def post(self, request, *args, **kwargs):
+        ncr = get_object_or_404(NCR, pk=kwargs["pk"], project=self.get_project())
+        if not can_manage_quality(request.user, ncr.project):
+            messages.error(request, "You do not have permission to update this NCR.")
+            return redirect(ncr.get_absolute_url())
+        old_status = ncr.status
+        try:
+            assert_transition("ncr", old_status, NCR.STATUS_UNDER_REVIEW)
+        except ValidationError as exc:
+            messages.error(request, exc.messages[0])
+            return redirect(ncr.get_absolute_url())
+        ncr.status = NCR.STATUS_UNDER_REVIEW
+        ncr.updated_by = request.user
+        ncr.save(update_fields=["status", "updated_by", "updated_at"])
+        AuditLog.log(
+            request.user,
+            AuditLog.ACTION_UPDATE,
+            ncr,
+            changes=f"NCR status changed from {old_status} to {NCR.STATUS_UNDER_REVIEW}.",
+            request=request,
+        )
+        messages.success(request, f"{ncr.ncr_number} is now under review.")
+        return redirect(ncr.get_absolute_url())
+
+
+class NCRCloseView(ProjectMixin, View):
+    """POST-only: close an NCR once root cause and corrective action are recorded."""
+
+    http_method_names = ["post"]
+
+    def post(self, request, *args, **kwargs):
+        ncr = get_object_or_404(NCR, pk=kwargs["pk"], project=self.get_project())
+        if not can_manage_quality(request.user, ncr.project):
+            messages.error(request, "You do not have permission to close this NCR.")
+            return redirect(ncr.get_absolute_url())
+        old_status = ncr.status
+        try:
+            assert_transition("ncr", old_status, NCR.STATUS_CLOSED)
+        except ValidationError as exc:
+            messages.error(request, exc.messages[0])
+            return redirect(ncr.get_absolute_url())
+        missing = []
+        if not ncr.root_cause.strip():
+            missing.append("root cause")
+        if not ncr.corrective_action.strip():
+            missing.append("corrective action taken")
+        if missing:
+            messages.error(
+                request,
+                f"Please record the {' and '.join(missing)} (edit the NCR) before closing it.",
+            )
+            return redirect(ncr.get_absolute_url())
+        ncr.status = NCR.STATUS_CLOSED
+        if not ncr.close_out_date:
+            ncr.close_out_date = timezone.now().date()
+        ncr.updated_by = request.user
+        ncr.save(update_fields=["status", "close_out_date", "updated_by", "updated_at"])
+        AuditLog.log(
+            request.user,
+            AuditLog.ACTION_UPDATE,
+            ncr,
+            changes=f"NCR status changed from {old_status} to {NCR.STATUS_CLOSED}.",
+            request=request,
+        )
+        messages.success(request, f"{ncr.ncr_number} closed.")
+        return redirect(ncr.get_absolute_url())
 
 
 class NCRDetailView(ProjectMixin, DetailView):
@@ -493,6 +577,13 @@ class DefectUpdateView(ProjectMixin, UpdateView):
             messages.error(self.request, "You do not have permission to update defects for this project.")
             return redirect(reverse_lazy("quality:defect-list", kwargs={"project_pk": self.get_project().pk}))
         old_status = self.object.status
+        new_status = form.instance.status
+        if old_status != new_status:
+            try:
+                assert_transition("defect", old_status, new_status)
+            except ValidationError as exc:
+                form.add_error("status", exc.messages[0])
+                return self.form_invalid(form)
         form.instance.updated_by = self.request.user
         messages.success(self.request, "Defect updated successfully.")
         response = super().form_valid(form)

@@ -23,38 +23,49 @@ def send_notification_email(self, recipient_email, subject, body):
 
 
 @shared_task
-def create_notification(user_id, notification_type, title, message, link=""):
-    """Create an in-app notification for a user."""
-    from apps.notifications.models import Notification
+def create_notification(user_id, notification_type, title, message, link="", category=None):
+    """
+    Create an in-app notification for a user.
+
+    ``category`` (e.g. "dsr", "budget", "safety", "milestone", "ipc") is
+    matched against the user's notification preferences — see
+    apps.notifications.utils.send_notification.
+    """
+    from apps.notifications.utils import send_notification
     from django.contrib.auth import get_user_model
 
     User = get_user_model()
     try:
         user = User.objects.get(pk=user_id)
-        notif = Notification.objects.create(
-            recipient=user,
-            notification_type=notification_type,
-            title=title,
-            message=message,
-            link=link,
-        )
-        # Also send email if user has email notifications enabled
-        if user.email:
-            send_notification_email.delay(
-                recipient_email=user.email,
-                subject=f"[Kemele CPMS] {title}",
-                body=f"{message}\n\nView: {settings.SITE_URL}{link}" if link else message,
-            )
-        return notif.pk
     except User.DoesNotExist:
         return None
+    notif = send_notification(
+        user, notification_type, title, message, link=link, category=category
+    )
+    if notif is None:
+        # User has opted out of this notification category.
+        return None
+    # Also send email if user has email notifications enabled
+    if user.email:
+        from apps.core.utils import safe_task_delay
+        safe_task_delay(
+            send_notification_email,
+            recipient_email=user.email,
+            subject=f"[Kemele CPMS] {title}",
+            body=f"{message}\n\nView: {settings.SITE_URL}{link}" if link else message,
+        )
+    return notif.pk
 
 
 @shared_task
-def notify_users(user_ids, notification_type, title, message, link=""):
+def notify_users(user_ids, notification_type, title, message, link="", category=None):
     """Dispatch notifications to multiple users."""
+    from apps.core.utils import safe_task_delay
+
     for user_id in user_ids:
-        create_notification.delay(user_id, notification_type, title, message, link)
+        safe_task_delay(
+            create_notification, user_id, notification_type, title, message, link, category
+        )
 
 
 @shared_task

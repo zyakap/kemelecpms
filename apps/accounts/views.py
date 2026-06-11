@@ -180,7 +180,14 @@ class ProfileUpdateView(LoginRequiredMixin, UpdateView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
-        messages.success(self.request, "Your profile has been updated.")
+        if form.cleaned_data.get("new_password1"):
+            # Keep the user logged in after a password change
+            from django.contrib.auth import update_session_auth_hash
+
+            update_session_auth_hash(self.request, self.request.user)
+            messages.success(self.request, "Your profile and password have been updated.")
+        else:
+            messages.success(self.request, "Your profile has been updated.")
         return response
 
 

@@ -46,7 +46,7 @@ class ITP(TimeStampedModel):
         return f"{self.project.project_id} – {self.title}"
 
     def get_absolute_url(self):
-        return reverse("quality:itp-detail", kwargs={"pk": self.pk})
+        return reverse("quality:itp-detail", kwargs={"project_pk": self.project_id, "pk": self.pk})
 
     @property
     def total_items(self):
@@ -156,7 +156,7 @@ class ITPItem(TimeStampedModel):
         return f"{self.itp} – Item {self.sequence}"
 
     def get_absolute_url(self):
-        return reverse("quality:itp-detail", kwargs={"pk": self.itp.pk})
+        return reverse("quality:itp-detail", kwargs={"project_pk": self.itp.project_id, "pk": self.itp.pk})
 
 
 # ---------------------------------------------------------------------------
@@ -371,7 +371,7 @@ class NCR(TimeStampedModel):
         super().save(*args, **kwargs)
 
     def get_absolute_url(self):
-        return reverse("quality:ncr-detail", kwargs={"pk": self.pk})
+        return reverse("quality:ncr-detail", kwargs={"project_pk": self.project_id, "pk": self.pk})
 
     @property
     def is_overdue(self):

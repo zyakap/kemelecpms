@@ -145,7 +145,7 @@ class CostRate(TimeStampedModel):
         return f"{self.description} — K{self.unit_rate}/{self.unit} ({self.year}, {self.region})"
 
     def get_absolute_url(self):
-        return reverse("tender:rate-detail", kwargs={"pk": self.pk})
+        return reverse("tender:rate-update", kwargs={"pk": self.pk})
 
 
 # ---------------------------------------------------------------------------

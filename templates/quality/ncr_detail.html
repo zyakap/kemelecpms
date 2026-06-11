@@ -8,7 +8,26 @@
     <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">{{ ncr.ncr_number }}</h1>
     <div class="text-muted small">{{ ncr.title }} | {{ project.name }}</div>
   </div>
-  <a href="{% url 'quality:ncr-update' project.pk ncr.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+  <div class="d-flex gap-2">
+    {% if ncr.status == 'OPEN' %}
+    <form method="post" action="{% url 'quality:ncr-start-review' project.pk ncr.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-warning btn-sm">
+        <i class="bi bi-search me-1"></i>Start Review
+      </button>
+    </form>
+    {% endif %}
+    {% if ncr.status != 'CLOSED' %}
+    <form method="post" action="{% url 'quality:ncr-close' project.pk ncr.pk %}"
+          onsubmit="return confirm('Close this NCR? Root cause and corrective action must already be recorded.');">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-success btn-sm">
+        <i class="bi bi-check-circle me-1"></i>Close NCR
+      </button>
+    </form>
+    {% endif %}
+    <a href="{% url 'quality:ncr-update' project.pk ncr.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+  </div>
 </div>
 <div class="row g-4">
   <div class="col-md-4">

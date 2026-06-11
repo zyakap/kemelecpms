@@ -4,13 +4,16 @@ from django.utils import timezone
 from .models import (
     Correspondence,
     DistributionContact,
+    DocumentControlSettings,
     DocumentTransmittal,
     Drawing,
     DrawingRevision,
     ProjectDocument,
+    ProjectDocumentRevision,
     RFI,
     Submittal,
 )
+from .services import validate_upload
 
 
 def _apply_form_control(form):
@@ -23,12 +26,36 @@ def _apply_form_control(form):
             widget.attrs.setdefault("class", "form-control")
 
 
+class UploadPolicyMixin:
+    """Validates configured file fields against document control settings.
+
+    Forms using this mixin must expose ``self.project`` (set in __init__)
+    and list their file fields in ``upload_policy_fields``.
+    """
+
+    upload_policy_fields = ()
+
+    def clean(self):
+        cleaned = super().clean()
+        for field_name in self.upload_policy_fields:
+            uploaded = cleaned.get(field_name)
+            # Only validate fresh uploads, not persisted FieldFiles.
+            if uploaded and hasattr(uploaded, "content_type"):
+                try:
+                    validate_upload(uploaded, project=getattr(self, "project", None))
+                except forms.ValidationError as exc:
+                    self.add_error(field_name, exc)
+        return cleaned
+
+
 # ---------------------------------------------------------------------------
 # Drawing
 # ---------------------------------------------------------------------------
 
 
-class DrawingForm(forms.ModelForm):
+class DrawingForm(UploadPolicyMixin, forms.ModelForm):
+    upload_policy_fields = ("file",)
+
     class Meta:
         model = Drawing
         fields = [
@@ -72,7 +99,9 @@ class DrawingForm(forms.ModelForm):
         return instance
 
 
-class DrawingRevisionForm(forms.ModelForm):
+class DrawingRevisionForm(UploadPolicyMixin, forms.ModelForm):
+    upload_policy_fields = ("file",)
+
     class Meta:
         model = DrawingRevision
         fields = ["revision", "date", "file", "notes"]
@@ -84,6 +113,7 @@ class DrawingRevisionForm(forms.ModelForm):
     def __init__(self, *args, drawing=None, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.drawing = drawing
+        self.project = drawing.project if drawing else None
         self.user = user
         _apply_form_control(self)
 
@@ -103,7 +133,9 @@ class DrawingRevisionForm(forms.ModelForm):
 # ---------------------------------------------------------------------------
 
 
-class RFIForm(forms.ModelForm):
+class RFIForm(UploadPolicyMixin, forms.ModelForm):
+    upload_policy_fields = ("photo",)
+
     class Meta:
         model = RFI
         fields = [
@@ -172,7 +204,9 @@ class RFIForm(forms.ModelForm):
 # ---------------------------------------------------------------------------
 
 
-class SubmittalForm(forms.ModelForm):
+class SubmittalForm(UploadPolicyMixin, forms.ModelForm):
+    upload_policy_fields = ("document",)
+
     class Meta:
         model = Submittal
         fields = [
@@ -244,7 +278,9 @@ class SubmittalForm(forms.ModelForm):
 # ---------------------------------------------------------------------------
 
 
-class CorrespondenceForm(forms.ModelForm):
+class CorrespondenceForm(UploadPolicyMixin, forms.ModelForm):
+    upload_policy_fields = ("document",)
+
     class Meta:
         model = Correspondence
         fields = [
@@ -307,7 +343,9 @@ class CorrespondenceForm(forms.ModelForm):
 # ---------------------------------------------------------------------------
 
 
-class ProjectDocumentForm(forms.ModelForm):
+class ProjectDocumentForm(UploadPolicyMixin, forms.ModelForm):
+    upload_policy_fields = ("file",)
+
     class Meta:
         model = ProjectDocument
         fields = [
@@ -316,6 +354,7 @@ class ProjectDocumentForm(forms.ModelForm):
             "file",
             "description",
             "version",
+            "confidentiality",
         ]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3}),
@@ -325,6 +364,12 @@ class ProjectDocumentForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.project = project
         self.user = user
+        if not self.instance.pk:
+            from .services import get_document_settings
+
+            self.fields["confidentiality"].initial = get_document_settings(
+                project
+            ).default_confidentiality
         _apply_form_control(self)
 
     def save(self, commit=True):
@@ -334,9 +379,81 @@ class ProjectDocumentForm(forms.ModelForm):
             instance.project = self.project
         if self.user:
             instance.uploaded_by = self.user
+        if not instance.pk:
+            from .services import get_document_settings
+
+            if not get_document_settings(self.project).require_document_approval:
+                instance.status = ProjectDocument.STATUS_APPROVED
         if commit:
             instance.save()
         return instance
+
+
+class ProjectDocumentRevisionForm(UploadPolicyMixin, forms.ModelForm):
+    upload_policy_fields = ("file",)
+
+    class Meta:
+        model = ProjectDocumentRevision
+        fields = ["version", "file", "notes"]
+        widgets = {
+            "notes": forms.Textarea(attrs={"rows": 3}),
+        }
+
+    def __init__(self, *args, document=None, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.document = document
+        self.project = document.project if document else None
+        self.user = user
+        _apply_form_control(self)
+
+    def clean_version(self):
+        version = (self.cleaned_data.get("version") or "").strip()
+        if self.document and version:
+            if version == self.document.version:
+                raise forms.ValidationError(
+                    "This version already exists — use a new version identifier."
+                )
+            if self.document.revisions.filter(version=version).exists():
+                raise forms.ValidationError(
+                    "A revision with this version already exists for this document."
+                )
+        return version
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if self.document:
+            instance.document = self.document
+        if self.user:
+            instance.uploaded_by = self.user
+        if commit:
+            instance.save()
+        return instance
+
+
+# ---------------------------------------------------------------------------
+# Document Control Settings
+# ---------------------------------------------------------------------------
+
+
+class DocumentControlSettingsForm(forms.ModelForm):
+    class Meta:
+        model = DocumentControlSettings
+        exclude = ["project", "created_by", "updated_by"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _apply_form_control(self)
+
+    def clean_allowed_file_extensions(self):
+        raw = self.cleaned_data.get("allowed_file_extensions", "")
+        cleaned = {
+            ext.strip().lower().lstrip(".")
+            for ext in raw.split(",")
+            if ext.strip()
+        }
+        if not cleaned:
+            raise forms.ValidationError("At least one file extension must be allowed.")
+        return ",".join(sorted(cleaned))
 
 
 class DistributionContactForm(forms.ModelForm):

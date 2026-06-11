@@ -105,5 +105,22 @@ class UserProfile(models.Model):
     )
     signature = models.ImageField(upload_to="signatures/", null=True, blank=True)
 
+    # In-app notification preferences
+    notif_dsr = models.BooleanField(
+        default=True, verbose_name="Daily Site Report notifications"
+    )
+    notif_budget = models.BooleanField(
+        default=True, verbose_name="Budget alert notifications"
+    )
+    notif_safety = models.BooleanField(
+        default=True, verbose_name="Safety incident notifications"
+    )
+    notif_milestone = models.BooleanField(
+        default=True, verbose_name="Milestone due notifications"
+    )
+    notif_ipc = models.BooleanField(
+        default=True, verbose_name="IPC / payment notifications"
+    )
+
     def __str__(self):
         return f"Profile: {self.user}"

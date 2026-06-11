@@ -31,6 +31,7 @@ from django.views.generic import (
 )
 
 from apps.core.permissions import accessible_projects, can_approve_dsr, can_submit_dsr
+from apps.core.utils import queue_task
 from apps.ipc.models import IPCLineItem
 from apps.procurement.models import StockLedger
 from apps.schedule.models import Activity
@@ -380,6 +381,8 @@ class DSRSubmitView(LoginRequiredMixin, View):
         dsr.save(update_fields=["status", "updated_by", "updated_at"])
         from apps.core.models import AuditLog
         AuditLog.log(request.user, AuditLog.ACTION_SUBMIT, dsr, request=request)
+        from .tasks import notify_dsr_submitted
+        queue_task(notify_dsr_submitted, dsr.pk)
         messages.success(request, f"{dsr.dsr_number} submitted for approval.")
         return redirect(dsr.get_absolute_url())
 
@@ -457,6 +460,8 @@ class DSRApproveView(LoginRequiredMixin, View):
             self._sync_material_usage(dsr, request.user)
             from apps.core.models import AuditLog
             AuditLog.log(request.user, AuditLog.ACTION_APPROVE, dsr, request=request)
+            from .tasks import notify_dsr_approved
+            queue_task(notify_dsr_approved, dsr.pk)
         messages.success(request, f"{dsr.dsr_number} approved and locked.")
         return redirect(dsr.get_absolute_url())
 
@@ -493,6 +498,8 @@ class DSRReturnView(LoginRequiredMixin, FormView):
         dsr.return_reason = form.cleaned_data["return_reason"]
         dsr.updated_by = self.request.user
         dsr.save(update_fields=["status", "return_reason", "updated_by", "updated_at"])
+        from .tasks import notify_dsr_returned
+        queue_task(notify_dsr_returned, dsr.pk)
         messages.warning(
             self.request, f"{dsr.dsr_number} has been returned for revision."
         )

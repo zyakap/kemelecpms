@@ -21,6 +21,9 @@ echo "--- Applying database migrations ---"
 DJANGO_SETTINGS_MODULE=config.settings.production "$VENV_PYTHON" manage.py migrate --no-input
 
 echo "--- Collecting static files ---"
+# collectstatic outputs to STATIC_ROOT, which the app .env must set to
+# /home/kemelecpms/staticfiles (the path nginx/kemelecpms.conf serves).
+# See .env.production.example. Django reads $APP_DIR/.env automatically.
 DJANGO_SETTINGS_MODULE=config.settings.production "$VENV_PYTHON" manage.py collectstatic --no-input --clear
 
 echo "--- Restarting Gunicorn ---"

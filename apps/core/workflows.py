@@ -65,6 +65,12 @@ WORKFLOW_TRANSITIONS = {
         "UNDER_REVIEW": {"CLOSED", "OPEN"},
         "CLOSED": set(),
     },
+    "defect": {
+        "OPEN": {"IN_PROGRESS", "RECTIFIED"},
+        "IN_PROGRESS": {"RECTIFIED"},
+        "RECTIFIED": {"CLOSED"},
+        "CLOSED": set(),
+    },
 }
 
 

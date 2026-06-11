@@ -9,6 +9,7 @@ from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, TemplateView
 
+from apps.core.utils import queue_task
 from apps.core.permissions import (
     accessible_projects,
     can_approve_financial_action,
@@ -212,6 +213,8 @@ class IPCSubmitView(LoginRequiredMixin, View):
         ipc.updated_by = request.user
         ipc.save(update_fields=["status", "submitted_date", "updated_by", "updated_at"])
         AuditLog.log(request.user, AuditLog.ACTION_SUBMIT, ipc, request=request)
+        from .tasks import notify_ipc_submitted
+        queue_task(notify_ipc_submitted, ipc.pk)
         messages.success(request, f"{ipc.ipc_number} submitted successfully.")
         return redirect(
             reverse_lazy("ipc:ipc-detail", kwargs={"project_pk": project_pk, "pk": pk})
@@ -327,8 +330,11 @@ class PaymentCreateView(ProjectMixin, CreateView):
         form.instance.created_by = self.request.user
         from apps.core.models import AuditLog
         AuditLog.log(self.request.user, AuditLog.ACTION_UPDATE, ipc, changes="Payment recorded.", request=self.request)
+        response = super().form_valid(form)
+        from .tasks import notify_payment_received
+        queue_task(notify_payment_received, ipc.pk)
         messages.success(self.request, "Payment recorded.")
-        return super().form_valid(form)
+        return response
 
     def get_success_url(self):
         ipc = self.get_ipc()

@@ -14,7 +14,26 @@
       {% if incident.is_lti %}<span class="badge bg-dark">LTI — {{ incident.days_lost }} day(s)</span>{% endif %}
     </div>
   </div>
-  <a href="{% url 'safety:incident_edit' incident.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+  <div class="d-flex gap-2">
+    {% if incident.status == 'OPEN' %}
+    <form method="post" action="{% url 'safety:incident_investigate' incident.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-warning btn-sm">
+        <i class="bi bi-search me-1"></i>Start Investigation
+      </button>
+    </form>
+    {% endif %}
+    {% if incident.status != 'CLOSED' %}
+    <form method="post" action="{% url 'safety:incident_close' incident.pk %}"
+          onsubmit="return confirm('Close this incident? The corrective action must already be recorded.');">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-success btn-sm">
+        <i class="bi bi-check-circle me-1"></i>Close Incident
+      </button>
+    </form>
+    {% endif %}
+    <a href="{% url 'safety:incident_edit' incident.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+  </div>
 </div>
 <div class="row g-4">
   <div class="col-lg-8">

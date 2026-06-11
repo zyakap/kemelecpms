@@ -8,6 +8,7 @@ from celery import shared_task
 @shared_task
 def notify_po_pending_approval(po_id):
     """Notify PM/MD when a Purchase Order requires approval."""
+    from apps.core.utils import safe_task_delay
     from apps.procurement.models import PurchaseOrder
     from apps.notifications.tasks import notify_users
 
@@ -23,7 +24,8 @@ def notify_po_pending_approval(po_id):
         approvers.append(pm.pk)
 
     if approvers:
-        notify_users.delay(
+        safe_task_delay(
+            notify_users,
             user_ids=approvers,
             notification_type="APPROVAL_REQUIRED",
             title=f"PO Approval Required — {po.po_number}",
@@ -38,6 +40,7 @@ def notify_po_pending_approval(po_id):
 @shared_task
 def notify_mr_approved(mr_id):
     """Notify MR creator when their requisition is approved."""
+    from apps.core.utils import safe_task_delay
     from apps.procurement.models import MaterialRequisition
     from apps.notifications.tasks import create_notification
 
@@ -47,7 +50,8 @@ def notify_mr_approved(mr_id):
         return
 
     if mr.created_by:
-        create_notification.delay(
+        safe_task_delay(
+            create_notification,
             user_id=mr.created_by_id,
             notification_type="INFO",
             title=f"MR Approved — {mr.mr_number}",
@@ -59,6 +63,7 @@ def notify_mr_approved(mr_id):
 @shared_task
 def notify_grn_recorded(grn_id):
     """Notify procurement officer when goods are received against a PO."""
+    from apps.core.utils import safe_task_delay
     from apps.procurement.models import GoodsReceivedNote
     from apps.notifications.tasks import create_notification
 
@@ -69,7 +74,8 @@ def notify_grn_recorded(grn_id):
 
     po = grn.po
     if po.created_by:
-        create_notification.delay(
+        safe_task_delay(
+            create_notification,
             user_id=po.created_by_id,
             notification_type="INFO",
             title=f"GRN Recorded — {grn.grn_number}",

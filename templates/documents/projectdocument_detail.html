@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}{{ document.document_number }} — {{ project.name }}{% endblock %}
+{% block active_nav %}documents{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
+  <div>
+    <h1 class="h3 fw-bold mb-1" style="color:var(--kc-primary)">{{ document.document_number }} — {{ document.title }}</h1>
+    <div class="text-muted small">{{ project.name }} · {{ document.document_type }} · Version {{ document.version }}</div>
+    <div class="mt-2 d-flex gap-2">
+      <span class="badge {% if document.status == 'APPROVED' %}bg-success{% elif document.status == 'FOR_REVIEW' %}bg-warning text-dark{% elif document.status == 'DRAFT' %}bg-secondary{% elif document.status == 'SUPERSEDED' %}bg-dark{% else %}bg-light text-dark border{% endif %}">
+        {{ document.get_status_display }}
+      </span>
+      <span class="badge bg-info text-dark">{{ document.get_confidentiality_display }}</span>
+    </div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    {% if can_manage %}
+      {% if document.status == 'DRAFT' %}
+      <form method="post" action="{% url 'documents:projectdoc-action' project.pk document.pk 'submit-review' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-warning btn-sm"><i class="bi bi-send me-1"></i>Submit for Review</button>
+      </form>
+      {% endif %}
+      {% if document.status == 'DRAFT' or document.status == 'FOR_REVIEW' %}
+      <form method="post" action="{% url 'documents:projectdoc-action' project.pk document.pk 'approve' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-circle me-1"></i>Approve &amp; Issue</button>
+      </form>
+      {% endif %}
+      {% if document.status == 'FOR_REVIEW' %}
+      <form method="post" action="{% url 'documents:projectdoc-action' project.pk document.pk 'return-draft' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-warning btn-sm"><i class="bi bi-arrow-counterclockwise me-1"></i>Return to Draft</button>
+      </form>
+      {% endif %}
+      {% if document.status != 'ARCHIVED' %}
+      <form method="post" action="{% url 'documents:projectdoc-action' project.pk document.pk 'archive' %}"
+            onsubmit="return confirm('Archive this document? Archived documents are read-only.');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-dark btn-sm"><i class="bi bi-archive me-1"></i>Archive</button>
+      </form>
+      {% endif %}
+      {% if document.is_editable %}
+      <a href="{% url 'documents:projectdoc-update' project.pk document.pk %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-pencil me-1"></i>Edit
+      </a>
+      {% endif %}
+    {% endif %}
+    <a href="{% url 'documents:projectdoc-download' project.pk document.pk %}" class="btn btn-kc btn-sm">
+      <i class="bi bi-file-earmark-arrow-down me-1"></i>Download
+    </a>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Details</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-5 text-muted">Document No.</dt><dd class="col-7">{{ document.document_number }}</dd>
+          <dt class="col-5 text-muted">Type</dt><dd class="col-7">{{ document.document_type }}</dd>
+          <dt class="col-5 text-muted">Version</dt><dd class="col-7">{{ document.version }}</dd>
+          <dt class="col-5 text-muted">Uploaded By</dt><dd class="col-7">{{ document.uploaded_by.get_full_name|default:document.uploaded_by.email }}</dd>
+          <dt class="col-5 text-muted">Created</dt><dd class="col-7">{{ document.created_at|date:"d M Y H:i" }}</dd>
+          {% if document.approved_by %}
+          <dt class="col-5 text-muted">Approved By</dt><dd class="col-7">{{ document.approved_by.get_full_name }}</dd>
+          <dt class="col-5 text-muted">Approved At</dt><dd class="col-7">{{ document.approved_at|date:"d M Y H:i" }}</dd>
+          {% endif %}
+        </dl>
+        {% if document.description %}
+        <hr>
+        <div class="text-muted mb-1">Description</div>
+        <div>{{ document.description|linebreaksbr }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if access_logs %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">Recent Access</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0 small">
+          <tbody>
+            {% for log in access_logs %}
+            <tr>
+              <td>{{ log.user.get_full_name|default:"—" }}</td>
+              <td>{{ log.get_action_display }}</td>
+              <td class="text-muted">{{ log.accessed_at|date:"d M Y H:i" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span class="fw-semibold" style="color:var(--kc-primary)">Revision History</span>
+        {% if can_manage and document.status != 'ARCHIVED' %}
+        <a href="{% url 'documents:projectdoc-revision-create' project.pk document.pk %}" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-plus-lg me-1"></i>Upload New Revision
+        </a>
+        {% endif %}
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0 small">
+          <thead class="table-light">
+            <tr><th>Version</th><th>Uploaded By</th><th>Date</th><th>Notes</th><th>File</th></tr>
+          </thead>
+          <tbody>
+            {% for rev in revisions %}
+            <tr>
+              <td class="fw-semibold">{{ rev.version }}</td>
+              <td>{{ rev.uploaded_by.get_full_name }}</td>
+              <td>{{ rev.created_at|date:"d M Y" }}</td>
+              <td class="text-muted">{{ rev.notes|truncatechars:60 }}</td>
+              <td><a href="{{ rev.file.url }}" target="_blank"><i class="bi bi-file-earmark-arrow-down"></i></a></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-muted text-center py-3">No revisions — original issue only.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

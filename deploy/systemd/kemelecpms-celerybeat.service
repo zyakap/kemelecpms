@@ -8,6 +8,10 @@ User=www-data
 Group=www-data
 WorkingDirectory=/home/kemelecpms/kemelecpms
 EnvironmentFile=/home/kemelecpms/kemelecpms/.env
+# systemd creates /run/celery and /var/log/celery (owned by User=) at start
+RuntimeDirectory=celery
+RuntimeDirectoryPreserve=yes
+LogsDirectory=celery
 ExecStart=/home/kemelecpms/.local/share/virtualenvs/kemelecpms/bin/celery \
           -A config.celery beat \
           --loglevel=info \

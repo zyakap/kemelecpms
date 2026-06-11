@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ profile_user.get_full_name|default:profile_user.username }} — Kemele Construction CPMS{% endblock %}
+{% block title %}{{ target_user.get_full_name|default:target_user.username }} — Kemele Construction CPMS{% endblock %}
 
 {% block topbar_title %}User Profile{% endblock %}
 
@@ -14,9 +14,9 @@
     <i class="bi bi-person-circle me-2" style="color:var(--kc-accent);"></i>
     User Profile
   </h1>
-  {% if user.is_staff or user == profile_user %}
+  {% if user.is_staff or user == target_user %}
   <div class="d-flex gap-2">
-    <a href="/accounts/users/{{ profile_user.pk }}/edit/" class="btn btn-kc btn-sm">
+    <a href="/accounts/users/{{ target_user.pk }}/edit/" class="btn btn-kc btn-sm">
       <i class="bi bi-pencil me-1"></i> Edit Profile
     </a>
     <a href="/accounts/users/" class="btn btn-outline-secondary btn-sm">
@@ -36,55 +36,55 @@
         <div class="mx-auto mb-3" style="width:90px; height:90px; border-radius:50%;
              background:var(--kc-primary); display:flex; align-items:center; justify-content:center;
              font-size:2rem; font-weight:700; color:#fff; overflow:hidden; border:4px solid #e9ecef;">
-          {% if profile_user.profile.photo %}
-            <img src="{{ profile_user.profile.photo.url }}"
-                 alt="{{ profile_user.get_full_name }}"
+          {% if target_user.profile.profile_photo %}
+            <img src="{{ target_user.profile.profile_photo.url }}"
+                 alt="{{ target_user.get_full_name }}"
                  style="width:100%;height:100%;object-fit:cover;">
           {% else %}
-            {{ profile_user.first_name|slice:":1"|upper }}{{ profile_user.last_name|slice:":1"|upper }}
+            {{ target_user.first_name|slice:":1"|upper }}{{ target_user.last_name|slice:":1"|upper }}
           {% endif %}
         </div>
 
         <h4 class="fw-bold mb-1" style="color:var(--kc-primary);">
-          {{ profile_user.get_full_name|default:profile_user.username }}
+          {{ target_user.get_full_name|default:target_user.username }}
         </h4>
         <div class="mb-2">
-          {% if profile_user.is_superuser %}
+          {% if target_user.is_superuser %}
             <span class="badge bg-danger">Super Admin</span>
           {% else %}
-            <span class="badge bg-secondary">{{ profile_user.get_role_display }}</span>
+            <span class="badge bg-secondary">{{ target_user.get_role_display }}</span>
           {% endif %}
 
-          {% if profile_user.is_active %}
+          {% if target_user.is_active %}
             <span class="badge badge-rag-green ms-1">Active</span>
           {% else %}
             <span class="badge bg-secondary ms-1">Inactive</span>
           {% endif %}
         </div>
 
-        <div class="text-muted small mb-3">{{ profile_user.email }}</div>
+        <div class="text-muted small mb-3">{{ target_user.email }}</div>
 
         <hr class="my-3">
 
         <div class="text-start px-2">
           <div class="d-flex align-items-center gap-2 py-2 border-bottom">
             <i class="bi bi-telephone text-muted" style="width:18px;"></i>
-            <span class="small">{{ profile_user.profile.phone|default:"Not provided" }}</span>
+            <span class="small">{{ target_user.phone|default:"Not provided" }}</span>
           </div>
           <div class="d-flex align-items-center gap-2 py-2 border-bottom">
             <i class="bi bi-building text-muted" style="width:18px;"></i>
-            <span class="small">{{ profile_user.profile.department|default:"Not set" }}</span>
+            <span class="small">{{ target_user.department|default:"Not set" }}</span>
           </div>
           <div class="d-flex align-items-center gap-2 py-2 border-bottom">
             <i class="bi bi-calendar-event text-muted" style="width:18px;"></i>
-            <span class="small">Joined {{ profile_user.date_joined|date:"d M Y" }}</span>
+            <span class="small">Joined {{ target_user.date_joined|date:"d M Y" }}</span>
           </div>
           <div class="d-flex align-items-center gap-2 py-2">
             <i class="bi bi-clock-history text-muted" style="width:18px;"></i>
             <span class="small">
               Last login:
-              {% if profile_user.last_login %}
-                {{ profile_user.last_login|date:"d M Y H:i" }}
+              {% if target_user.last_login %}
+                {{ target_user.last_login|date:"d M Y H:i" }}
               {% else %}
                 <em>Never</em>
               {% endif %}
@@ -101,11 +101,11 @@
         <h6 class="mb-0"><i class="bi bi-lightning me-1"></i>Quick Actions</h6>
       </div>
       <div class="cc-body py-2">
-        <a href="/accounts/users/{{ profile_user.pk }}/edit/" class="btn btn-outline-primary btn-sm w-100 mb-2">
+        <a href="/accounts/users/{{ target_user.pk }}/edit/" class="btn btn-outline-primary btn-sm w-100 mb-2">
           <i class="bi bi-pencil me-1"></i> Edit Account
         </a>
-        {% if profile_user.is_active %}
-        <form method="post" action="/accounts/users/{{ profile_user.pk }}/deactivate/">
+        {% if target_user.is_active %}
+        <form method="post" action="/accounts/users/{{ target_user.pk }}/deactivate/">
           {% csrf_token %}
           <button type="submit" class="btn btn-outline-danger btn-sm w-100"
                   onclick="return confirm('Deactivate this user?')">
@@ -113,7 +113,7 @@
           </button>
         </form>
         {% else %}
-        <form method="post" action="/accounts/users/{{ profile_user.pk }}/activate/">
+        <form method="post" action="/accounts/users/{{ target_user.pk }}/activate/">
           {% csrf_token %}
           <button type="submit" class="btn btn-outline-success btn-sm w-100">
             <i class="bi bi-person-check me-1"></i> Activate Account
@@ -144,7 +144,7 @@
             </tr>
           </thead>
           <tbody>
-            {% for assignment in profile_user.project_assignments.all %}
+            {% for assignment in target_user.project_assignments.all %}
             <tr>
               <td class="fw-medium">{{ assignment.project.name }}</td>
               <td><span class="badge bg-secondary">{{ assignment.role|title }}</span></td>

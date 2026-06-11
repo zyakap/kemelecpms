@@ -29,6 +29,7 @@ from django.views.generic import (
 )
 from decimal import Decimal, InvalidOperation
 
+from apps.core.utils import queue_task
 from apps.core.permissions import (
     accessible_projects,
     can_approve_financial_action,
@@ -309,6 +310,8 @@ class MRApproveView(LoginRequiredMixin, View):
         mr.save(update_fields=["status", "approved_by", "approved_at", "updated_by", "updated_at"])
         from apps.core.models import AuditLog
         AuditLog.log(request.user, AuditLog.ACTION_APPROVE, mr, request=request)
+        from .tasks import notify_mr_approved
+        queue_task(notify_mr_approved, mr.pk)
         messages.success(request, f"{mr.mr_number} approved.")
         return redirect(mr.get_absolute_url())
 
@@ -579,6 +582,8 @@ class POSubmitView(LoginRequiredMixin, View):
         po.save(update_fields=["status", "updated_by", "updated_at"])
         from apps.core.models import AuditLog
         AuditLog.log(request.user, AuditLog.ACTION_SUBMIT, po, request=request)
+        from .tasks import notify_po_pending_approval
+        queue_task(notify_po_pending_approval, po.pk)
         messages.success(request, f"{po.po_number} submitted for approval.")
         return redirect(po.get_absolute_url())
 
@@ -683,6 +688,9 @@ class GRNCreateView(LoginRequiredMixin, CreateView):
                 self.po.status = PurchaseOrder.STATUS_PARTIALLY_DELIVERED
             self.po.updated_by = self.request.user
             self.po.save(update_fields=["status", "updated_by", "updated_at"])
+
+            from .tasks import notify_grn_recorded
+            queue_task(notify_grn_recorded, self.object.pk)
 
         messages.success(
             self.request, f"GRN {self.object.grn_number} created successfully."

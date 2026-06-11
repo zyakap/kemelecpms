@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 django = "*"
 celery = "*"
+django-celery-beat = "*"
 django-jazzmin = "*"
 djangorestframework = "*"
 django-select2 = "*"

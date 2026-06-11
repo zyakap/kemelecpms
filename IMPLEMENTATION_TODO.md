@@ -78,3 +78,20 @@ This backlog tracks the path from current internal CPMS to a production-grade co
 - [x] Add SMS/email/WhatsApp-style notification integrations where supported.
 - [x] Add analytics for CPI, SPI, cashflow, margin forecast, safety trends, quality trends, and supplier performance.
 - [x] Add backup, monitoring, audit coverage, security hardening, and production readiness checklist.
+
+## Phase 6 - Deployment Readiness Audit & Document Control (2026-06)
+
+- [x] Fix profile/user-detail templates referencing fields that did not exist; implement full self-service profile (contact details, photo, password change, notification preferences).
+- [x] Honour per-user notification preferences (DSR, budget, safety, milestone, IPC categories) in notification dispatch.
+- [x] Fix broken URL references (`material_create`/`material_update`, `tender:rate-detail`, `documents:distribution-list`) and quality `get_absolute_url` methods missing `project_pk`.
+- [x] Fix IRC tax invoice GST calculation crash (string default on `gst_rate`).
+- [x] Fix stock/accounting export field errors (`Material.name`, `CostCode.description`).
+- [x] Wire orphaned notification tasks into DSR/MR/PO/GRN/IPC/payment transitions with broker-outage fallback.
+- [x] Add incident investigation/close and NCR review/close transition views with evidence guards, audit logs, and detail-page actions; guard defect status changes.
+- [x] Add missing migrations (work package audit fields) and fix test discovery (`apps` package).
+- [x] Production readiness: django-celery-beat dependency, /health/ endpoint, branded 400/403/404/500 pages, resilient production logging, .env.production.example, consistent static/media/log paths in nginx/systemd/deploy scripts, backup/restore scripts.
+- [x] Document control system: company-wide + per-project `DocumentControlSettings` (numbering prefixes/padding/project-code, RFI/submittal/correspondence response windows, approval & acknowledgement policy, upload type/size limits, confidentiality default, access logging) applied throughout the documents module.
+- [x] Controlled document register: auto-numbered documents with draft → review → approved → superseded/archived workflow, revision history with auto-supersede, approval records, CSV register export, download access log, and transmittal acknowledgement action.
+- [x] Document control hub page with per-project register summaries and settings access.
+- [x] Idempotent `seed_demo_data` command covering every module for demos/UAT.
+- [x] Test suite: 33 passing tests covering document control settings/numbering/workflow, incident and NCR transitions, plus URL smoke crawl of all 367 routes with seeded data.

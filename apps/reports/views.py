@@ -310,7 +310,7 @@ class StockLedgerExportView(LoginRequiredMixin, View):
         project = get_object_or_404(accessible_projects(request.user), pk=project_pk)
         entries = StockLedger.objects.filter(
             project=project
-        ).select_related("material").order_by("material__name", "date")
+        ).select_related("material").order_by("material__description", "date")
 
         wb = make_workbook(
             "Stock Ledger Report",
@@ -339,7 +339,7 @@ class StockLedgerExportView(LoginRequiredMixin, View):
                 ws, next_row,
                 [
                     entry.date.strftime("%d/%m/%Y"),
-                    mat.name,
+                    mat.description,
                     mat.unit,
                     entry.get_transaction_type_display(),
                     qty_in,
@@ -748,7 +748,7 @@ class AccountingExportView(LoginRequiredMixin, View):
             writer.writerow([
                 entry.date.strftime("%d/%m/%Y"),
                 entry.cost_code.code if entry.cost_code else "",
-                entry.cost_code.description if entry.cost_code else "",
+                entry.cost_code.name if entry.cost_code else "",
                 entry.description or "",
                 f"{debit:.2f}" if debit else "",
                 f"{credit:.2f}" if credit else "",

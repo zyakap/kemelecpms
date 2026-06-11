@@ -41,11 +41,20 @@ echo "--- Runtime directories ---"
 mkdir -p /run/gunicorn /run/celery /var/log/gunicorn /var/log/celery
 chown www-data:www-data /run/gunicorn /run/celery /var/log/gunicorn /var/log/celery
 
+echo "--- Static & media directories (must match nginx/kemelecpms.conf) ---"
+mkdir -p /home/$APP_USER/staticfiles /home/$APP_USER/media
+# www-data (gunicorn/celery/deploy) writes these; nginx (www-data) reads them.
+chown -R www-data:www-data /home/$APP_USER/staticfiles /home/$APP_USER/media
+chmod 755 /home/$APP_USER/staticfiles /home/$APP_USER/media
+# nginx needs execute permission on the home directory to traverse into them.
+chmod 755 /home/$APP_USER
+
 echo "--- Clone/setup application ---"
 sudo -u $APP_USER git clone https://github.com/zyakap/kemelecpms.git $APP_DIR 2>/dev/null || true
 cd $APP_DIR
-sudo -u $APP_USER cp .env.example .env
+sudo -u $APP_USER cp .env.production.example .env
 echo "*** IMPORTANT: Edit $APP_DIR/.env with production values ***"
+echo "*** STATIC_ROOT/MEDIA_ROOT must stay /home/$APP_USER/staticfiles and /home/$APP_USER/media (nginx serves those paths) ***"
 
 echo "--- Install systemd services ---"
 cp $APP_DIR/deploy/systemd/kemelecpms.socket /etc/systemd/system/

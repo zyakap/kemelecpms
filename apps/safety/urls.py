@@ -31,6 +31,16 @@ urlpatterns = [
         views.IncidentUpdateView.as_view(),
         name="incident_edit",
     ),
+    path(
+        "incidents/<int:pk>/investigate/",
+        views.IncidentStartInvestigationView.as_view(),
+        name="incident_investigate",
+    ),
+    path(
+        "incidents/<int:pk>/close/",
+        views.IncidentCloseView.as_view(),
+        name="incident_close",
+    ),
 
     # ------------------------------------------------------------------
     # Toolbox Talks

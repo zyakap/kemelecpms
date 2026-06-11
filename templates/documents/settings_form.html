@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}Document Control Settings — Kemele Construction CPMS{% endblock %}
+{% block active_nav %}documents{% endblock %}
+{% block topbar_title %}Document Control Settings{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">
+    <i class="bi bi-gear me-2" style="color:var(--kc-accent);"></i>Document Control Settings
+  </h1>
+  <a href="{% url 'documents:index' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Back to Document Control
+  </a>
+</div>
+
+<div class="alert alert-light border d-flex align-items-center gap-2 small">
+  <i class="bi bi-info-circle-fill text-primary"></i>
+  <div>
+    <strong>{{ settings_scope }}</strong>
+    {% if is_project_override %}
+      — these values apply to this project only.
+      {% if not has_override %}This project currently follows the company defaults; saving creates a project override.{% endif %}
+    {% else %}
+      — these values apply to every project that has no override of its own.
+    {% endif %}
+  </div>
+</div>
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}
+  <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+  {% endif %}
+
+  <div class="row g-4">
+    <div class="col-12 col-lg-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white fw-semibold"><i class="bi bi-123 me-2"></i>Reference Numbering</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-6 col-md-4">
+              <label class="form-label small fw-semibold">RFI Prefix</label>
+              {{ form.rfi_prefix }}
+              {{ form.rfi_prefix.errors }}
+            </div>
+            <div class="col-6 col-md-4">
+              <label class="form-label small fw-semibold">Submittal Prefix</label>
+              {{ form.submittal_prefix }}
+              {{ form.submittal_prefix.errors }}
+            </div>
+            <div class="col-6 col-md-4">
+              <label class="form-label small fw-semibold">Correspondence Prefix</label>
+              {{ form.correspondence_prefix }}
+              {{ form.correspondence_prefix.errors }}
+            </div>
+            <div class="col-6 col-md-4">
+              <label class="form-label small fw-semibold">Transmittal Prefix</label>
+              {{ form.transmittal_prefix }}
+              {{ form.transmittal_prefix.errors }}
+            </div>
+            <div class="col-6 col-md-4">
+              <label class="form-label small fw-semibold">Document Prefix</label>
+              {{ form.document_prefix }}
+              {{ form.document_prefix.errors }}
+            </div>
+            <div class="col-6 col-md-4">
+              <label class="form-label small fw-semibold">Number Padding</label>
+              {{ form.number_padding }}
+              {{ form.number_padding.errors }}
+            </div>
+            <div class="col-12">
+              <div class="form-check form-switch">
+                {{ form.include_project_code }}
+                <label class="form-check-label small fw-medium" for="{{ form.include_project_code.id_for_label }}">
+                  Include project code in references (e.g. RFI-KC001-0001)
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="text-muted small mt-2">Prefix changes apply to new records only — existing references are never renumbered.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white fw-semibold"><i class="bi bi-stopwatch me-2"></i>Response &amp; Review Windows</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">RFI response due (days)</label>
+              {{ form.rfi_response_due_days }}
+              {{ form.rfi_response_due_days.errors }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Submittal review due (days)</label>
+              {{ form.submittal_review_due_days }}
+              {{ form.submittal_review_due_days.errors }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Correspondence action due (days)</label>
+              {{ form.correspondence_action_due_days }}
+              {{ form.correspondence_action_due_days.errors }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white fw-semibold"><i class="bi bi-diagram-3 me-2"></i>Workflow</div>
+        <div class="card-body">
+          <div class="form-check form-switch mb-2">
+            {{ form.require_document_approval }}
+            <label class="form-check-label small fw-medium" for="{{ form.require_document_approval.id_for_label }}">
+              Controlled documents require review &amp; approval before issue
+            </label>
+          </div>
+          <div class="form-check form-switch mb-2">
+            {{ form.require_transmittal_acknowledgement }}
+            <label class="form-check-label small fw-medium" for="{{ form.require_transmittal_acknowledgement.id_for_label }}">
+              Sent transmittals must be acknowledged
+            </label>
+          </div>
+          <div class="form-check form-switch mb-2">
+            {{ form.auto_supersede_on_new_revision }}
+            <label class="form-check-label small fw-medium" for="{{ form.auto_supersede_on_new_revision.id_for_label }}">
+              New revisions automatically supersede the previous issue
+            </label>
+          </div>
+          <div class="form-check form-switch">
+            {{ form.log_document_access }}
+            <label class="form-check-label small fw-medium" for="{{ form.log_document_access.id_for_label }}">
+              Log every controlled-document download
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white fw-semibold"><i class="bi bi-cloud-upload me-2"></i>Upload Policy</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Allowed file extensions</label>
+              {{ form.allowed_file_extensions }}
+              {{ form.allowed_file_extensions.errors }}
+              <div class="text-muted small mt-1">Comma-separated, e.g. pdf,docx,dwg,jpg</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Max upload size (MB)</label>
+              {{ form.max_upload_size_mb }}
+              {{ form.max_upload_size_mb.errors }}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Default confidentiality</label>
+              {{ form.default_confidentiality }}
+              {{ form.default_confidentiality.errors }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2 justify-content-end mt-4">
+    {% if is_project_override and has_override %}
+    <button type="submit" class="btn btn-outline-danger"
+            form="reset-override-form"
+            onclick="return confirm('Remove this project\'s override and revert to company defaults?');">
+      <i class="bi bi-arrow-counterclockwise me-1"></i>Revert to Company Defaults
+    </button>
+    {% endif %}
+    <button type="submit" class="btn btn-kc">
+      <i class="bi bi-check-lg me-1"></i>Save Settings
+    </button>
+  </div>
+</form>
+
+{% if is_project_override and has_override %}
+<form id="reset-override-form" method="post" action="{% url 'documents:project-settings-reset' project.pk %}">
+  {% csrf_token %}
+</form>
+{% endif %}
+{% endblock %}

@@ -1,12 +1,27 @@
 from django.urls import path
-from django.views.generic import RedirectView
 
 from . import views
 
 app_name = "documents"
 
 urlpatterns = [
-    path("", RedirectView.as_view(pattern_name="projects:project_list", permanent=False), name="index"),
+    path("", views.DocumentControlHomeView.as_view(), name="index"),
+    # Document control settings
+    path(
+        "settings/",
+        views.CompanyDocumentSettingsView.as_view(),
+        name="company-settings",
+    ),
+    path(
+        "projects/<int:project_pk>/settings/",
+        views.ProjectDocumentSettingsView.as_view(),
+        name="project-settings",
+    ),
+    path(
+        "projects/<int:project_pk>/settings/reset/",
+        views.ProjectDocumentSettingsResetView.as_view(),
+        name="project-settings-reset",
+    ),
     # Drawings
     path(
         "projects/<int:project_pk>/drawings/",
@@ -104,6 +119,36 @@ urlpatterns = [
         name="projectdoc-create",
     ),
     path(
+        "projects/<int:project_pk>/docs/export/",
+        views.ProjectDocumentRegisterExportView.as_view(),
+        name="projectdoc-export",
+    ),
+    path(
+        "projects/<int:project_pk>/docs/<int:pk>/",
+        views.ProjectDocumentDetailView.as_view(),
+        name="projectdoc-detail",
+    ),
+    path(
+        "projects/<int:project_pk>/docs/<int:pk>/edit/",
+        views.ProjectDocumentUpdateView.as_view(),
+        name="projectdoc-update",
+    ),
+    path(
+        "projects/<int:project_pk>/docs/<int:pk>/revisions/add/",
+        views.ProjectDocumentRevisionCreateView.as_view(),
+        name="projectdoc-revision-create",
+    ),
+    path(
+        "projects/<int:project_pk>/docs/<int:pk>/download/",
+        views.ProjectDocumentDownloadView.as_view(),
+        name="projectdoc-download",
+    ),
+    path(
+        "projects/<int:project_pk>/docs/<int:pk>/action/<slug:action>/",
+        views.ProjectDocumentTransitionView.as_view(),
+        name="projectdoc-action",
+    ),
+    path(
         "projects/<int:project_pk>/distribution/",
         views.DistributionContactListView.as_view(),
         name="distribution-contact-list",
@@ -137,6 +182,11 @@ urlpatterns = [
         "projects/<int:project_pk>/transmittals/<int:pk>/edit/",
         views.DocumentTransmittalUpdateView.as_view(),
         name="transmittal-update",
+    ),
+    path(
+        "projects/<int:project_pk>/transmittals/<int:pk>/acknowledge/",
+        views.TransmittalAcknowledgeView.as_view(),
+        name="transmittal-acknowledge",
     ),
     # Company-wide templates
     path(

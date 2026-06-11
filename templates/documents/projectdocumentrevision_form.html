@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}New Revision — {{ document.document_number }}{% endblock %}
+{% block active_nav %}documents{% endblock %}
+{% block content %}
+{% include "partials/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">
+    Upload New Revision — {{ document.document_number }} {{ document.title }}
+  </h1>
+  <a href="{{ document.get_absolute_url }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Back to Document
+  </a>
+</div>
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="alert alert-light border small d-flex gap-2">
+          <i class="bi bi-info-circle-fill text-primary flex-shrink-0 mt-1"></i>
+          <div>
+            Current version is <strong>{{ document.version }}</strong>.
+            Uploading a new revision updates the controlled copy
+            {% if document.status == 'APPROVED' %}and sends the document back through review if approval is required by document control settings{% endif %}.
+          </div>
+        </div>
+        <form method="post" enctype="multipart/form-data" novalidate>
+          {% csrf_token %}
+          {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">New Version</label>
+            {{ form.version }}
+            {{ form.version.errors }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">File</label>
+            {{ form.file }}
+            {{ form.file.errors }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">Revision Notes</label>
+            {{ form.notes }}
+            {{ form.notes.errors }}
+          </div>
+          <div class="d-flex justify-content-end gap-2">
+            <a href="{{ document.get_absolute_url }}" class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-kc"><i class="bi bi-upload me-1"></i>Upload Revision</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

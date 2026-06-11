@@ -30,6 +30,7 @@ THIRD_PARTY_APPS = [
     "guardian",
     "rest_framework",
     "rest_framework.authtoken",
+    "django_celery_beat",
 ]
 
 LOCAL_APPS = [

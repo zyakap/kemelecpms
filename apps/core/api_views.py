@@ -95,8 +95,9 @@ class DSRViewSet(viewsets.ModelViewSet):
         dsr.save(update_fields=["status", "updated_by", "updated_at"])
         from apps.core.models import AuditLog
         AuditLog.log(request.user, AuditLog.ACTION_SUBMIT, dsr, request=request)
+        from apps.core.utils import queue_task
         from apps.dsr.tasks import notify_dsr_submitted
-        notify_dsr_submitted.delay(dsr.pk)
+        queue_task(notify_dsr_submitted, dsr.pk)
         return Response({"status": "submitted"})
 
     @action(detail=True, methods=["post"])
@@ -122,8 +123,9 @@ class DSRViewSet(viewsets.ModelViewSet):
         ])
         from apps.core.models import AuditLog
         AuditLog.log(request.user, AuditLog.ACTION_APPROVE, dsr, request=request)
+        from apps.core.utils import queue_task
         from apps.dsr.tasks import notify_dsr_approved
-        notify_dsr_approved.delay(dsr.pk)
+        queue_task(notify_dsr_approved, dsr.pk)
         return Response({"status": "approved"})
 
 

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Server Error &mdash; Kemele Construction CPMS</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+            background: #f4f6f9;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        .error-card {
+            background: #ffffff;
+            border-top: 5px solid #c0392b;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            max-width: 520px;
+            width: 100%;
+            padding: 3rem 2.5rem;
+            text-align: center;
+        }
+        .brand { font-size: 1rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #1a5276; margin-bottom: 1.5rem; }
+        .code { font-size: 5rem; font-weight: 800; color: #c0392b; line-height: 1; }
+        h1 { font-size: 1.4rem; margin: 0.75rem 0 1rem; }
+        p { color: #6c757d; line-height: 1.6; margin-bottom: 1.75rem; }
+        a.btn {
+            display: inline-block;
+            background: #1a5276;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 0.65rem 1.75rem;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        a.btn:hover { background: #154360; }
+        .footer { margin-top: 2rem; font-size: 0.8rem; color: #adb5bd; }
+    </style>
+</head>
+<body>
+    <div class="error-card">
+        <div class="brand">Kemele Construction CPMS</div>
+        <div class="code">500</div>
+        <h1>Server Error</h1>
+        <p>Something went wrong on our end. The technical team has been notified. Please try again in a few minutes.</p>
+        <a class="btn" href="/dashboard/">Back to Dashboard</a>
+        <div class="footer">Kemele Construction &mdash; Construction Project Management System</div>
+    </div>
+</body>
+</html>

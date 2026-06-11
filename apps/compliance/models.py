@@ -5,6 +5,8 @@ Covers: OTML TCS reports, IRC Tax Invoices, Compliance Calendar entries,
 and PNG local content tracking.
 """
 
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models
 from django.urls import reverse
@@ -159,7 +161,7 @@ class IRCTaxInvoice(TimeStampedModel):
 
     # Amounts
     subtotal = models.DecimalField(max_digits=14, decimal_places=2, default=0)
-    gst_rate = models.DecimalField(max_digits=5, decimal_places=4, default="0.10", verbose_name="GST Rate")
+    gst_rate = models.DecimalField(max_digits=5, decimal_places=4, default=Decimal("0.10"), verbose_name="GST Rate")
     gst_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     total_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
 
@@ -207,8 +209,8 @@ class IRCTaxInvoice(TimeStampedModel):
         if self.status == self.STATUS_ISSUED and not self.issued_at:
             self.issued_at = timezone.now()
         # Auto-calculate GST and total
-        self.gst_amount = self.subtotal * self.gst_rate
-        self.total_amount = self.subtotal + self.gst_amount
+        self.gst_amount = Decimal(self.subtotal) * Decimal(self.gst_rate)
+        self.total_amount = Decimal(self.subtotal) + self.gst_amount
         super().save(*args, **kwargs)
 
     def get_absolute_url(self):

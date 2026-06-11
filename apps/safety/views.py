@@ -18,9 +18,12 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import ValidationError
 from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
+from django.utils import timezone
+from django.views import View
 from django.views.generic import (
     CreateView,
     DetailView,
@@ -31,6 +34,7 @@ from django.views.generic import (
 
 from apps.core.permissions import accessible_projects, can_manage_safety
 from apps.core.models import AuditLog
+from apps.core.workflows import assert_transition
 from apps.projects.models import Project
 
 from .forms import (
@@ -167,6 +171,84 @@ class IncidentUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_success_url(self):
         return self.object.get_absolute_url()
+
+
+class IncidentStartInvestigationView(LoginRequiredMixin, View):
+    """POST-only: move an open incident to Under Investigation."""
+
+    http_method_names = ["post"]
+
+    def post(self, request, pk):
+        incident = get_object_or_404(
+            Incident,
+            pk=pk,
+            project__in=accessible_projects(request.user),
+        )
+        if not can_manage_safety(request.user, incident.project):
+            messages.error(request, "You do not have permission to update this incident.")
+            return redirect(incident.get_absolute_url())
+        old_status = incident.status
+        try:
+            assert_transition("incident", old_status, Incident.STATUS_INVESTIGATING)
+        except ValidationError as exc:
+            messages.error(request, exc.messages[0])
+            return redirect(incident.get_absolute_url())
+        incident.status = Incident.STATUS_INVESTIGATING
+        incident.updated_by = request.user
+        incident.save(update_fields=["status", "updated_by", "updated_at"])
+        AuditLog.log(
+            request.user,
+            AuditLog.ACTION_UPDATE,
+            incident,
+            changes=f"Incident status changed from {old_status} to {Incident.STATUS_INVESTIGATING}.",
+            request=request,
+        )
+        messages.success(request, f"{incident.incident_number} is now under investigation.")
+        return redirect(incident.get_absolute_url())
+
+
+class IncidentCloseView(LoginRequiredMixin, View):
+    """POST-only: close an incident once the corrective action is recorded."""
+
+    http_method_names = ["post"]
+
+    def post(self, request, pk):
+        incident = get_object_or_404(
+            Incident,
+            pk=pk,
+            project__in=accessible_projects(request.user),
+        )
+        if not can_manage_safety(request.user, incident.project):
+            messages.error(request, "You do not have permission to close this incident.")
+            return redirect(incident.get_absolute_url())
+        old_status = incident.status
+        try:
+            assert_transition("incident", old_status, Incident.STATUS_CLOSED)
+        except ValidationError as exc:
+            messages.error(request, exc.messages[0])
+            return redirect(incident.get_absolute_url())
+        if not incident.corrective_action.strip():
+            messages.error(
+                request,
+                "Please record the corrective action (edit the incident) before closing it.",
+            )
+            return redirect(incident.get_absolute_url())
+        incident.status = Incident.STATUS_CLOSED
+        if not incident.corrective_action_closed:
+            incident.corrective_action_closed = timezone.now().date()
+        incident.updated_by = request.user
+        incident.save(
+            update_fields=["status", "corrective_action_closed", "updated_by", "updated_at"]
+        )
+        AuditLog.log(
+            request.user,
+            AuditLog.ACTION_UPDATE,
+            incident,
+            changes=f"Incident status changed from {old_status} to {Incident.STATUS_CLOSED}.",
+            request=request,
+        )
+        messages.success(request, f"{incident.incident_number} closed.")
+        return redirect(incident.get_absolute_url())
 
 
 class IncidentDetailView(LoginRequiredMixin, DetailView):

@@ -7,7 +7,17 @@
     <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">{{ transmittal.transmittal_number }}</h1>
     <div class="text-muted small">{{ transmittal.subject }}</div>
   </div>
-  <a href="{% url 'documents:transmittal-update' project.pk transmittal.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>
+  <div class="d-flex gap-2">
+    {% if transmittal.status == 'SENT' %}
+    <form method="post" action="{% url 'documents:transmittal-acknowledge' project.pk transmittal.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-success btn-sm">
+        <i class="bi bi-check-circle me-1"></i>Mark Acknowledged
+      </button>
+    </form>
+    {% endif %}
+    <a href="{% url 'documents:transmittal-update' project.pk transmittal.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>
+  </div>
 </div>
 <div class="row g-4">
   <div class="col-lg-4">

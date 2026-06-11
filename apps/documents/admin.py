@@ -4,10 +4,13 @@ from django.utils.html import format_html
 from .models import (
     Correspondence,
     DistributionContact,
+    DocumentAccessLog,
+    DocumentControlSettings,
     DocumentTransmittal,
     Drawing,
     DrawingRevision,
     ProjectDocument,
+    ProjectDocumentRevision,
     RFI,
     Submittal,
 )
@@ -173,14 +176,18 @@ class CorrespondenceAdmin(admin.ModelAdmin):
 @admin.register(ProjectDocument)
 class ProjectDocumentAdmin(admin.ModelAdmin):
     list_display = (
+        "document_number",
         "title",
         "project",
         "document_type",
         "version",
+        "status",
+        "confidentiality",
         "uploaded_by",
         "created_at",
     )
-    list_filter = ("document_type",)
+    list_filter = ("document_type", "status", "confidentiality")
+    readonly_fields = ("document_number",)
     search_fields = ("title", "document_type", "description")
     date_hierarchy = "created_at"
 
@@ -199,3 +206,37 @@ class DocumentTransmittalAdmin(admin.ModelAdmin):
     search_fields = ("transmittal_number", "subject", "notes")
     filter_horizontal = ("recipients", "drawings", "submittals", "documents")
     raw_id_fields = ("project",)
+
+
+@admin.register(DocumentControlSettings)
+class DocumentControlSettingsAdmin(admin.ModelAdmin):
+    list_display = (
+        "__str__",
+        "project",
+        "number_padding",
+        "require_document_approval",
+        "require_transmittal_acknowledgement",
+        "max_upload_size_mb",
+    )
+    list_filter = ("require_document_approval", "require_transmittal_acknowledgement")
+
+
+@admin.register(ProjectDocumentRevision)
+class ProjectDocumentRevisionAdmin(admin.ModelAdmin):
+    list_display = ("document", "version", "uploaded_by", "created_at")
+    search_fields = ("document__document_number", "document__title", "version")
+    raw_id_fields = ("document",)
+
+
+@admin.register(DocumentAccessLog)
+class DocumentAccessLogAdmin(admin.ModelAdmin):
+    list_display = ("document", "user", "action", "accessed_at")
+    list_filter = ("action",)
+    date_hierarchy = "accessed_at"
+    readonly_fields = ("document", "user", "action", "accessed_at")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

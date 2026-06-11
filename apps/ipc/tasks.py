@@ -8,6 +8,7 @@ from celery import shared_task
 @shared_task
 def notify_ipc_submitted(ipc_id):
     """Notify Finance and MD when an IPC is submitted for internal review."""
+    from apps.core.utils import safe_task_delay
     from apps.ipc.models import IPC
     from apps.notifications.tasks import notify_users
     from apps.accounts.models import User
@@ -23,7 +24,8 @@ def notify_ipc_submitted(ipc_id):
         is_active=True,
     ).values_list("pk", flat=True)
 
-    notify_users.delay(
+    safe_task_delay(
+        notify_users,
         user_ids=list(finance_md_users),
         notification_type="APPROVAL_REQUIRED",
         title=f"IPC Submitted — {ipc.ipc_number}",
@@ -32,12 +34,14 @@ def notify_ipc_submitted(ipc_id):
             f"(period {ipc.claim_period_from} to {ipc.claim_period_to}) is ready for review."
         ),
         link=f"/ipc/{ipc.pk}/",
+        category="ipc",
     )
 
 
 @shared_task
 def notify_payment_received(ipc_id):
     """Notify PM when a payment is recorded against an IPC."""
+    from apps.core.utils import safe_task_delay
     from apps.ipc.models import IPC
     from apps.notifications.tasks import create_notification
 
@@ -49,10 +53,12 @@ def notify_payment_received(ipc_id):
     project = ipc.project
     pm = getattr(project, "project_manager", None)
     if pm:
-        create_notification.delay(
+        safe_task_delay(
+            create_notification,
             user_id=pm.pk,
             notification_type="INFO",
             title=f"Payment Received — {ipc.ipc_number}",
             message=f"A payment has been recorded against IPC {ipc.ipc_number} for {project.name}.",
             link=f"/ipc/{ipc.pk}/",
+            category="ipc",
         )
