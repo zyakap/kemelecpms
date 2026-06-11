@@ -3,12 +3,14 @@ URL configuration for the procurement app.
 """
 
 from django.urls import path
+from django.views.generic import RedirectView
 
 from . import views
 
 app_name = "procurement"
 
 urlpatterns = [
+    path("", RedirectView.as_view(pattern_name="procurement:supplier_list", permanent=False), name="index"),
     # ------------------------------------------------------------------
     # Supplier
     # ------------------------------------------------------------------

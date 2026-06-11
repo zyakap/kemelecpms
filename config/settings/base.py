@@ -51,6 +51,7 @@ LOCAL_APPS = [
     "apps.tender",
     "apps.reports",
     "apps.dashboard",
+    "apps.subcontractor",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -107,8 +108,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [BASE_DIR / "static"]
-STATIC_ROOT = env("STATIC_ROOT", default=str(BASE_DIR / "staticfiles"))
+STATICFILES_DIRS = [BASE_DIR / "assets"]
+STATIC_ROOT = env("STATIC_ROOT", default=str(BASE_DIR / "static"))
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = "/media/"

@@ -1,10 +1,12 @@
 from django.urls import path
+from django.views.generic import RedirectView
 
 from . import views
 
 app_name = "compliance"
 
 urlpatterns = [
+    path("", RedirectView.as_view(pattern_name="compliance:calendar", permanent=False), name="index"),
     # TCS Reports (project-scoped)
     path(
         "projects/<int:project_pk>/tcs/",

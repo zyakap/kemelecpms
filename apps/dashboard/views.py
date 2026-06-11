@@ -356,9 +356,31 @@ class ProjectDashboardView(LoginRequiredMixin, TemplateView):
                 # Lists
                 "upcoming_milestones": upcoming_milestones,
                 "recent_dsrs": recent_dsrs,
+                # Work packages breakdown
+                "work_packages": self._get_work_package_context(project),
             }
         )
         return ctx
+
+    def _get_work_package_context(self, project):
+        from decimal import Decimal
+        from apps.projects.models import WorkPackage
+        packages = list(
+            project.work_packages.filter(is_active=True).select_related("subcontract")
+        )
+        if not packages:
+            return None
+        total_value = sum(p.contract_value for p in packages) or Decimal("1")
+        weighted_progress = sum(
+            (p.contract_value / total_value) * (p.current_progress_pct / 100) * 100
+            for p in packages
+        )
+        return {
+            "packages": packages,
+            "total_value": total_value,
+            "weighted_progress": round(weighted_progress, 1),
+            "count": len(packages),
+        }
 
 
 # ---------------------------------------------------------------------------

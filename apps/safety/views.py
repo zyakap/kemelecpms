@@ -121,6 +121,12 @@ class IncidentCreateView(AccessibleProjectFormMixin, LoginRequiredMixin, CreateV
             messages.error(self.request, "You do not have access to report incidents for this project.")
             return redirect("safety:incident_list")
         form.instance.created_by = self.request.user
+        user = self.request.user
+        if getattr(user, "is_subcontractor", False):
+            try:
+                form.instance.work_package = user.subcontract.work_package
+            except Exception:
+                pass
         response = super().form_valid(form)
         messages.success(
             self.request, f"Incident {self.object.incident_number} created."

@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Work Packages — {{ project.name }}{% endblock %}
+{% block active_projects %}active{% endblock %}
+{% block topbar_title %}Work Packages{% endblock %}
+
+{% block content %}
+{% include "partials/breadcrumb.html" %}
+
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <div>
+    <h1 class="h3 fw-bold mb-0" style="color:var(--kc-primary)">
+      <i class="bi bi-diagram-3 me-2"></i>Work Packages
+    </h1>
+    <div class="text-muted small">{{ project.name }} — {{ project.project_id }}</div>
+  </div>
+  <a href="{% url 'projects:work_package_create' project_pk=project.pk %}" class="btn btn-kc">
+    <i class="bi bi-plus-lg me-1"></i>Add Work Package
+  </a>
+</div>
+
+<!-- Overall progress bar -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+      <span class="fw-semibold">Overall Project Progress (Weighted)</span>
+      <span class="fw-bold fs-5" style="color:var(--kc-primary)">{{ project_weighted_progress }}%</span>
+    </div>
+    <div class="progress" style="height:12px;">
+      <div class="progress-bar bg-success" role="progressbar"
+           style="width:{{ project_weighted_progress }}%"
+           aria-valuenow="{{ project_weighted_progress }}" aria-valuemin="0" aria-valuemax="100"></div>
+    </div>
+    <div class="text-muted small mt-1">Weighted by contract value across all work packages</div>
+  </div>
+</div>
+
+{% if work_packages %}
+<div class="row g-3">
+  {% for wp in work_packages %}
+  <div class="col-12">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="row align-items-center">
+
+          <!-- Identity -->
+          <div class="col-md-4">
+            <div class="d-flex align-items-start gap-2">
+              <span class="fs-4 mt-1">
+                {% if wp.contractor_type == 'principal' %}
+                <i class="bi bi-building-fill" style="color:var(--kc-primary)"></i>
+                {% else %}
+                <i class="bi bi-building" style="color:var(--kc-accent)"></i>
+                {% endif %}
+              </span>
+              <div>
+                <div class="fw-bold">{{ wp.name }}</div>
+                <div class="text-muted small">
+                  {{ wp.get_contractor_type_display }}
+                  {% if wp.subcontract %}
+                  — {{ wp.subcontract.company_name }}
+                  {% endif %}
+                </div>
+                {% if wp.subcontract and wp.subcontract.user %}
+                <div class="text-muted" style="font-size:0.75rem">
+                  <i class="bi bi-person me-1"></i>{{ wp.subcontract.user.get_full_name }} ({{ wp.subcontract.user.email }})
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <!-- Scope & Value -->
+          <div class="col-md-3">
+            {% if wp.scope_quantity %}
+            <div class="small text-muted">Scope</div>
+            <div class="fw-semibold">{{ wp.scope_quantity }} {{ wp.scope_unit }}</div>
+            {% endif %}
+            <div class="small text-muted mt-1">Contract Value</div>
+            <div class="fw-semibold">K{{ wp.contract_value|floatformat:2 }}</div>
+            <div class="text-muted" style="font-size:0.75rem">
+              {{ wp.weight_pct }}% of total project value
+            </div>
+          </div>
+
+          <!-- Progress -->
+          <div class="col-md-3">
+            <div class="small text-muted mb-1">Progress</div>
+            <div class="d-flex align-items-center gap-2">
+              <div class="progress flex-grow-1" style="height:10px;">
+                <div class="progress-bar bg-success" role="progressbar"
+                     style="width:{{ wp.current_progress_pct }}%"></div>
+              </div>
+              <span class="fw-bold small">{{ wp.current_progress_pct }}%</span>
+            </div>
+            {% if wp.start_date %}
+            <div class="text-muted mt-1" style="font-size:0.75rem">
+              {{ wp.start_date|date:"d M Y" }} → {{ wp.end_date|date:"d M Y"|default:"TBC" }}
+            </div>
+            {% endif %}
+          </div>
+
+          <!-- Actions -->
+          <div class="col-md-2 text-end">
+            <div class="d-flex flex-column gap-1">
+              <a href="{% url 'projects:work_package_progress' project_pk=project.pk pk=wp.pk %}"
+                 class="btn btn-sm btn-kc">
+                <i class="bi bi-graph-up me-1"></i>Update Progress
+              </a>
+              <a href="{% url 'projects:work_package_update' project_pk=project.pk pk=wp.pk %}"
+                 class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-pencil me-1"></i>Edit
+              </a>
+              {% if wp.subcontract %}
+              <a href="{% url 'subcontractor:staff-doc-list' project_pk=project.pk subcontract_pk=wp.subcontract.pk %}"
+                 class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-files me-1"></i>Documents
+              </a>
+              {% endif %}
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Progress history sparkline if entries exist -->
+        {% with entries=wp.progress_entries.all|slice:":5" %}
+        {% if entries %}
+        <div class="mt-2 pt-2 border-top">
+          <div class="d-flex gap-3 flex-wrap">
+            {% for entry in entries %}
+            <div class="text-center" style="min-width:60px;">
+              <div class="small fw-semibold">{{ entry.percent_complete }}%</div>
+              <div class="text-muted" style="font-size:0.7rem;">{{ entry.date|date:"d M" }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+        {% endwith %}
+
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="text-center text-muted py-5">
+  <i class="bi bi-diagram-3 fs-1 d-block mb-2"></i>
+  No work packages defined yet.<br>
+  <a href="{% url 'projects:work_package_create' project_pk=project.pk %}" class="btn btn-kc mt-3">
+    <i class="bi bi-plus-lg me-1"></i>Add First Work Package
+  </a>
+</div>
+{% endif %}
+{% endblock %}

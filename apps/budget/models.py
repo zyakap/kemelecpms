@@ -313,6 +313,14 @@ class Subcontract(TimeStampedModel):
         on_delete=models.CASCADE,
         related_name="subcontracts",
     )
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="subcontract",
+        help_text="Login account for the subcontractor company's representative.",
+    )
     trade = models.CharField(max_length=100)
     company_name = models.CharField(max_length=200)
     scope = models.TextField()
@@ -510,3 +518,80 @@ class SubcontractPerformanceReview(TimeStampedModel):
             + self.commercial_score
         )
         return (Decimal(total) / Decimal("4")).quantize(Decimal("0.1"))
+
+
+class SubcontractorDocument(TimeStampedModel):
+    TYPE_SHOP_DRAWING = "shop_drawing"
+    TYPE_METHOD_STATEMENT = "method_statement"
+    TYPE_RISK_ASSESSMENT = "risk_assessment"
+    TYPE_QUALITY_PLAN = "quality_plan"
+    TYPE_PROGRAMME = "programme"
+    TYPE_INSURANCE = "insurance"
+    TYPE_OTHER = "other"
+
+    DOC_TYPE_CHOICES = [
+        (TYPE_SHOP_DRAWING, "Shop Drawing"),
+        (TYPE_METHOD_STATEMENT, "Method Statement"),
+        (TYPE_RISK_ASSESSMENT, "Risk Assessment / RAMS"),
+        (TYPE_QUALITY_PLAN, "Quality Plan / ITP"),
+        (TYPE_PROGRAMME, "Programme / Schedule"),
+        (TYPE_INSURANCE, "Insurance / Compliance"),
+        (TYPE_OTHER, "Other"),
+    ]
+
+    STATUS_PENDING = "pending"
+    STATUS_UNDER_REVIEW = "under_review"
+    STATUS_APPROVED = "approved"
+    STATUS_REJECTED = "rejected"
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending Review"),
+        (STATUS_UNDER_REVIEW, "Under Review"),
+        (STATUS_APPROVED, "Approved"),
+        (STATUS_REJECTED, "Rejected / Revise & Resubmit"),
+    ]
+
+    STATUS_BADGE = {
+        STATUS_PENDING: "secondary",
+        STATUS_UNDER_REVIEW: "warning",
+        STATUS_APPROVED: "success",
+        STATUS_REJECTED: "danger",
+    }
+
+    subcontract = models.ForeignKey(
+        Subcontract,
+        on_delete=models.CASCADE,
+        related_name="documents",
+    )
+    title = models.CharField(max_length=255)
+    doc_type = models.CharField(max_length=30, choices=DOC_TYPE_CHOICES, default=TYPE_OTHER)
+    revision = models.CharField(max_length=20, blank=True)
+    description = models.TextField(blank=True)
+    file = models.FileField(upload_to="subcontractor_docs/%Y/%m/")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="submitted_subcontractor_docs",
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="reviewed_subcontractor_docs",
+    )
+    review_notes = models.TextField(blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Subcontractor Document"
+        verbose_name_plural = "Subcontractor Documents"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.subcontract.company_name} — {self.title} (Rev {self.revision or '—'})"
+
+    @property
+    def status_badge(self):
+        return self.STATUS_BADGE.get(self.status, "secondary")

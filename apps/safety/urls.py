@@ -3,12 +3,14 @@ URL configuration for the safety app.
 """
 
 from django.urls import path
+from django.views.generic import RedirectView
 
 from . import views
 
 app_name = "safety"
 
 urlpatterns = [
+    path("", RedirectView.as_view(pattern_name="safety:safety_dashboard", permanent=False), name="index"),
     # ------------------------------------------------------------------
     # Safety Dashboard
     # ------------------------------------------------------------------

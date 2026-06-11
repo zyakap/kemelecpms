@@ -9,6 +9,8 @@ from .models import (
     Project,
     ProjectMembership,
     Variation,
+    WorkPackage,
+    WorkPackageProgress,
 )
 
 
@@ -344,3 +346,52 @@ class DelayEventForm(forms.ModelForm):
             )
         else:
             self.fields["linked_milestone"].queryset = Milestone.objects.none()
+
+
+# ---------------------------------------------------------------------------
+# Work Package Forms
+# ---------------------------------------------------------------------------
+
+class WorkPackageForm(forms.ModelForm):
+    class Meta:
+        model = WorkPackage
+        fields = [
+            "name", "contractor_type", "subcontract",
+            "description", "scope_quantity", "scope_unit",
+            "contract_value", "start_date", "end_date", "is_active",
+        ]
+        widgets = {
+            "name": _text("e.g. Duplexes 1–30 (Kemele)"),
+            "contractor_type": _select(),
+            "subcontract": _select(),
+            "description": _textarea(rows=3),
+            "scope_quantity": _number(),
+            "scope_unit": _text("e.g. duplexes, km, m²"),
+            "contract_value": _number(),
+            "start_date": _date(),
+            "end_date": _date(),
+            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+    def __init__(self, *args, project=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        from apps.budget.models import Subcontract
+        self.fields["subcontract"].queryset = (
+            Subcontract.objects.filter(project=project) if project else Subcontract.objects.none()
+        )
+        self.fields["subcontract"].required = False
+        self.fields["subcontract"].help_text = "Select the linked subcontract. Leave blank for Kemele's own work package."
+        self.fields["scope_quantity"].required = False
+        self.fields["end_date"].required = False
+        self.fields["start_date"].required = False
+
+
+class WorkPackageProgressForm(forms.ModelForm):
+    class Meta:
+        model = WorkPackageProgress
+        fields = ["date", "percent_complete", "narrative"]
+        widgets = {
+            "date": _date(),
+            "percent_complete": _number(),
+            "narrative": _textarea(rows=4, placeholder="Describe work completed, quantities achieved, issues, etc."),
+        }

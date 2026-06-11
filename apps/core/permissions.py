@@ -46,6 +46,8 @@ def accessible_projects(user):
         return qs
     if not user or not user.is_authenticated:
         return qs.none()
+    if getattr(user, "is_subcontractor", False):
+        return qs.filter(subcontracts__user=user).distinct()
     return qs.filter(
         Q(project_manager=user)
         | Q(site_supervisor=user)
@@ -58,6 +60,8 @@ def can_access_project(user, project):
         return False
     if has_company_wide_access(user):
         return True
+    if getattr(user, "is_subcontractor", False):
+        return project.subcontracts.filter(user=user).exists()
     return (
         project.project_manager_id == user.id
         or project.site_supervisor_id == user.id

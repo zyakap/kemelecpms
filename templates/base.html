@@ -449,6 +449,26 @@
   <!-- Nav Links -->
   {% with p=request.path %}
   <div class="pt-2 pb-2 flex-grow-1">
+
+  {% if request.user.is_subcontractor %}
+    <!-- Subcontractor simplified navigation -->
+    <div class="nav-section-label">Subcontractor Portal</div>
+    <a href="/subcontractor/"
+       class="nav-link {% if p == '/subcontractor/' %}active{% endif %}"
+       title="My Portal">
+      <i class="bi bi-building"></i> My Portal
+    </a>
+    <a href="/subcontractor/documents/"
+       class="nav-link {% if '/subcontractor/documents' in p %}active{% endif %}"
+       title="My Documents">
+      <i class="bi bi-files"></i> My Documents
+    </a>
+    <a href="/subcontractor/documents/upload/"
+       class="nav-link {% if '/subcontractor/documents/upload' in p %}active{% endif %}"
+       title="Submit Document">
+      <i class="bi bi-upload"></i> Submit Document
+    </a>
+  {% else %}
     <div class="nav-section-label">Main</div>
 
     <a href="/dashboard/portfolio/"
@@ -610,6 +630,7 @@
       <i class="bi bi-gear"></i> Admin
     </a>
     {% endif %}
+  {% endif %}{# end subcontractor / staff nav split #}
   </div>
   {% endwith %}
 

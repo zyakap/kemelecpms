@@ -101,4 +101,51 @@
     </div>
   </div>
 </div>
+
+<!-- Subcontractor Document Submissions -->
+<div class="card border-0 shadow-sm mt-4">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <span class="fw-semibold" style="color:var(--kc-primary)">
+      <i class="bi bi-file-earmark-arrow-up me-1"></i>
+      Subcontractor Document Submissions
+      {% if subcontractor_doc_count %}
+      <span class="badge bg-secondary ms-1">{{ subcontractor_doc_count }}</span>
+      {% endif %}
+    </span>
+    {% if subcontractor_doc_count %}
+    <a href="{% url 'subcontractor:staff-doc-list' project_pk=project.pk subcontract_pk=subcontract.pk %}"
+       class="btn btn-sm btn-outline-secondary">View All &amp; Review</a>
+    {% endif %}
+  </div>
+  <div class="card-body p-0">
+    {% if subcontractor_docs %}
+    <table class="table table-hover table-sm mb-0">
+      <thead class="table-light">
+        <tr><th>Title</th><th>Type</th><th>Rev</th><th>Submitted</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        {% for doc in subcontractor_docs %}
+        <tr>
+          <td class="fw-semibold">{{ doc.title }}</td>
+          <td><span class="badge bg-light text-dark border small">{{ doc.get_doc_type_display }}</span></td>
+          <td class="text-muted small">{{ doc.revision|default:"—" }}</td>
+          <td class="text-muted small">{{ doc.created_at|date:"d M Y" }}</td>
+          <td><span class="badge bg-{{ doc.status_badge }}">{{ doc.get_status_display }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% elif subcontract.user %}
+    <div class="text-muted text-center py-3 small">
+      <i class="bi bi-folder2-open me-1"></i>
+      No documents submitted yet. Account: {{ subcontract.user.get_full_name }} ({{ subcontract.user.email }})
+    </div>
+    {% else %}
+    <div class="text-muted text-center py-3 small">
+      <i class="bi bi-person-slash me-1"></i>
+      No subcontractor login linked. Edit this subcontract to assign one.
+    </div>
+    {% endif %}
+  </div>
+</div>
 {% endblock %}

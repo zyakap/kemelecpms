@@ -178,6 +178,14 @@ class Incident(TimeStampedModel):
         on_delete=models.PROTECT,
         related_name="incidents",
     )
+    work_package = models.ForeignKey(
+        "projects.WorkPackage",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="incidents",
+        help_text="Work package where this incident occurred.",
+    )
     incident_number = models.CharField(
         max_length=20, unique=True, editable=False, db_index=True
     )

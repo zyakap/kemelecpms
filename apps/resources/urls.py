@@ -1,10 +1,12 @@
 from django.urls import path
+from django.views.generic import RedirectView
 
 from . import views
 
 app_name = "resources"
 
 urlpatterns = [
+    path("", RedirectView.as_view(pattern_name="resources:worker-list", permanent=False), name="index"),
     # -------------------------------------------------------------------
     # Workers (global – not project-scoped so workers can span projects)
     # -------------------------------------------------------------------

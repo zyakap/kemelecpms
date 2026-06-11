@@ -61,6 +61,14 @@ class DailySiteReport(TimeStampedModel):
         on_delete=models.PROTECT,
         related_name="daily_site_reports",
     )
+    work_package = models.ForeignKey(
+        "projects.WorkPackage",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="dsrs",
+        help_text="Work package this DSR belongs to (subcontractor or Kemele scope).",
+    )
     date = models.DateField(db_index=True)
     day_number = models.IntegerField(
         default=1,

@@ -1,5 +1,7 @@
 from django import forms
 
+from apps.accounts.models import User
+
 from .models import (
     BoQItem,
     CostCode,
@@ -186,6 +188,7 @@ class SubcontractForm(forms.ModelForm):
             "end_date",
             "retention_held",
             "status",
+            "user",
             "notes",
         ]
         widgets = {
@@ -200,8 +203,14 @@ class SubcontractForm(forms.ModelForm):
     def __init__(self, *args, project=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.project = project
+        self.fields["user"].queryset = User.objects.filter(role=User.ROLE_SUBCONTRACTOR)
+        self.fields["user"].required = False
+        self.fields["user"].label = "Subcontractor Login Account"
+        self.fields["user"].help_text = "Link a subcontractor user account for document upload access."
         for field in self.fields.values():
             field.widget.attrs.setdefault("class", "form-control")
+        self.fields["user"].widget.attrs["class"] = "form-select"
+        self.fields["status"].widget.attrs["class"] = "form-select"
 
     def save(self, commit=True):
         instance = super().save(commit=False)

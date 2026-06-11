@@ -399,6 +399,8 @@ class SubcontractDetailView(ProjectMixin, DetailView):
         ctx["claims"] = subcontract.claims.order_by("-submitted_date", "-claim_number")
         ctx["backcharges"] = subcontract.backcharges.order_by("-date")
         ctx["performance_reviews"] = subcontract.performance_reviews.order_by("-review_date")
+        ctx["subcontractor_docs"] = subcontract.documents.order_by("-created_at")[:5]
+        ctx["subcontractor_doc_count"] = subcontract.documents.count()
         return ctx
 
 

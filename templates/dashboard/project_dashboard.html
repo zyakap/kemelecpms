@@ -218,6 +218,84 @@
   </div>
 </div>
 
+<!-- Work Packages Breakdown -->
+{% if work_packages %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <span class="fw-semibold" style="color:var(--kc-primary)">
+      <i class="bi bi-diagram-3 me-2"></i>Work Package Breakdown
+    </span>
+    <div class="d-flex align-items-center gap-3">
+      <span class="small text-muted">Weighted Progress:
+        <strong class="text-success">{{ work_packages.weighted_progress }}%</strong>
+      </span>
+      <a href="{% url 'projects:work_package_list' project_pk=project.pk %}" class="btn btn-sm btn-outline-secondary">
+        Manage
+      </a>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover table-sm mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Work Package</th>
+          <th>Contractor</th>
+          <th>Scope</th>
+          <th>Contract Value</th>
+          <th>Weight</th>
+          <th style="min-width:140px;">Progress</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for wp in work_packages.packages %}
+        <tr>
+          <td class="fw-semibold">
+            {% if wp.contractor_type == 'principal' %}
+            <i class="bi bi-building-fill me-1" style="color:var(--kc-primary)"></i>
+            {% else %}
+            <i class="bi bi-building me-1" style="color:var(--kc-accent)"></i>
+            {% endif %}
+            {{ wp.name }}
+          </td>
+          <td class="small">
+            {{ wp.contractor_label }}
+            {% if wp.subcontract and wp.subcontract.user %}
+            <div class="text-muted" style="font-size:0.7rem">{{ wp.subcontract.user.get_full_name }}</div>
+            {% endif %}
+          </td>
+          <td class="small text-muted">
+            {% if wp.scope_quantity %}{{ wp.scope_quantity }} {{ wp.scope_unit }}{% else %}—{% endif %}
+          </td>
+          <td class="small">K{{ wp.contract_value|floatformat:0 }}</td>
+          <td class="small text-muted">{{ wp.weight_pct }}%</td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="progress flex-grow-1" style="height:8px;">
+                <div class="progress-bar bg-success" style="width:{{ wp.current_progress_pct }}%"></div>
+              </div>
+              <span class="small fw-bold" style="min-width:36px;">{{ wp.current_progress_pct }}%</span>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+        <!-- Weighted total row -->
+        <tr class="table-light fw-semibold">
+          <td colspan="5" class="text-end">Project Weighted Progress:</td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="progress flex-grow-1" style="height:8px;">
+                <div class="progress-bar bg-primary" style="width:{{ work_packages.weighted_progress }}%"></div>
+              </div>
+              <span class="small fw-bold text-primary" style="min-width:36px;">{{ work_packages.weighted_progress }}%</span>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 <div class="row g-4">
   <!-- Recent DSRs -->
   <div class="col-lg-7">

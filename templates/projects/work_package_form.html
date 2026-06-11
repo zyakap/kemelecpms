@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Edit{% else %}Add{% endif %} Work Package — {{ project.name }}{% endblock %}
+{% block active_projects %}active{% endblock %}
+{% block topbar_title %}{% if object %}Edit Work Package{% else %}Add Work Package{% endif %}{% endblock %}
+
+{% block content %}
+{% include "partials/breadcrumb.html" %}
+
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <h1 class="h4 fw-bold mb-0" style="color:var(--kc-primary)">
+    <i class="bi bi-diagram-3 me-2"></i>{% if object %}Edit{% else %}New{% endif %} Work Package
+  </h1>
+  <a href="{% url 'projects:work_package_list' project_pk=project.pk %}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Back
+  </a>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-md-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold" style="color:var(--kc-primary)">
+        {{ project.name }} — {{ project.project_id }}
+      </div>
+      <div class="card-body">
+        <div class="alert alert-info small mb-3">
+          <i class="bi bi-info-circle me-1"></i>
+          Define one work package per contractor. Set <strong>contractor type = Kemele</strong> for Kemele's own scope
+          and <strong>Subcontractor</strong> + link the subcontract for each subcontractor.
+          Progress is weighted by contract value to give an aggregated project figure.
+        </div>
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          {% endif %}
+          <div class="row g-3">
+            {% for field in form %}
+            <div class="{% if field.name == 'description' %}col-12{% else %}col-12 col-md-6{% endif %}">
+              <label for="{{ field.id_for_label }}"
+                     class="form-label fw-semibold small{% if field.field.required %} required{% endif %}">
+                {{ field.label }}
+              </label>
+              {{ field }}
+              {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+              {% if field.errors %}<div class="invalid-feedback d-block">{{ field.errors|join:", " }}</div>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          <div class="d-flex gap-2 justify-content-end mt-4">
+            <a href="{% url 'projects:work_package_list' project_pk=project.pk %}"
+               class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-kc">
+              <i class="bi bi-check-lg me-1"></i>{% if object %}Save Changes{% else %}Create Work Package{% endif %}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>.form-label.required::after { content: ' *'; color: #dc3545; }</style>
+{% endblock %}

@@ -190,6 +190,12 @@ class DSRCreateView(LoginRequiredMixin, CreateView):
         with transaction.atomic():
             form.instance.created_by = self.request.user
             form.instance.updated_by = self.request.user
+            user = self.request.user
+            if getattr(user, "is_subcontractor", False):
+                try:
+                    form.instance.work_package = user.subcontract.work_package
+                except Exception:
+                    pass
             self.object = form.save()
             for fs in formsets:
                 fs.instance = self.object

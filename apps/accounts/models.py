@@ -29,6 +29,7 @@ class User(AbstractUser):
     ROLE_DOC_CTRL = "document_controller"
     ROLE_AUDITOR = "auditor"
     ROLE_ADMIN = "system_admin"
+    ROLE_SUBCONTRACTOR = "subcontractor"
 
     ROLE_CHOICES = [
         (ROLE_MD, "Managing Director"),
@@ -39,6 +40,7 @@ class User(AbstractUser):
         (ROLE_DOC_CTRL, "Document Controller"),
         (ROLE_AUDITOR, "Auditor / Funder Rep"),
         (ROLE_ADMIN, "System Administrator"),
+        (ROLE_SUBCONTRACTOR, "Subcontractor"),
     ]
 
     username = models.CharField(max_length=150, blank=True)
@@ -78,6 +80,10 @@ class User(AbstractUser):
     @property
     def is_admin(self):
         return self.role == self.ROLE_ADMIN or self.is_superuser
+
+    @property
+    def is_subcontractor(self):
+        return self.role == self.ROLE_SUBCONTRACTOR
 
 
 class UserProfile(models.Model):
